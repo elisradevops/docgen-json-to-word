@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -13,18 +13,22 @@ namespace JsonToWord.Services
         public void Insert(WordprocessingDocument document, string contentControlTitle, WordTable wordTable)
         {
             var table = CreateTable(document, wordTable);
-
+        
             var contentControlService = new ContentControlService();
             var sdtBlock = contentControlService.FindContentControl(document, contentControlTitle);
-
+        
             var sdtContentBlock = new SdtContentBlock();
             sdtContentBlock.AppendChild(table);
-
+        
+            // Insert an empty paragraph after the table
+            var emptyParagraph = new Paragraph(new Run(new Text("")));
+            sdtContentBlock.AppendChild(emptyParagraph);  // Adds an empty line
+        
             sdtBlock.AppendChild(sdtContentBlock);
-
+        
             RemoveExtraParagraphsAfterAltChunk(document);
-
         }
+
 
         private Table CreateTable(WordprocessingDocument document, WordTable wordTable)
         {
