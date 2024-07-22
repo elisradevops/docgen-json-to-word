@@ -35,19 +35,9 @@ namespace JsonToWord.Services
             if (rows.Count == 0) 
                 return string.Empty;
 
-            var maxDynamicCells = 0;
-            for (var i = 0; i < rows.Count; i++)
-            {
+            var maxDynamicCells = rows.Max(row => row.Cells.Count);
 
-                var cells = rows[i].Cells;
-
-                if (cells.Count > maxDynamicCells)
-                {
-                    maxDynamicCells = cells.Count;
-                }
-               
-            }
-            var dynamicColumnCount = maxDynamicCells - 1;
+            var dynamicColumnCount = maxDynamicCells > 2 ? maxDynamicCells - 1: 1;
             var dynamicWidth = (100 / dynamicColumnCount);
 
             return $"{dynamicWidth}%";
