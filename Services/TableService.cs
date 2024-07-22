@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using JsonToWord.Models;
@@ -29,6 +30,18 @@ namespace JsonToWord.Services
             RemoveExtraParagraphsAfterAltChunk(document);
         }
 
+        private string CalculateDynamicWidth(List<WordTableRow> rows)
+        {
+            if (rows.Count == 0) 
+                return string.Empty;
+
+            var maxDynamicCells = rows.Max(row => row.Cells.Count);
+
+            var dynamicColumnCount = maxDynamicCells > 2 ? maxDynamicCells - 1: 1;
+            var dynamicWidth = (100 / dynamicColumnCount);
+
+            return $"{dynamicWidth}%";
+        }
 
         private Table CreateTable(WordprocessingDocument document, WordTable wordTable)
         {
@@ -44,6 +57,7 @@ namespace JsonToWord.Services
             var isHeaderRow = true;
             var table = new Table();
             table.AppendChild(tableProperties);
+            var dynamicWidth = CalculateDynamicWidth(wordTable.Rows);
 
             foreach (var documentRow in wordTable.Rows)
             {
@@ -60,12 +74,12 @@ namespace JsonToWord.Services
 
                     isHeaderRow = false;
                 }
-
                 foreach (var cell in documentRow.Cells)
                 {
-
+                    var dynamicWidthToUse = documentRow.Cells?.IndexOf(cell) == 0 ? "auto" : dynamicWidth;
                     var tableCellBorders = CreateTableCellBorders();
-                    var tableCellWidth = new TableCellWidth { Width = cell.Width, Type = TableWidthUnitValues.Dxa };
+                    
+                    var tableCellWidth = new TableCellWidth { Width = dynamicWidthToUse, Type = TableWidthUnitValues.Dxa };
 
                     var tableCellProperties = new TableCellProperties();
                     tableCellProperties.AppendChild(tableCellWidth);
