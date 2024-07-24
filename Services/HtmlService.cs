@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Net;
 using System.IO;
 using System.Text.RegularExpressions;
 using DocumentFormat.OpenXml;
@@ -6,6 +7,7 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using HtmlToOpenXml;
 using JsonToWord.Models;
+using HtmlAgilityPack;
 
 namespace JsonToWord.Services
 {
@@ -18,10 +20,10 @@ namespace JsonToWord.Services
         }
         internal void Insert(WordprocessingDocument document, string contentControlTitle, WordHtml wordHtml)
         {
-            var html = SetHtmlFormat(wordHtml.Html);
-            
+            // Parse the HTML and selectively encode text nodes
+            var html = SelectivelyEncodeHtml(wordHtml.Html);
+            html = SetHtmlFormat(html);
             html = RemoveWordHeading(html);
-
             html = FixBullets(html);
 
             var tempHtmlFile = CreateHtmlWordDocument(html);
@@ -144,6 +146,26 @@ namespace JsonToWord.Services
             }
 
             return res;
+        }
+
+        private string SelectivelyEncodeHtml(string html)
+        {
+            var doc = new HtmlDocument();
+            doc.LoadHtml(html);
+
+            foreach (var node in doc.DocumentNode.DescendantsAndSelf())
+            {
+                if (node.NodeType == HtmlNodeType.Text)
+                {
+                    node.InnerHtml = WebUtility.HtmlEncode(node.InnerHtml);
+                }
+            }
+
+            using (var writer = new StringWriter())
+            {
+                doc.Save(writer);
+                return writer.ToString();
+            }
         }
     }
 }
