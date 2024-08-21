@@ -59,7 +59,8 @@ namespace JsonToWord.Services
             table.AppendChild(tableProperties);
             var dynamicWidth = CalculateDynamicWidth(wordTable.Rows);
 
-            foreach (var documentRow in wordTable.Rows)
+            var rows = wordTable.Rows;
+            for (int i=0; i < rows.Count; i++)
             {
                 var tableRow = new TableRow { RsidTableRowProperties = "00812C40" };
 
@@ -74,9 +75,10 @@ namespace JsonToWord.Services
 
                     isHeaderRow = false;
                 }
-                foreach (var cell in documentRow.Cells)
+                var cells = rows[i].Cells; 
+                for(int j=0; j < cells.Count; j++)
                 {
-                    var dynamicWidthToUse = documentRow.Cells?.IndexOf(cell) == 0 ? "auto" : dynamicWidth;
+                    var dynamicWidthToUse = j == 0 ? "auto" : dynamicWidth;
                     var tableCellBorders = CreateTableCellBorders();
                     
                     var tableCellWidth = new TableCellWidth { Width = dynamicWidthToUse, Type = TableWidthUnitValues.Dxa };
@@ -85,21 +87,21 @@ namespace JsonToWord.Services
                     tableCellProperties.AppendChild(tableCellWidth);
                     tableCellProperties.AppendChild(tableCellBorders);
 
-                    if (documentRow.MergeToOneCell)
+                    if (rows[i].MergeToOneCell)
                     {
-                        var gridSpan = new GridSpan { Val = documentRow.NumberOfCellsToMerge };
+                        var gridSpan = new GridSpan { Val = rows[i].NumberOfCellsToMerge };
                         tableCellProperties.AppendChild(gridSpan);
                     }
 
-                    if (cell.Shading != null)
+                    if (cells[j].Shading != null)
                     {
                         var cellShading = new Shading
                         {
                             Val = ShadingPatternValues.Clear,
-                            Color = cell.Shading.Color,
-                            Fill = cell.Shading.Fill,
+                            Color = cells[j].Shading.Color,
+                            Fill = cells[j].Shading.Fill,
                             ThemeFill = ThemeColorValues.Text2,
-                            ThemeFillShade = cell.Shading.ThemeFillShade
+                            ThemeFillShade = cells[j].Shading.ThemeFillShade
                         };
 
                         tableCellProperties.AppendChild(cellShading);
@@ -107,14 +109,13 @@ namespace JsonToWord.Services
 
                     var tableCell = new TableCell();
                     tableCell.AppendChild(tableCellProperties);
+
+                    tableCell = AppendParagraphs(tableCell, cells[j].Paragraphs, document);
+
+                    tableCell = AppendAttachments(tableCell, cells[j].Attachments, document);
+
                     
-
-                    tableCell = AppendParagraphs(tableCell, cell.Paragraphs, document);
-
-                    tableCell = AppendAttachments(tableCell, cell.Attachments, document);
-
-
-                    tableCell = AppendHtml(tableCell, cell.Html, document);
+                    tableCell = AppendHtml(tableCell, cells[j].Html, document);
 
                     tableRow.AppendChild(tableCell);
                 }
@@ -171,6 +172,7 @@ namespace JsonToWord.Services
 
             var fileService = new FileService();
             var pictureService = new PictureService();
+            var paragraphService = new ParagraphService();
 
             foreach (var wordAttachment in wordAttachments)
             {
@@ -196,10 +198,14 @@ namespace JsonToWord.Services
                             var run = new Run();
                             run.AppendChild(drawing);
 
-                            var paragraph = new Paragraph();
-                            paragraph.AppendChild(run);
+                            var pictureParagraph = new Paragraph();
+                            pictureParagraph.AppendChild(run);
 
-                            tableCell.AppendChild(paragraph);
+                            // Create and add the caption below the image
+                            var captionParagraph = paragraphService.CreateCaption(wordAttachment.Name);
+
+                            tableCell.AppendChild(pictureParagraph);
+                            tableCell.AppendChild(captionParagraph);
                             break;
                         }
                     default:

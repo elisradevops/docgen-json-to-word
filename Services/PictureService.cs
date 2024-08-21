@@ -22,6 +22,7 @@ namespace JsonToWord.Services
         }
         internal void Insert(WordprocessingDocument document, string contentControlTitle, WordAttachment wordAttachment)
         {
+            var paragraphService = new ParagraphService();
             var drawing = CreateDrawing(document.MainDocumentPart, wordAttachment.Path);
 
             var run = new Run();
@@ -30,10 +31,14 @@ namespace JsonToWord.Services
             var paragraph = new Paragraph();
             paragraph.AppendChild(run);
 
+            // Create and add the caption below the image
+            var captionParagraph = paragraphService.CreateCaption(wordAttachment.Name);
+
             var sdtBlock = _contentControlService.FindContentControl(document, contentControlTitle);
 
             var sdtContentBlock = new SdtContentBlock();
             sdtContentBlock.AppendChild(paragraph);
+            sdtContentBlock.AppendChild(captionParagraph);
 
             sdtBlock.AppendChild(sdtContentBlock);
         }

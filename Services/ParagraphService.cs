@@ -20,5 +20,22 @@ namespace JsonToWord.Services
 
             return paragraph;
         }
+
+        internal Paragraph CreateCaption(string captionText)
+        {
+            var run = new Run();
+            run.AppendChild(new Text(captionText));
+
+            var paragraph = new Paragraph();
+            var paragraphProperties = new ParagraphProperties();
+
+            // Set the style of the paragraph to be a caption style (you might want to define a custom style in the Word document)
+            paragraphProperties.ParagraphStyleId = new ParagraphStyleId() { Val = "Caption" };
+
+            paragraph.AppendChild(paragraphProperties);
+            paragraph.AppendChild(run);
+
+            return paragraph;
+        }
     }
 }
