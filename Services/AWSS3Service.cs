@@ -1,7 +1,6 @@
 ﻿using Amazon.S3;
 using Amazon.S3.Transfer;
 using JsonToWord.Models.S3;
-using Microsoft.Extensions.Options;
 using JsonToWord.Services.Interfaces;
 using System;
 using System.IO;
@@ -10,17 +9,18 @@ using System.Threading.Tasks;
 using Amazon;
 using Amazon.S3.Util;
 using Amazon.S3.Model;
+using Microsoft.Extensions.Logging;
 
 namespace JsonToWord.Services
 {
     public class AWSS3Service : IAWSS3Service
     {
-        private readonly log4net.ILog _log;
+        private readonly ILogger<AWSS3Service> _logger;
         private readonly string localPath;
         private readonly string AwsS3BaseUrl;
-        public AWSS3Service()
+        public AWSS3Service(ILogger<AWSS3Service> logger)
         {
-            _log = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
+            _logger = logger;
             localPath = "TempFiles/";
             AwsS3BaseUrl = "amazonaws.com";
         }
@@ -50,7 +50,7 @@ namespace JsonToWord.Services
             }
             catch (Exception ex)
             {
-                _log.Error("Something went wrong during file download", ex);
+                _logger.LogError("Something went wrong during file download", ex);
                 throw;
             }
             return fullPath;
@@ -78,12 +78,12 @@ namespace JsonToWord.Services
                     await util.UploadAsync(transferUtilityRequest);
                 }
                 var fileUrl = GenerateAwsFileUrl(uploadProperties.BucketName, filename, uploadProperties.Region);
-                _log.Info("File uploaded to Amazon S3 bucket successfully");
+                _logger.LogInformation("File uploaded to Amazon S3 bucket successfully");
                 return fileUrl;
             }
             catch (Exception ex) when (ex is AmazonS3Exception)
             {
-                _log.Error("Something went wrong during file upload", ex);
+                _logger.LogError("Something went wrong during file upload", ex);
                 throw;
             }
         }
@@ -137,7 +137,7 @@ namespace JsonToWord.Services
             }
             catch (Exception ex) when (ex is AmazonS3Exception)
             {
-                _log.Error("Something went wrong during file upload", ex);
+                _logger.LogError("Something went wrong during file upload", ex);
                 throw;
             }
         }

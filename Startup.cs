@@ -22,9 +22,12 @@ namespace JsonToWord
             services.AddControllers();
             services.AddSwaggerGen();
             services.AddTransient<IAWSS3Service, AWSS3Service>();
-            services.AddTransient<IWordService,WordService>();
+            services.AddTransient<IWordService, WordService>();
+            services.AddSingleton<ITableService, TableService>();
+            services.AddSingleton<IFileService, FileService>();
         }
 
+        // Remove ILoggingBuilder from the method signature
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
             app.UseSwagger();
@@ -43,12 +46,6 @@ namespace JsonToWord
             app.UseRouting();
 
             app.UseAuthorization();
-
-            app.UseEndpoints(endpoints =>
-            {
-                endpoints.MapControllers();
-            });
-
 
             app.UseEndpoints(endpoints =>
             {

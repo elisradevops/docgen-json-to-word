@@ -6,12 +6,14 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using HtmlToOpenXml;
 using JsonToWord.Models;
+using Microsoft.Extensions.Logging;
 
 namespace JsonToWord.Services
 {
     internal class HtmlService
     {
         private readonly ContentControlService _contentControlService;
+        private readonly ILogger<HtmlService> _logger;
         public HtmlService()
         {
             _contentControlService = new ContentControlService();
@@ -47,7 +49,6 @@ namespace JsonToWord.Services
 
         internal string CreateHtmlWordDocument(string html)
         {
-            log4net.ILog log = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
             var tempHtmlDirectory = Path.Combine(Path.GetTempPath(), "MicrosoftWordOpenXml", Guid.NewGuid().ToString("N"));
 
             if (!Directory.Exists(tempHtmlDirectory))
@@ -72,7 +73,7 @@ namespace JsonToWord.Services
                 }
                 catch(Exception ex)
                 {
-                    log.Error("DocGen ran into an issue parsing the html due to :" , ex);
+                    _logger.LogError("DocGen ran into an issue parsing the html due to :" , ex);
                     converter.ParseHtml("<p style='color: red'><b>DocGen ran into an issue parsing the html due to :" + ex.Message +"<b></p>");
                 }
             }

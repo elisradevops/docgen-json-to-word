@@ -3,6 +3,7 @@ using JsonToWord.Models;
 using JsonToWord.Models.S3;
 using JsonToWord.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
@@ -20,11 +21,13 @@ namespace JsonToWord.Controllers
     {
         private readonly IAWSS3Service _aWSS3Service;
         private readonly IWordService _wordService;
+        private readonly ILogger<WordController> _logger;
 
-        public WordController(IAWSS3Service aWSS3Service, IWordService wordService)
+        public WordController(IAWSS3Service aWSS3Service, IWordService wordService, ILogger<WordController> logger)
         {
             _aWSS3Service = aWSS3Service;
             _wordService = wordService;
+            _logger = logger;
         }
 
         [HttpGet("status")]
@@ -38,7 +41,6 @@ namespace JsonToWord.Controllers
         [HttpPost("create")]
         public async Task<IActionResult> CreateWordDocument(dynamic json)
         {
-            log4net.ILog log = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
             try
             {
                 var settings = new JsonSerializerSettings();
@@ -61,7 +63,7 @@ namespace JsonToWord.Controllers
                 }
                 string fullpath = _aWSS3Service.DownloadFileFromS3BucketAsync(wordModel.TemplatePath, wordModel.UploadProperties.FileName);
                 wordModel.LocalPath = fullpath;
-                log.Info("Initilized word model object");
+                _logger.LogInformation("Initilized word model object");
                 if (wordModel.MinioAttachmentData != null)
                 {
                     foreach (var item in wordModel.MinioAttachmentData)
@@ -70,7 +72,7 @@ namespace JsonToWord.Controllers
                     }
                 }
                 var documentPath = _wordService.Create(wordModel);
-                log.Info("Created word document");
+                _logger.LogInformation("Created word document");
 
                 _aWSS3Service.CleanUp(fullpath);
 
@@ -99,6 +101,7 @@ namespace JsonToWord.Controllers
             {
                 string logPath = @"c:\logs\prod\JsonToWord.log";
                 System.IO.File.AppendAllText(logPath, string.Format("\n{0} - {1}", DateTime.Now, e));
+                _logger.LogError(logPath, e);
                 throw;
             }
         }
@@ -112,7 +115,6 @@ namespace JsonToWord.Controllers
                 string text = System.IO.File.ReadAllText(file);
                 json = JObject.Parse(text);
 
-                log4net.ILog log = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
 
                 string test = json.ToString();
                 test = test.Replace("\\\\", "\\");
@@ -120,18 +122,19 @@ namespace JsonToWord.Controllers
                 settings.Converters.Add(new WordObjectConverter());
                 var wordModel = JsonConvert.DeserializeObject<WordModel>(json.ToString(), settings);
 
-                log.Info("Initilized word model object");
+                _logger.LogInformation("Initilized word model object");
 
-                var wordService = new WordService();
+                var wordService = _wordService;
 
 
                 var document = wordService.Create(wordModel);
-                log.Info("Created word document");
+                _logger.LogInformation("Created word document");
 
                 return Ok(document);
             }
             catch (Exception e)
             {
+                _logger.LogError($"Error: {e.Message}",e);
                 return null;
             }
 
