@@ -122,7 +122,7 @@ namespace JsonToWord.Controllers
 
                 log.Info("Initilized word model object");
 
-                var wordService = new WordService();
+                var wordService = _wordService;
 
 
                 var document = wordService.Create(wordModel);

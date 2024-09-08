@@ -4,39 +4,51 @@ using JsonToWord.Models;
 using JsonToWord.Services;
 using System.IO;
 using JsonToWord.Services.Interfaces;
+using ICSharpCode.SharpZipLib.Zip;
+using Microsoft.Extensions.Logging;
 
 namespace JsonToWord
 {
-    public class WordService : IWordService
+    public class WordService : IWordService, IDisposable
     {
+        #region Fields
         private readonly ContentControlService _contentControlService;
-        private readonly FileService _fileService;
+        private readonly IFileService _fileService;
+        private readonly ILogger<WordService> _logger;
         private readonly HtmlService _htmlService;
         private readonly PictureService _pictureService;
         private readonly TableService _tableService;
         private readonly TextService _textService;
         private readonly DocumentService _documentService;
-
-        public WordService()
+        private bool _isZipNeeded = false;
+        #endregion
+        
+        #region Constructor
+        public WordService(IFileService fileService, ILogger<WordService> logger)
         {
             _contentControlService = new ContentControlService();
-            _fileService = new FileService();
+            _fileService = fileService;
             _htmlService = new HtmlService();
             _pictureService = new PictureService();
-            _tableService = new TableService();
+            _tableService = new TableService(fileService);
             _textService = new TextService();
             _documentService = new DocumentService();
+            _logger = logger;
+            OnSubscribeEvents();
+
         }
+        #endregion
+
+        #region Interface Implementations
 
         public string Create(WordModel _wordModel)
         {
-            log4net.ILog log = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
 
             var documentPath = _documentService.CreateDocument(_wordModel.LocalPath);
 
             using (var document = WordprocessingDocument.Open(documentPath, true))
             {
-                log.Info("Starting on doc path: " + documentPath);
+                _logger.LogInformation("Starting on doc path: " + documentPath);
 
                 foreach (var contentControl in _wordModel.ContentControls)
                 {
@@ -65,18 +77,118 @@ namespace JsonToWord
                                 throw new ArgumentOutOfRangeException();
                         }
                     }
-
+                    document.MainDocumentPart.Document.Save();
                     _contentControlService.RemoveContentControl(document, contentControl.Title);
                 }
-                log.Info("Finished on doc path: " + documentPath);
+                _logger.LogInformation("Finished on doc path: " + documentPath);
 
 
             }
 
+            return _isZipNeeded? ZipDocument(documentPath) : documentPath;
             //documentService.RunMacro(documentPath, "updateTableOfContent",sw);
             //log.Info("Ran Macro");
-
-            return documentPath;
         }
+
+        public void Dispose()
+        {
+            OnUnsubscribeEvents();
+        }
+        #endregion
+
+        #region Event Releated Methods
+
+        private void OnNonOfficeAttachmentCaughtEvent()
+        {
+            _logger.LogInformation("Non-office attachment added, the document will be zipped");
+            _isZipNeeded = true;
+        }
+
+        private void OnSubscribeEvents()
+        {
+            if(_fileService != null)
+            {
+                _fileService.nonOfficeAttachmentEventHandler+= OnNonOfficeAttachmentCaughtEvent;
+            }
+        }
+
+        private void OnUnsubscribeEvents()
+        {
+            if (_fileService != null)
+            {
+                _fileService.nonOfficeAttachmentEventHandler -= OnNonOfficeAttachmentCaughtEvent;
+            }
+        }
+
+        #endregion
+
+        #region Zip Related Methods
+        private string ZipDocument(string documentPath)
+        {
+            if (!Directory.Exists("attachments"))
+            {
+                throw new Exception("Attachment folder is not found");
+            }
+            var zipFileName = Path.ChangeExtension(documentPath, ".zip");
+            CreateZipWithAttachments(zipFileName, documentPath, "attachments");
+
+            return zipFileName;
+        }
+
+        private void CreateZipWithAttachments(string zipPath, string docxPath, string attachmentsFolder)
+        {
+            // Set a reasonable buffer size (e.g., 16 KB) to balance between memory usage and performance
+            int bufferSize = 16 * 1024;
+
+            // Create the ZIP file
+            using (FileStream fs = File.Create(zipPath, bufferSize, FileOptions.SequentialScan))
+            using (ZipOutputStream zipStream = new ZipOutputStream(fs))
+            {
+                // Set the compression level to a standard level compatible with Windows Explorer
+                zipStream.SetLevel(6); // Compression level: 0 (no compression) to 9 (maximum compression)
+
+                // Add the Word document to the ZIP archive
+                AddFileToZip(docxPath, Path.GetFileName(docxPath), zipStream, bufferSize);
+
+                // Add all files in the attachments folder to the ZIP archive
+                foreach (string filePath in Directory.GetFiles(attachmentsFolder))
+                {
+                    // Add each file under the "attachments" folder in the ZIP archive
+                    AddFileToZip(filePath, "attachments/" + Path.GetFileName(filePath), zipStream, bufferSize);
+                }
+            }
+        }
+
+        // Optimized method to add a file to the ZIP archive with Windows Explorer compatibility
+        private void AddFileToZip(string filePath, string entryName, ZipOutputStream zipStream, int bufferSize)
+        {
+            // Create a new entry in the ZIP archive
+            var entry = new ZipEntry(ZipEntry.CleanName(entryName)) // Use CleanName to ensure valid entry name
+            {
+                DateTime = File.GetLastWriteTime(filePath),
+                CompressionMethod = CompressionMethod.Deflated, // Use Deflate compression method
+                IsUnicodeText = false, // Disable Unicode text to ensure Windows compatibility
+                Size = new FileInfo(filePath).Length
+            };
+
+            // Add the entry to the ZIP stream
+            zipStream.PutNextEntry(entry);
+
+            // Write the file content to the ZIP stream with a buffered approach
+            using (FileStream fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize, FileOptions.SequentialScan))
+            {
+                byte[] buffer = new byte[bufferSize];
+                int bytesRead;
+                while ((bytesRead = fileStream.Read(buffer, 0, buffer.Length)) > 0)
+                {
+                    zipStream.Write(buffer, 0, bytesRead);
+                }
+            }
+
+            // Close the current entry in the ZIP stream
+            zipStream.CloseEntry();
+        }
+        #endregion
+
     }
 }

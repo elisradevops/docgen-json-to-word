@@ -2,15 +2,21 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using JsonToWord.Models;
+using JsonToWord.Services.Interfaces;
 
 namespace JsonToWord.Services
 {
     internal class TableService
     {
+        private IFileService _fileService;
+
+        public TableService(IFileService fileService) {
+            _fileService = fileService;
+        }
+
         public void Insert(WordprocessingDocument document, string contentControlTitle, WordTable wordTable)
         {
             var table = CreateTable(document, wordTable);
@@ -30,17 +36,17 @@ namespace JsonToWord.Services
             RemoveExtraParagraphsAfterAltChunk(document);
         }
 
-        private string CalculateDynamicWidth(List<WordTableRow> rows)
+        private int CalculateDynamicWidth(List<WordTableRow> rows)
         {
             if (rows.Count == 0) 
-                return string.Empty;
+                return 0;
 
             var maxDynamicCells = rows.Max(row => row.Cells.Count);
 
             var dynamicColumnCount = maxDynamicCells > 2 ? maxDynamicCells - 1: 1;
             var dynamicWidth = (100 / dynamicColumnCount);
 
-            return $"{dynamicWidth}%";
+            return dynamicWidth;
         }
 
         private Table CreateTable(WordprocessingDocument document, WordTable wordTable)
@@ -78,10 +84,12 @@ namespace JsonToWord.Services
                 var cells = rows[i].Cells; 
                 for(int j=0; j < cells.Count; j++)
                 {
-                    var dynamicWidthToUse = j == 0 ? "auto" : dynamicWidth;
                     var tableCellBorders = CreateTableCellBorders();
-                    
-                    var tableCellWidth = new TableCellWidth { Width = dynamicWidthToUse, Type = TableWidthUnitValues.Dxa };
+
+
+                    var tableCellWidth = j != 0 ?
+                        new TableCellWidth { Width = $"{dynamicWidth * 50}", Type = TableWidthUnitValues.Pct } :
+                        new TableCellWidth { Type = TableWidthUnitValues.Auto };
 
                     var tableCellProperties = new TableCellProperties();
                     tableCellProperties.AppendChild(tableCellWidth);
@@ -170,7 +178,7 @@ namespace JsonToWord.Services
             if (wordAttachments == null || !wordAttachments.Any())
                 return tableCell;
 
-            var fileService = new FileService();
+            
             var pictureService = new PictureService();
             var paragraphService = new ParagraphService();
 
@@ -180,15 +188,14 @@ namespace JsonToWord.Services
                 {
                     case WordObjectType.File:
                         {
-                            var embeddedFile = fileService.CreateEmbeddedObject(document.MainDocumentPart, wordAttachment.Path, true);
+                            //var embeddedFileParagraph = fileService.CreateEmbeddedObjectParagraph(document.MainDocumentPart, wordAttachment, true);
+                            var embeddedFileParagraph = _fileService.AttachFileToParagraph(document.MainDocumentPart, wordAttachment);
 
-                            var run = new Run();
-                            run.AppendChild(embeddedFile);
-
-                            var paragraph = new Paragraph();
-                            paragraph.AppendChild(run);
-
-                            tableCell.AppendChild(paragraph);
+                            if (embeddedFileParagraph != null)
+                            {
+                                tableCell.AppendChild(embeddedFileParagraph);
+                                document.Save();
+                            }
                             break;
                         }
                     case WordObjectType.Picture:
