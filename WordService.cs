@@ -17,20 +17,20 @@ namespace JsonToWord
         private readonly ILogger<WordService> _logger;
         private readonly HtmlService _htmlService;
         private readonly PictureService _pictureService;
-        private readonly TableService _tableService;
+        private readonly ITableService _tableService;
         private readonly TextService _textService;
         private readonly DocumentService _documentService;
         private bool _isZipNeeded = false;
         #endregion
         
         #region Constructor
-        public WordService(IFileService fileService, ILogger<WordService> logger)
+        public WordService(ITableService tableService,IFileService fileService, ILogger<WordService> logger)
         {
             _contentControlService = new ContentControlService();
             _fileService = fileService;
             _htmlService = new HtmlService();
             _pictureService = new PictureService();
-            _tableService = new TableService(fileService);
+            _tableService = tableService;
             _textService = new TextService();
             _documentService = new DocumentService();
             _logger = logger;
@@ -80,12 +80,12 @@ namespace JsonToWord
                     document.MainDocumentPart.Document.Save();
                     _contentControlService.RemoveContentControl(document, contentControl.Title);
                 }
-                _logger.LogInformation("Finished on doc path: " + documentPath);
-
-
+               
             }
 
-            return _isZipNeeded? ZipDocument(documentPath) : documentPath;
+            var generatedDocPath = _isZipNeeded ? ZipDocument(documentPath) : documentPath;
+            _logger.LogInformation("Finished on doc path: " + generatedDocPath);
+            return generatedDocPath;
             //documentService.RunMacro(documentPath, "updateTableOfContent",sw);
             //log.Info("Ran Macro");
         }
@@ -100,8 +100,11 @@ namespace JsonToWord
 
         private void OnNonOfficeAttachmentCaughtEvent()
         {
-            _logger.LogInformation("Non-office attachment added, the document will be zipped");
-            _isZipNeeded = true;
+            if (!_isZipNeeded)
+            {
+                _logger.LogInformation("Non-office attachment added, the document will be zipped");
+                _isZipNeeded = true;
+            }
         }
 
         private void OnSubscribeEvents()

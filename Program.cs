@@ -21,6 +21,13 @@ namespace JsonToWord
                 .ConfigureWebHostDefaults(webBuilder =>
                 {
                     webBuilder.UseStartup<Startup>();
+                }).ConfigureLogging(logging =>
+                {
+                    // Clear all default logging providers
+                    logging.ClearProviders();
+
+                    // Add Log4Net as the logging provider
+                    logging.AddLog4Net("log4net.config");
                 });
     }
 }

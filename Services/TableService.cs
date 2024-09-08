@@ -6,15 +6,18 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using JsonToWord.Models;
 using JsonToWord.Services.Interfaces;
+using Microsoft.Extensions.Logging;
 
 namespace JsonToWord.Services
 {
-    internal class TableService
+    internal class TableService : ITableService
     {
         private IFileService _fileService;
+        private ILogger<TableService> _logger;
 
-        public TableService(IFileService fileService) {
+        public TableService(IFileService fileService, ILogger<TableService> logger) {
             _fileService = fileService;
+            _logger = logger;
         }
 
         public void Insert(WordprocessingDocument document, string contentControlTitle, WordTable wordTable)
@@ -151,7 +154,7 @@ namespace JsonToWord.Services
             var styledHtml = WrapHtmlWithStyle(html.Html);
 
             var htmlService = new HtmlService();
-            Console.WriteLine("styledHtml" + styledHtml);
+            _logger.LogDebug("styledHtml" + styledHtml);
 
             var tempHtmlFile = htmlService.CreateHtmlWordDocument(styledHtml);
 

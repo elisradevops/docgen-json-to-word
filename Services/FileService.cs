@@ -7,6 +7,7 @@ using JsonToWord.EventHandlers;
 using JsonToWord.Models;
 using JsonToWord.Services;
 using JsonToWord.Services.Interfaces;
+using Microsoft.Extensions.Logging;
 using System;
 using System.IO;
 
@@ -17,9 +18,19 @@ public class FileService : IFileService
     private const string AttachmentsFolder = "attachments";
     #endregion
 
+    #region Fields
+    private readonly ILogger<FileService> _logger;
+    #endregion
+
     #region Event Handlers
     public event NonOfficeAttachmentEventHandler nonOfficeAttachmentEventHandler;
     #endregion
+
+    public FileService(ILogger<FileService> logger)
+    {
+        _logger = logger;
+    }
+
 
     #region Interface implementaions
 
@@ -39,6 +50,12 @@ public class FileService : IFileService
     {
         try
         {
+
+            if (wordAttachment == null)
+            {
+                throw new Exception("Word attachment is not defined");
+            }
+
             var fileContentType = GetFileContentType(wordAttachment.Path);
             var imageId = "";
             var iconDrawing = CreateIconImageDrawing(mainPart, wordAttachment, out imageId);
@@ -57,6 +74,7 @@ public class FileService : IFileService
         {
             string logPath = @"c:\logs\prod\JsonToWord.log";
             System.IO.File.AppendAllText(logPath, string.Format("\n{0} - {1}", DateTime.Now, ex));
+            _logger.LogError($"Error occurred: {ex.Message}", ex);
             throw;
         }
 
@@ -73,7 +91,7 @@ public class FileService : IFileService
 
         if (string.IsNullOrEmpty(binaryData))
         {
-            Console.WriteLine("Binary data is empty");
+            _logger.LogWarning($"Binary data is empty of {wordAttachment.Name}");
             return null;
         }
 
