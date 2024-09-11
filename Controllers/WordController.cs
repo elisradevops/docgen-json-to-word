@@ -56,7 +56,32 @@ namespace JsonToWord.Controllers
                         using (StreamReader reader = new StreamReader(contentControlPath))
                         {
                             string contentControlJson = reader.ReadToEnd();
-                            wordModel.ContentControls.Add(JsonConvert.DeserializeObject<WordContentControl>(contentControlJson, settings));
+                            List<WordContentControl> contentControls = new List<WordContentControl>();
+                            // Check if the JSON represents a list or a single object
+                            if (contentControlJson.TrimStart().StartsWith("["))
+                            {
+                                // JSON is a list; parse it as a JArray
+                                var jsonArray = JArray.Parse(contentControlJson);
+
+                                foreach (var jsonItem in jsonArray)
+                                {
+                                    // Deserialize each object separately
+                                    var contentControl = JsonConvert.DeserializeObject<WordContentControl>(
+                                        jsonItem.ToString(),
+                                        settings
+                                    );
+                                    contentControls.Add(contentControl);
+                                }
+                            }
+                            else
+                            {
+                                // Deserialize as a single object
+                                var singleContentControl = JsonConvert.DeserializeObject<WordContentControl>(contentControlJson, settings);
+                                contentControls.Add(singleContentControl);
+                            }
+
+                            // Add all content controls to the wordModel
+                            wordModel.ContentControls.AddRange(contentControls);
                         }
                         _aWSS3Service.CleanUp(contentControlPath);
                     }
