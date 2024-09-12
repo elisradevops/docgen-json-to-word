@@ -337,33 +337,43 @@ public class FileService : IFileService
 
     private string GetIconPathForFileType(string fileName)
     {
-        string extension = Path.GetExtension(fileName).ToLower();
+        string extension = Path.GetExtension(fileName);
 
-        // Map the file extensions to the appropriate icon paths
-        switch (extension)
+        return extension.ToLower() switch
         {
-            case ".txt":
-                return $"{IconDirectory}/txt.png";
-            case ".pdf":
-                return $"{IconDirectory}/pdf.png";
-            case ".docx":
-                return $"{IconDirectory}/word.png";
-            case ".xlsx":
-                return $"{IconDirectory}/excel.png";
-            case ".pptx":
-                return $"{IconDirectory}/powerpoint.png";
-            case ".csv":
-                return $"{IconDirectory}/csv.png";
-            case ".jpg":
-            case ".jpeg":
-            case ".png":
-                return $"{IconDirectory}/picture.png";
-            case ".mp3":
-            case ".wav":
-                return $"{IconDirectory}/media.png";
-            default:
-                return $"{IconDirectory}/default.png"; // Default icon for unknown file types
-        }
+            // Microsoft Word file formats
+            ".doc" or ".docx" or ".docm" => $"{IconDirectory}/word.png",
+
+            // Microsoft Word templates file formats
+            ".dot" or ".dotx" or ".dotm" => $"{IconDirectory}/word.png",
+
+            // Microsoft Excel file formats
+            ".xls" or ".xlsx" or ".xlsm" => $"{IconDirectory}/excel.png",
+
+            // Microsoft PowerPoint file formats
+            ".ppt" or ".pptx" or ".pptm" => $"{IconDirectory}/powerpoint.png",
+
+            // Microsoft PowerPoint file formats
+            ".potx" or ".pot" => $"{IconDirectory}/powerpoint.png",
+
+            ".txt" => $"{IconDirectory}/txt.png",
+
+            ".pdf" => $"{IconDirectory}/pdf.png",
+            
+            ".csv" => $"{IconDirectory}/csv.png",
+
+            ".jpg" or ".jpeg" or ".png" => $"{IconDirectory}/picture.png",
+
+            ".mp3" or ".wav" => $"{IconDirectory}/media.png",
+
+            ".xml" => $"{IconDirectory}/xml.png",
+
+            ".zip" or ".7z" => $"{IconDirectory}/zip.png",
+
+            ".rar" => $"{IconDirectory}/rar.png",
+
+            _ => $"{IconDirectory}/default.png",
+        };
     }
 
     #endregion
