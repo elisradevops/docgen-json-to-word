@@ -13,11 +13,13 @@ namespace JsonToWord.Services
     internal class TableService : ITableService
     {
         private IFileService _fileService;
+        private IUtilsService _utilsService;
         private ILogger<TableService> _logger;
 
-        public TableService(IFileService fileService, ILogger<TableService> logger) {
+        public TableService(IFileService fileService, ILogger<TableService> logger, IUtilsService utils) {
             _fileService = fileService;
             _logger = logger;
+            _utilsService = utils;
         }
 
         public void Insert(WordprocessingDocument document, string contentControlTitle, WordTable wordTable)
@@ -39,17 +41,47 @@ namespace JsonToWord.Services
             RemoveExtraParagraphsAfterAltChunk(document);
         }
 
-        private int CalculateDynamicWidth(List<WordTableRow> rows)
+        private TableCellWidth GetTableCellWidth(string widthString, int pageWidthDxa)
         {
-            if (rows.Count == 0) 
-                return 0;
+            if (string.IsNullOrWhiteSpace(widthString))
+            {
+                return new TableCellWidth { Width = "0", Type = TableWidthUnitValues.Auto };
+            }
 
-            var maxDynamicCells = rows.Max(row => row.Cells.Count);
+            widthString = widthString.Trim().ToLowerInvariant();
 
-            var dynamicColumnCount = maxDynamicCells > 2 ? maxDynamicCells - 1: 1;
-            var dynamicWidth = (100 / dynamicColumnCount);
-
-            return dynamicWidth;
+            try
+            {
+                if (widthString.EndsWith("%"))
+                {
+                    double percentageWidth = _utilsService.ParseStringToDouble(widthString);
+                    if (percentageWidth < 0 || percentageWidth > 100)
+                    {
+                        throw new ArgumentOutOfRangeException(nameof(widthString), "Percentage must be between 0 and 100.");
+                    }
+                    int pctWidth = (int)Math.Round(percentageWidth * 50);
+                    return new TableCellWidth { Width = pctWidth.ToString(), Type = TableWidthUnitValues.Pct };
+                }
+                else if (widthString.EndsWith("cm"))
+                {
+                    double cmWidth = _utilsService.ParseStringToDouble(widthString);
+                    if (cmWidth <= 0)
+                    {
+                        throw new ArgumentOutOfRangeException(nameof(widthString), "Width in cm must be positive.");
+                    }
+                    int dxaWidth = _utilsService.ConvertCmToDxa(cmWidth);
+                    int pctWidth = _utilsService.ConvertDxaToPct(dxaWidth, pageWidthDxa);
+                    return new TableCellWidth { Width = pctWidth.ToString(), Type = TableWidthUnitValues.Pct };
+                }
+                else
+                {
+                    throw new FormatException($"Unsupported width format: {widthString}. Use % or cm.");
+                }
+            }
+            catch (Exception ex) when (ex is FormatException or ArgumentOutOfRangeException)
+            {
+                throw new ArgumentException($"Invalid width specification: {widthString}", nameof(widthString), ex);
+            }
         }
 
         private Table CreateTable(WordprocessingDocument document, WordTable wordTable)
@@ -58,15 +90,18 @@ namespace JsonToWord.Services
 
             var tableBorders = CreateTableBorders();
             var tableWidth = new TableWidth { Width = "5000", Type = TableWidthUnitValues.Pct };
-
+            TableLayout tableLayout = new TableLayout() { Type = TableLayoutValues.Fixed };
             var tableProperties = new TableProperties();
             tableProperties.AppendChild(tableBorders);
             tableProperties.AppendChild(tableWidth);
+            tableProperties.AppendChild(tableLayout);
+
+            int pageWidthDxa = _utilsService.GetPageWidthDxa(document.MainDocumentPart);
+            
 
             var isHeaderRow = true;
             var table = new Table();
             table.AppendChild(tableProperties);
-            var dynamicWidth = CalculateDynamicWidth(wordTable.Rows);
 
             var rows = wordTable.Rows;
             for (int i=0; i < rows.Count; i++)
@@ -85,14 +120,12 @@ namespace JsonToWord.Services
                     isHeaderRow = false;
                 }
                 var cells = rows[i].Cells; 
+
                 for(int j=0; j < cells.Count; j++)
                 {
                     var tableCellBorders = CreateTableCellBorders();
 
-
-                    var tableCellWidth = j != 0 ?
-                        new TableCellWidth { Width = $"{dynamicWidth * 50}", Type = TableWidthUnitValues.Pct } :
-                        new TableCellWidth { Type = TableWidthUnitValues.Auto };
+                    var tableCellWidth = GetTableCellWidth(cells[j].Width, pageWidthDxa);
 
                     var tableCellProperties = new TableCellProperties();
                     tableCellProperties.AppendChild(tableCellWidth);

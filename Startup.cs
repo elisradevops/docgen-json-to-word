@@ -25,6 +25,7 @@ namespace JsonToWord
             services.AddTransient<IWordService, WordService>();
             services.AddSingleton<ITableService, TableService>();
             services.AddSingleton<IFileService, FileService>();
+            services.AddSingleton<IUtilsService, UtilsService>();
         }
 
         // Remove ILoggingBuilder from the method signature
