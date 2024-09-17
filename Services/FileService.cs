@@ -60,7 +60,7 @@ public class FileService : IFileService
             var imageId = "";
             var iconDrawing = CreateIconImageDrawing(mainPart, wordAttachment, out imageId);
 
-            if (fileContentType == "application/octet-stream")
+            if (wordAttachment.IsLinkedFile.GetValueOrDefault() || fileContentType == "application/octet-stream")
             {
                 TriggerNonOfficeFile();
                 return AddHyperLinkNonOfficeFileParagraph(mainPart, wordAttachment, iconDrawing);
