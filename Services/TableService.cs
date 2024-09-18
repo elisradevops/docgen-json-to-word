@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using JsonToWord.Models;
@@ -31,9 +32,12 @@ namespace JsonToWord.Services
         
             var sdtContentBlock = new SdtContentBlock();
             sdtContentBlock.AppendChild(table);
-        
-            // Insert an empty paragraph after the table
-            var emptyParagraph = new Paragraph(new Run(new Text("")));
+
+            // Insert an empty paragraph or page Break after the table
+            var emptyParagraph = new Paragraph(wordTable.InsertPageBreak
+              ? (OpenXmlElement)new Run(new Break() { Type = BreakValues.Page })
+              : new Run());
+
             sdtContentBlock.AppendChild(emptyParagraph);  // Adds an empty line
         
             sdtBlock.AppendChild(sdtContentBlock);
@@ -184,7 +188,7 @@ namespace JsonToWord.Services
 
                 return tableCell;
             }
-            var styledHtml = WrapHtmlWithStyle(html.Html);
+            var styledHtml = WrapHtmlWithStyle(html.Html, html.Font, html.FontSize);
 
             var htmlService = new HtmlService();
             _logger.LogDebug("styledHtml" + styledHtml);
@@ -204,11 +208,29 @@ namespace JsonToWord.Services
 
             return tableCell;
         }
-        private string WrapHtmlWithStyle(string originalHtml)
+        private string WrapHtmlWithStyle(string originalHtml, string font, uint fontSize)
         {
-            // This method wraps the HTML content with additional HTML tags and styles
-            return $"<html style=\"font-family: Arial, sans-serif; font-size: 12pt;\"><body>{originalHtml}</body></html>";
+            // This method wraps the HTML content with inline styles, since Word does not reliably support <style> tags in altChunk
+            return $@"
+                    <html>
+                    <body style='font-family: {font}, sans-serif; font-size: {fontSize}pt;'>
+                        {ApplyInlineStyles(originalHtml, font, fontSize)}
+                    </body>
+                    </html>";
         }
+
+        // A method to apply inline styles to relevant HTML tags
+        private string ApplyInlineStyles(string html, string font, uint fontSize)
+        {
+            // This is a basic example of how to insert inline styles for some common tags.
+            // For more complex HTML, consider parsing the HTML and applying inline styles dynamically.
+            return html
+                .Replace("<p>", $"<p style='font-family: {font}, sans-serif; font-size: {fontSize}pt;'>")
+                .Replace("<div>", $"<div style='font-family: {font}, sans-serif; font-size: {fontSize}pt;'>")
+                .Replace("<span>", $"<span style='font-family: {font}, sans-serif; font-size: {fontSize}pt;'>")
+                .Replace("<li>", $"<li style='font-family: {font}, sans-serif; font-size: {fontSize}pt;'>");
+        }
+
         private TableCell AppendAttachments(TableCell tableCell, List<WordAttachment> wordAttachments, WordprocessingDocument document)
         {
             if (wordAttachments == null || !wordAttachments.Any())
