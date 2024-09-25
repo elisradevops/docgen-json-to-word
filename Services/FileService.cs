@@ -150,7 +150,7 @@ public class FileService : IFileService
 
             // Create the Paragraph to hold the Runs
             var paragraph = new Paragraph(new ParagraphProperties(
-                new Justification { Val = JustificationValues.Center } // Center-align the paragraph
+                new Justification { Val = JustificationValues.Left } // Center-align the paragraph
             ));
             paragraph.Append(run); // Add the run with the image
             paragraph.Append(textRun); // Add the run with the text
@@ -184,7 +184,7 @@ public class FileService : IFileService
         // Add the image and hyperlink to the document in a single paragraph
         var paragraph = new Paragraph(
             new ParagraphProperties(
-                new Justification() { Val = JustificationValues.Center } // Center align the entire paragraph
+                new Justification() { Val = JustificationValues.Left } // Center align the entire paragraph
             )
         );
         paragraph.Append(new Run(iconDrawing));  // Add the icon (image)

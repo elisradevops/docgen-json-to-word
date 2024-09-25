@@ -19,10 +19,11 @@ namespace JsonToWord.Services
 
                 using (var document = WordprocessingDocument.Open(templateStream, true))
                 {
+                    // Change the document type without modifying the content
                     document.ChangeDocumentType(WordprocessingDocumentType.Document);
-                    var mainPart = document.MainDocumentPart;
-                    SetLandscape(mainPart);
-                    mainPart.Document.Save();
+
+                    // Save any changes that may have been made to the document type
+                    document.MainDocumentPart.Document.Save();
                 }
 
                 File.WriteAllBytes(destinationFile, templateStream.ToArray());

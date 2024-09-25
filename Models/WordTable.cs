@@ -7,5 +7,6 @@ namespace JsonToWord.Models
         public WordObjectType Type { get; set; }
         public List<WordTableRow> Rows { get; set; }
         public bool RepeatHeaderRow { get; set; }
+        public bool InsertPageBreak { get; set; }
     }
 }

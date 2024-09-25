@@ -3,6 +3,7 @@ using System.IO;
 using System.Text.RegularExpressions;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Spreadsheet;
 using DocumentFormat.OpenXml.Wordprocessing;
 using HtmlToOpenXml;
 using JsonToWord.Models;
@@ -20,7 +21,7 @@ namespace JsonToWord.Services
         }
         internal void Insert(WordprocessingDocument document, string contentControlTitle, WordHtml wordHtml)
         {
-            var html = SetHtmlFormat(wordHtml.Html);
+            var html = SetHtmlFormat(wordHtml.Html, wordHtml.Font, wordHtml.FontSize);
             
             html = RemoveWordHeading(html);
 
@@ -96,13 +97,36 @@ namespace JsonToWord.Services
             return tempDocumentFile;
         }
 
-        private string SetHtmlFormat(string html)
+        private string SetHtmlFormat(string html, string font, uint fontSize)
         {
             if (!html.ToLower().StartsWith("<html>"))
-                return $"<html style=\"font-family: Arial, sans-serif; font-size: 12pt;\"><body>{html}</body></html>";
+            {
+                // This method wraps the HTML content with inline styles, since Word does not reliably support <style> tags in altChunk
+                return $@"
+                    <html>
+                    <body style='font-family: {font}, sans-serif; font-size: {fontSize}pt;'>
+                        {ApplyInlineStyles(html, font, fontSize)}
+                    </body>
+                    </html>";
+            }
 
             return html;
         }
+
+
+        // A method to apply inline styles to relevant HTML tags
+        private string ApplyInlineStyles(string html, string font, uint fontSize)
+        {
+            // This is a basic example of how to insert inline styles for some common tags.
+            // For more complex HTML, consider parsing the HTML and applying inline styles dynamically.
+            return html
+                .Replace("<p>", $"<p style='font-family: {font}, sans-serif; font-size: {fontSize}pt;'>")
+                .Replace("<div>", $"<div style='font-family: {font}, sans-serif; font-size: {fontSize}pt;'>")
+                .Replace("<span>", $"<span style='font-family: {font}, sans-serif; font-size: {fontSize}pt;'>")
+                .Replace("<li>", $"<li style='font-family: {font}, sans-serif; font-size: {fontSize}pt;'>")
+                .Replace("<td>", $"<td style='font-family: {font}, sans-serif; font-size: {fontSize}pt;'>");
+        }
+
 
         private string RemoveWordHeading(string html)
         {
