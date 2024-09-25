@@ -1,4 +1,5 @@
-﻿using DocumentFormat.OpenXml.Wordprocessing;
+﻿using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.Wordprocessing;
 using JsonToWord.Models;
 
 namespace JsonToWord.Services
@@ -23,19 +24,28 @@ namespace JsonToWord.Services
 
         internal Paragraph CreateCaption(string captionText)
         {
-            var run = new Run();
-            run.AppendChild(new Text(captionText));
+            Paragraph paragraph1 = new Paragraph();
+            ParagraphProperties paragraphProperties1 = new ParagraphProperties();
+            ParagraphStyleId paragraphStyleId1 = new ParagraphStyleId() { Val = "Caption" };
+            Justification justification1 = new Justification() { Val = JustificationValues.Left };
 
-            var paragraph = new Paragraph();
-            var paragraphProperties = new ParagraphProperties();
 
-            // Set the style of the paragraph to be a caption style (you might want to define a custom style in the Word document)
-            paragraphProperties.ParagraphStyleId = new ParagraphStyleId() { Val = "Caption" };
+            paragraphProperties1.Append(paragraphStyleId1);
+            paragraphProperties1.Append(justification1);
+            ProofError proofError1 = new ProofError() { Type = ProofingErrorValues.SpellStart };
 
-            paragraph.AppendChild(paragraphProperties);
-            paragraph.AppendChild(run);
+            Run run1 = new Run();
+            Text text1 = new Text();
+            text1.Text = captionText;
 
-            return paragraph;
+            run1.Append(text1);
+            ProofError proofError2 = new ProofError() { Type = ProofingErrorValues.SpellEnd };
+
+            paragraph1.Append(paragraphProperties1);
+            paragraph1.Append(proofError1);
+            paragraph1.Append(run1);
+            paragraph1.Append(proofError2);
+            return paragraph1;
         }
     }
 }
