@@ -43,11 +43,11 @@ namespace JsonToWord.Services
             sdtBlock.AppendChild(sdtContentBlock);
         }
 
-        internal Drawing CreateDrawing(MainDocumentPart mainDocumentPart, string filePath) //int width = 3291840, int height = 2633473
+        internal Drawing CreateDrawing(MainDocumentPart mainDocumentPart, string filePath, bool isFlattened = false) //int width = 3291840, int height = 2633473
         {
             var imagePartId = AddImagePart(mainDocumentPart, filePath);
 
-            var drawingExtend = GetDrawingExtend(filePath);
+            var drawingExtend = GetDrawingExtend(filePath, isFlattened);
 
             var drawing =
                  new Drawing(
@@ -110,7 +110,7 @@ namespace JsonToWord.Services
             return drawing;
         }
 
-        private static DrawingExtent GetDrawingExtend(string localPath)
+        private static DrawingExtent GetDrawingExtend(string localPath, bool isFlattened = false)
         {
             int width;
             int height;
@@ -126,7 +126,9 @@ namespace JsonToWord.Services
             if (width > 5715000)
                 width = 5715000;
 
-            return new DrawingExtent(height, width);
+
+
+            return isFlattened ? new DrawingExtent((int)Math.Round(height / 2.0f), (int)Math.Round(width / 2.0f)) : new DrawingExtent(height, width); ;
         }
 
         private string AddImagePart(MainDocumentPart mainDocumentPart, string imagePath)
