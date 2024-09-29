@@ -258,7 +258,7 @@ namespace JsonToWord.Services
                         }
                     case WordObjectType.Picture:
                         {
-                            var drawing = pictureService.CreateDrawing(document.MainDocumentPart, wordAttachment.Path);
+                            var drawing = pictureService.CreateDrawing(document.MainDocumentPart, wordAttachment.Path, wordAttachment.IsFlattened.GetValueOrDefault());
 
                             var run = new Run();
                             run.AppendChild(drawing);

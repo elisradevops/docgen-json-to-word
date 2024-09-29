@@ -6,5 +6,6 @@
         public WordObjectType Type { get; set; }
         public string Name { get; set; }    
         public bool? IsLinkedFile { get; set; }
+        public bool? IsFlattened { get; set; }
     }
 }
