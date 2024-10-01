@@ -151,7 +151,8 @@ namespace JsonToWord
                 zipStream.SetLevel(6); // Compression level: 0 (no compression) to 9 (maximum compression)
 
                 // Add the Word document to the ZIP archive
-                AddFileToZip(docxPath, Path.GetFileName(docxPath), zipStream, bufferSize);
+                var validPath = docxPath.Replace(":", "_");
+                AddFileToZip(docxPath, Path.GetFileName(validPath), zipStream, bufferSize);
 
                 // Add all files in the attachments folder to the ZIP archive
                 foreach (string filePath in Directory.GetFiles(attachmentsFolder))
