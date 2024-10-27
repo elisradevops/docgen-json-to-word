@@ -11,13 +11,18 @@ using Microsoft.Extensions.Logging;
 
 namespace JsonToWord.Services
 {
-    internal class TableService : ITableService
+    public class TableService : ITableService
     {
-        private IFileService _fileService;
-        private IUtilsService _utilsService;
-        private ILogger<TableService> _logger;
 
-        public TableService(IFileService fileService, ILogger<TableService> logger, IUtilsService utils) {
+        private readonly IParagraphService _paragraphService;
+        private readonly IPictureService _pictureService;
+        private readonly IFileService _fileService;
+        private readonly IUtilsService _utilsService;
+        private readonly ILogger<TableService> _logger;
+
+        public TableService(IParagraphService paragraphService, IPictureService pictureService, IFileService fileService, ILogger<TableService> logger, IUtilsService utils) {
+            _pictureService = pictureService;
+            _paragraphService = paragraphService;
             _fileService = fileService;
             _logger = logger;
             _utilsService = utils;
@@ -158,12 +163,20 @@ namespace JsonToWord.Services
                     var tableCell = new TableCell();
                     tableCell.AppendChild(tableCellProperties);
 
-                    tableCell = AppendParagraphs(tableCell, cells[j].Paragraphs, document);
+                    //Check if there is no data in the cell (HTML or an Attachment)
+                    bool isEmpty = cells[j].Html == null && cells[j].Attachments?.Count == 0; 
 
-                    tableCell = AppendAttachments(tableCell, cells[j].Attachments, document);
 
-                    
-                    tableCell = AppendHtml(tableCell, cells[j].Html, document);
+                    tableCell = AppendParagraphs(tableCell, cells[j].Paragraphs, document, isEmpty);
+                    if (cells[j].Attachments.Count > 0)
+                    {
+                        tableCell = AppendAttachments(tableCell, cells[j].Attachments, document);
+                    }
+
+                    if (cells[j].Html != null)
+                    {
+                        tableCell = AppendHtml(tableCell, cells[j].Html, document);
+                    }
 
                     tableRow.AppendChild(tableCell);
                 }
@@ -236,10 +249,6 @@ namespace JsonToWord.Services
             if (wordAttachments == null || !wordAttachments.Any())
                 return tableCell;
 
-            
-            var pictureService = new PictureService();
-            var paragraphService = new ParagraphService();
-
             foreach (var wordAttachment in wordAttachments)
             {
                 switch (wordAttachment.Type)
@@ -251,26 +260,25 @@ namespace JsonToWord.Services
 
                             if (embeddedFileParagraph != null)
                             {
-                                tableCell.AppendChild(embeddedFileParagraph);
+                                tableCell.Append(embeddedFileParagraph);
                                 document.Save();
                             }
                             break;
                         }
                     case WordObjectType.Picture:
                         {
-                            var drawing = pictureService.CreateDrawing(document.MainDocumentPart, wordAttachment.Path, wordAttachment.IsFlattened.GetValueOrDefault());
+                            var drawing = _pictureService.CreateDrawing(document.MainDocumentPart, wordAttachment.Path, wordAttachment.IsFlattened.GetValueOrDefault());
 
                             var run = new Run();
-                            run.AppendChild(drawing);
+                            run.Append(drawing);
 
                             var pictureParagraph = new Paragraph();
-                            pictureParagraph.AppendChild(run);
+                            pictureParagraph.Append(run);
+                            tableCell.Append(pictureParagraph);
 
                             // Create and add the caption below the image
-                            var captionParagraph = paragraphService.CreateCaption(wordAttachment.Name);
-
-                            tableCell.AppendChild(pictureParagraph);
-                            tableCell.AppendChild(captionParagraph);
+                            var captionParagraph = _paragraphService.CreateCaption(wordAttachment.Name);
+                            tableCell.Append(captionParagraph);
                             break;
                         }
                     default:
@@ -281,16 +289,14 @@ namespace JsonToWord.Services
             return tableCell;
         }
 
-        private TableCell AppendParagraphs(TableCell tableCell, List<WordParagraph> wordParagraphs, WordprocessingDocument document)
+        private TableCell AppendParagraphs(TableCell tableCell, List<WordParagraph> wordParagraphs, WordprocessingDocument document, bool appendEmptyParagraph)
         {
             if (wordParagraphs == null || !wordParagraphs.Any())
                 return tableCell;
 
-            var paragraphService = new ParagraphService();
-
             foreach (var wordParagraph in wordParagraphs)
             {
-                var paragraph = paragraphService.CreateParagraph(wordParagraph);
+                var paragraph = _paragraphService.CreateParagraph(wordParagraph);
 
                 if (wordParagraph.Runs != null && wordParagraph.Runs.Any())
                 {
@@ -320,9 +326,12 @@ namespace JsonToWord.Services
                             paragraph.AppendChild(run);
                         }
                     }
+                    tableCell.AppendChild(paragraph);
                 }
-
-                tableCell.AppendChild(paragraph);
+                else if(appendEmptyParagraph)
+                {
+                    tableCell.Append(paragraph);
+                }
             }
 
             return tableCell;

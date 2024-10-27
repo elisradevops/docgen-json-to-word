@@ -1,12 +1,13 @@
 ﻿using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Wordprocessing;
 using JsonToWord.Models;
+using JsonToWord.Services.Interfaces;
 
 namespace JsonToWord.Services
 {
-    internal class ParagraphService
+    public class ParagraphService: IParagraphService
     {
-        internal Paragraph CreateParagraph(WordParagraph wordParagraph)
+        public Paragraph CreateParagraph(WordParagraph wordParagraph)
         {
             var paragraph = new Paragraph();
 
@@ -22,7 +23,7 @@ namespace JsonToWord.Services
             return paragraph;
         }
 
-        internal Paragraph CreateCaption(string captionText)
+        public Paragraph CreateCaption(string captionText)
         {
             Paragraph paragraph1 = new Paragraph();
             ParagraphProperties paragraphProperties1 = new ParagraphProperties();

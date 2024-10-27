@@ -1,23 +1,24 @@
 ﻿using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using JsonToWord.Models;
+using JsonToWord.Services.Interfaces;
 using System;
 
 namespace JsonToWord.Services
 {
-    internal class TextService
+    public class TextService : ITextService
     {
-        private readonly ParagraphService _paragraphService;
+        private readonly IParagraphService _paragraphService;
         private readonly RunService _runService;
         private readonly ContentControlService _contentControlService;
 
-        public TextService()
+        public TextService(IParagraphService paragraphService)
         {
-            _paragraphService = new ParagraphService();
+            _paragraphService = paragraphService;
             _runService = new RunService();
             _contentControlService = new ContentControlService();
         }
-        internal void Write(WordprocessingDocument document, string contentControlTitle, WordParagraph wordParagraph)
+        public void Write(WordprocessingDocument document, string contentControlTitle, WordParagraph wordParagraph)
         {
             var paragraph = _paragraphService.CreateParagraph(wordParagraph);
 
