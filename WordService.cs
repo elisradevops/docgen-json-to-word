@@ -16,22 +16,22 @@ namespace JsonToWord
         private readonly IFileService _fileService;
         private readonly ILogger<WordService> _logger;
         private readonly HtmlService _htmlService;
-        private readonly PictureService _pictureService;
+        private readonly IPictureService _pictureService;
         private readonly ITableService _tableService;
-        private readonly TextService _textService;
+        private readonly ITextService _textService;
         private readonly DocumentService _documentService;
         private bool _isZipNeeded = false;
         #endregion
         
         #region Constructor
-        public WordService(ITableService tableService,IFileService fileService, ILogger<WordService> logger)
+        public WordService(ITableService tableService, IPictureService pictureService, ITextService textService,IFileService fileService, ILogger<WordService> logger)
         {
             _contentControlService = new ContentControlService();
             _fileService = fileService;
             _htmlService = new HtmlService();
-            _pictureService = new PictureService();
+            _pictureService = pictureService;
             _tableService = tableService;
-            _textService = new TextService();
+            _textService = textService;
             _documentService = new DocumentService();
             _logger = logger;
             OnSubscribeEvents();
