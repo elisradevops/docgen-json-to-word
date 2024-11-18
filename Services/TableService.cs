@@ -153,8 +153,6 @@ namespace JsonToWord.Services
                             Val = ShadingPatternValues.Clear,
                             Color = cells[j].Shading.Color,
                             Fill = cells[j].Shading.Fill,
-                            ThemeFill = ThemeColorValues.Text2,
-                            ThemeFillShade = cells[j].Shading.ThemeFillShade
                         };
 
                         tableCellProperties.AppendChild(cellShading);
