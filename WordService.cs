@@ -19,12 +19,13 @@ namespace JsonToWord
         private readonly IPictureService _pictureService;
         private readonly ITableService _tableService;
         private readonly ITextService _textService;
+        private readonly IListService _listService;
         private readonly DocumentService _documentService;
         private bool _isZipNeeded = false;
         #endregion
         
         #region Constructor
-        public WordService(ITableService tableService, IPictureService pictureService, ITextService textService,IFileService fileService, ILogger<WordService> logger)
+        public WordService(ITableService tableService, IPictureService pictureService, ITextService textService,IFileService fileService, IListService listService, ILogger<WordService> logger)
         {
             _contentControlService = new ContentControlService();
             _fileService = fileService;
@@ -32,6 +33,7 @@ namespace JsonToWord
             _pictureService = pictureService;
             _tableService = tableService;
             _textService = textService;
+            _listService = listService;
             _documentService = new DocumentService();
             _logger = logger;
             OnSubscribeEvents();
@@ -43,7 +45,6 @@ namespace JsonToWord
 
         public string Create(WordModel _wordModel)
         {
-
             var documentPath = _documentService.CreateDocument(_wordModel.LocalPath);
 
             using (var document = WordprocessingDocument.Open(documentPath, true))
@@ -72,6 +73,9 @@ namespace JsonToWord
                                 break;
                             case WordObjectType.Table:
                                 _tableService.Insert(document, contentControl.Title, (WordTable)wordObject);
+                                break;
+                            case WordObjectType.List:
+                                _listService.Insert(document, contentControl.Title, (WordList)wordObject);
                                 break;
                             default:
                                 throw new ArgumentOutOfRangeException();

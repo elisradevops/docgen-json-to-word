@@ -31,7 +31,10 @@ namespace JsonToWord.Converters
 
             if (string.Equals(jo[property].Value<string>(), WordObjectType.Table.ToString(), StringComparison.CurrentCultureIgnoreCase))
                 return jo.ToObject<WordTable>(serializer);
-            
+
+            if (string.Equals(jo[property].Value<string>(), WordObjectType.List.ToString(), StringComparison.CurrentCultureIgnoreCase))
+                return jo.ToObject<WordList>(serializer);
+
             return serializer.Deserialize(reader, typeof(IWordObject));
         }
 
