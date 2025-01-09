@@ -17,15 +17,17 @@ namespace JsonToWord.Services
         private readonly IParagraphService _paragraphService;
         private readonly IPictureService _pictureService;
         private readonly IFileService _fileService;
+        private readonly IRunService _runService;
         private readonly IUtilsService _utilsService;
         private readonly ILogger<TableService> _logger;
 
-        public TableService(IParagraphService paragraphService, IPictureService pictureService, IFileService fileService, ILogger<TableService> logger, IUtilsService utils) {
+        public TableService(IParagraphService paragraphService, IRunService runService, IPictureService pictureService, IFileService fileService, ILogger<TableService> logger, IUtilsService utils) {
             _pictureService = pictureService;
             _paragraphService = paragraphService;
             _fileService = fileService;
             _logger = logger;
             _utilsService = utils;
+            _runService = runService;
         }
 
         public void Insert(WordprocessingDocument document, string contentControlTitle, WordTable wordTable)
@@ -166,7 +168,7 @@ namespace JsonToWord.Services
 
 
                     tableCell = AppendParagraphs(tableCell, cells[j].Paragraphs, document, isEmpty);
-                    if (cells[j].Attachments.Count > 0)
+                    if (cells[j].Attachments?.Count > 0)
                     {
                         tableCell = AppendAttachments(tableCell, cells[j].Attachments, document);
                     }
@@ -298,16 +300,15 @@ namespace JsonToWord.Services
 
                 if (wordParagraph.Runs != null && wordParagraph.Runs.Any())
                 {
-                    var runService = new RunService();
 
                     foreach (var wordRun in wordParagraph.Runs)
                     {
-                        var run = runService.CreateRun(wordRun);
-                        if (wordRun.Uri != null && wordRun.Uri != "")
+                        var run = _runService.CreateRun(wordRun,document);
+                        if (!string.IsNullOrEmpty(wordRun.TextStyling.Uri))
                         {
                             try
                             {
-                                var id = HyperlinkService.AddHyperlinkRelationship(document.MainDocumentPart, new Uri(wordRun.Uri));
+                                var id = HyperlinkService.AddHyperlinkRelationship(document.MainDocumentPart, new Uri(wordRun.TextStyling.Uri));
                                 var hyperlink = HyperlinkService.CreateHyperlink(id);
                                 hyperlink.AppendChild(run);
 
@@ -315,7 +316,7 @@ namespace JsonToWord.Services
                             }
                             catch (UriFormatException e)
                             {
-                                Console.WriteLine(wordRun.Uri + " is an invalid uri \n" + e.Message);
+                                Console.WriteLine(wordRun.TextStyling.Uri + " is an invalid uri \n" + e.Message);
                                 paragraph.AppendChild(run);
                             }
                         }
