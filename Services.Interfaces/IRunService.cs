@@ -7,6 +7,6 @@ namespace JsonToWord.Services.Interfaces
 {
     public interface IRunService
     {
-        Run CreateRun(WordRun wordRun, WordprocessingDocument document);
+        Run CreateRun(WordRun wordRun);
     }
 }

@@ -15,45 +15,33 @@ namespace JsonToWord.Services
             _pictureService = pictureService;
         }
 
-        public Run CreateRun(WordRun wordRun, WordprocessingDocument document)
+        public Run CreateRun(WordRun wordRun)
         {
             var run = new Run();
             var runProperties = new RunProperties();
-            if (wordRun.Type == "text")
-            {
-                SetHyperlink(wordRun, runProperties);
-                SetBold(wordRun, runProperties);
-                SetItalic(wordRun, runProperties);
-                SetUnderline(wordRun, runProperties);
-                SetSize(wordRun, runProperties);
-                SetColor(wordRun, runProperties);
-                run.AppendChild(runProperties);
-                SetBreak(wordRun, run);
-                SetText(wordRun, run);
-            }
-            if(wordRun.Type == "break")
-            {
-                run.AppendChild(new Break());
-            }
-            else if(wordRun.Type == "image")
-            {
-                if (!string.IsNullOrEmpty(wordRun.Src))
-                {
-                    var drawing = _pictureService.CreateDrawing(document.MainDocumentPart, wordRun.Src);
-                    run.AppendChild(drawing);
-                }
-            }
-           
+
+            SetHyperlink(wordRun, runProperties);
+            SetBold(wordRun, runProperties);
+            SetItalic(wordRun, runProperties);
+            SetUnderline(wordRun, runProperties);
+            SetSize(wordRun, runProperties);
+            SetColor(wordRun, runProperties);
+
+            run.AppendChild(runProperties);
+
+            SetBreak(wordRun, run);
+            SetText(wordRun, run);
+
             return run;
         }
 
         private void SetColor(WordRun wordRun, RunProperties runProperties)
         {
-            if (!string.IsNullOrEmpty(wordRun.TextStyling.FontColor))
+            if (!string.IsNullOrEmpty(wordRun.FontColor))
             {
                 try
                 {
-                    System.Drawing.Color color = System.Drawing.Color.FromName(wordRun.TextStyling.FontColor);
+                    System.Drawing.Color color = System.Drawing.Color.FromName(wordRun.FontColor);
                     string colorHex = color.R.ToString("X2") + color.G.ToString("X2") + color.B.ToString("X2");
                     Color wordColor = new Color() { Val = colorHex };
                     runProperties.AppendChild(wordColor);
@@ -67,18 +55,18 @@ namespace JsonToWord.Services
 
         private static void SetBreak(WordRun wordRun, Run run)
         {
-            if (wordRun.TextStyling.InsertLineBreak)
+            if (wordRun.InsertLineBreak)
                 run.AppendChild(new Break());
         }
 
         private static void SetText(WordRun wordRun, Run run)
         {
-            if (string.IsNullOrEmpty(wordRun.Value))
+            if (string.IsNullOrEmpty(wordRun.Text))
                 return;
 
-            var text = new Text { Text = wordRun.Value };
+            var text = new Text { Text = wordRun.Text };
 
-            if (wordRun.TextStyling.InsertSpace)
+            if (wordRun.InsertSpace)
                 text.Space = SpaceProcessingModeValues.Preserve;
 
             run.AppendChild(text);
@@ -86,19 +74,19 @@ namespace JsonToWord.Services
 
         private static void SetSize(WordRun wordRun, RunProperties runProperties)
         {
-            if (wordRun.TextStyling.Size != 0)
-                runProperties.FontSize = new FontSize { Val = new StringValue((wordRun.TextStyling.Size * 2).ToString()) };
+            if (wordRun.Size != 0)
+                runProperties.FontSize = new FontSize { Val = new StringValue((wordRun.Size * 2).ToString()) };
         }
 
         private static void SetUnderline(WordRun wordRun, RunProperties runProperties)
         {
-            if (wordRun.TextStyling.Underline && string.IsNullOrEmpty(wordRun.TextStyling.Uri))
+            if (wordRun.Underline && string.IsNullOrEmpty(wordRun.Uri))
                 AddUnderline(runProperties);
         }
 
         private static void SetItalic(WordRun wordRun, RunProperties runProperties)
         {
-            if (!wordRun.TextStyling.Italic)
+            if (!wordRun.Italic)
                 return;
 
             var italic = new Italic();
@@ -110,7 +98,7 @@ namespace JsonToWord.Services
 
         private static void SetBold(WordRun wordRun, RunProperties runProperties)
         {
-            if (!wordRun.TextStyling.Bold)
+            if (!wordRun.Bold)
                 return;
 
             var bold = new Bold();
@@ -122,7 +110,7 @@ namespace JsonToWord.Services
 
         private static void SetHyperlink(WordRun wordRun, RunProperties runProperties)
         {
-            if (!string.IsNullOrEmpty(wordRun.TextStyling.Uri))
+            if (!string.IsNullOrEmpty(wordRun.Uri))
             {
                 var runStyle = new RunStyle() { Val = "Hyperlink" };
                 var color = new Color() { Val = "auto", ThemeColor = ThemeColorValues.Hyperlink };
@@ -133,7 +121,7 @@ namespace JsonToWord.Services
             }
             else
             {
-                var runFonts = new RunFonts { Ascii = wordRun.TextStyling.Font, HighAnsi = wordRun.TextStyling.Font, ComplexScript = wordRun.TextStyling.Font };
+                var runFonts = new RunFonts { Ascii = wordRun.Font, HighAnsi = wordRun.Font, ComplexScript = wordRun.Font };
                 runProperties.AppendChild(runFonts);
             }
         }
