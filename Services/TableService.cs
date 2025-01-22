@@ -293,47 +293,53 @@ namespace JsonToWord.Services
         {
             if (wordParagraphs == null || !wordParagraphs.Any())
                 return tableCell;
-
-            foreach (var wordParagraph in wordParagraphs)
+            try
             {
-                var paragraph = _paragraphService.CreateParagraph(wordParagraph);
-
-                if (wordParagraph.Runs != null && wordParagraph.Runs.Any())
+                foreach (var wordParagraph in wordParagraphs)
                 {
+                    var paragraph = _paragraphService.CreateParagraph(wordParagraph);
 
-                    foreach (var wordRun in wordParagraph.Runs)
+                    if (wordParagraph.Runs != null && wordParagraph.Runs.Any())
                     {
-                        var run = _runService.CreateRun(wordRun);
-                        if (!string.IsNullOrEmpty(wordRun.Uri))
-                        {
-                            try
-                            {
-                                var id = HyperlinkService.AddHyperlinkRelationship(document.MainDocumentPart, new Uri(wordRun.Uri));
-                                var hyperlink = HyperlinkService.CreateHyperlink(id);
-                                hyperlink.AppendChild(run);
 
-                                paragraph.AppendChild(hyperlink);
-                            }
-                            catch (UriFormatException e)
+                        foreach (var wordRun in wordParagraph.Runs)
+                        {
+                            var run = _runService.CreateRun(wordRun, document);
+                            if (!string.IsNullOrEmpty(wordRun.TextStyling.Uri))
                             {
-                                Console.WriteLine(wordRun.Uri + " is an invalid uri \n" + e.Message);
+                                try
+                                {
+                                    var id = HyperlinkService.AddHyperlinkRelationship(document.MainDocumentPart, new Uri(wordRun.TextStyling.Uri));
+                                    var hyperlink = HyperlinkService.CreateHyperlink(id);
+                                    hyperlink.AppendChild(run);
+
+                                    paragraph.AppendChild(hyperlink);
+                                }
+                                catch (UriFormatException e)
+                                {
+                                    _logger.LogError(wordRun.TextStyling.Uri + " is an invalid uri \n" + e.Message);
+                                    paragraph.AppendChild(run);
+                                }
+                            }
+                            else
+                            {
                                 paragraph.AppendChild(run);
                             }
                         }
-                        else
-                        {
-                            paragraph.AppendChild(run);
-                        }
+                        tableCell.AppendChild(paragraph);
                     }
-                    tableCell.AppendChild(paragraph);
-                }
-                else if(appendEmptyParagraph)
-                {
-                    tableCell.Append(paragraph);
+                    else if (appendEmptyParagraph)
+                    {
+                        tableCell.Append(paragraph);
+                    }
                 }
             }
-
+            catch (Exception e)
+            {
+                _logger.LogError(e, "Error while appending paragraphs to table cell");
+            }
             return tableCell;
+
         }
 
         private TableCellBorders CreateTableCellBorders()
