@@ -6,6 +6,7 @@
         Html,
         Paragraph,
         Picture,
-        Table
+        Table,
+        List
     }
 }

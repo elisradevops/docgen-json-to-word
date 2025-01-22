@@ -303,12 +303,12 @@ namespace JsonToWord.Services
 
                     foreach (var wordRun in wordParagraph.Runs)
                     {
-                        var run = _runService.CreateRun(wordRun);
-                        if (!string.IsNullOrEmpty(wordRun.Uri))
+                        var run = _runService.CreateRun(wordRun,document);
+                        if (!string.IsNullOrEmpty(wordRun.TextStyling.Uri))
                         {
                             try
                             {
-                                var id = HyperlinkService.AddHyperlinkRelationship(document.MainDocumentPart, new Uri(wordRun.Uri));
+                                var id = HyperlinkService.AddHyperlinkRelationship(document.MainDocumentPart, new Uri(wordRun.TextStyling.Uri));
                                 var hyperlink = HyperlinkService.CreateHyperlink(id);
                                 hyperlink.AppendChild(run);
 
@@ -316,7 +316,7 @@ namespace JsonToWord.Services
                             }
                             catch (UriFormatException e)
                             {
-                                Console.WriteLine(wordRun.Uri + " is an invalid uri \n" + e.Message);
+                                Console.WriteLine(wordRun.TextStyling.Uri + " is an invalid uri \n" + e.Message);
                                 paragraph.AppendChild(run);
                             }
                         }
