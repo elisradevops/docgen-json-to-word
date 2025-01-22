@@ -1,18 +1,22 @@
 ﻿using System;
+using Amazon.Runtime.Internal.Util;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using JsonToWord.Models;
 using JsonToWord.Services.Interfaces;
+using Microsoft.Extensions.Logging;
 
 namespace JsonToWord.Services
 {
     internal class RunService: IRunService
     {
         private readonly IPictureService _pictureService;
-        public RunService(IPictureService pictureService)
+        private ILogger<RunService> _logger;
+        public RunService(IPictureService pictureService, ILogger<RunService> logger)
         {
             _pictureService = pictureService;
+            _logger = logger;
         }
 
         public Run CreateRun(WordRun wordRun, WordprocessingDocument document)
@@ -60,7 +64,7 @@ namespace JsonToWord.Services
                 }
                 catch (Exception exception)
                 {
-                    Console.WriteLine(exception);
+                   _logger.LogError(exception, "Invalid color value");
                 }
             }
         }
