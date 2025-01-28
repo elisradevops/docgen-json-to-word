@@ -1,33 +1,38 @@
 ﻿using System;
 using System.IO;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using DocumentFormat.OpenXml.Wordprocessing;
+using HtmlAgilityPack;
 using HtmlToOpenXml;
 using JsonToWord.Models;
+using JsonToWord.Services.Interfaces;
 using Microsoft.Extensions.Logging;
+using SixLabors.ImageSharp;
 
 namespace JsonToWord.Services
 {
-    internal class HtmlService
+    internal class HtmlService : IHtmlService
     {
         private readonly ContentControlService _contentControlService;
         private readonly ILogger<HtmlService> _logger;
-        public HtmlService()
+        public HtmlService(ILogger<HtmlService> logger)
         {
             _contentControlService = new ContentControlService();
+            _logger = logger;
         }
-        internal void Insert(WordprocessingDocument document, string contentControlTitle, WordHtml wordHtml)
+        public void Insert(WordprocessingDocument document, string contentControlTitle, WordHtml wordHtml)
         {
-            var html = SetHtmlFormat(wordHtml.Html, wordHtml.Font, wordHtml.FontSize);
+            var html = WrapHtmlWithStyle(wordHtml.Html, wordHtml.Font, wordHtml.FontSize);
             
             html = RemoveWordHeading(html);
 
             html = FixBullets(html);
 
-            var tempHtmlFile = CreateHtmlWordDocument(html);
+            var tempHtmlFile = CreateHtmlWordDocument(html).GetAwaiter().GetResult();
 
             var altChunkId = "altChunkId" + Guid.NewGuid().ToString("N");
             var mainPart = document.MainDocumentPart;
@@ -48,7 +53,7 @@ namespace JsonToWord.Services
             sdtBlock.AppendChild(sdtContentBlock);
         }
 
-        internal string CreateHtmlWordDocument(string html)
+        public async Task<string> CreateHtmlWordDocument(string html)
         {
             var tempHtmlDirectory = Path.Combine(Path.GetTempPath(), "MicrosoftWordOpenXml", Guid.NewGuid().ToString("N"));
 
@@ -68,15 +73,17 @@ namespace JsonToWord.Services
                 }
 
                 var converter = new HtmlConverter(mainPart);
+
                 try
                 {
-                    converter.ParseHtml(html);
+                    await converter.ParseBody(html);
                 }
-                catch(Exception ex)
+                catch (Exception ex)
                 {
-                    _logger.LogError("DocGen ran into an issue parsing the html due to :" , ex);
-                    converter.ParseHtml("<p style='color: red'><b>DocGen ran into an issue parsing the html due to :" + ex.Message +"<b></p>");
+                    _logger.LogError(ex, "DocGen ran into an issue parsing the html due to :");
+                    await converter.ParseBody("<p style='color: red'><b>DocGen ran into an issue parsing the html due to :" + ex.Message + "<b></p>");
                 }
+                mainPart.Document.Save();
             }
 
             return tempHtmlFile;
@@ -97,20 +104,43 @@ namespace JsonToWord.Services
             return tempDocumentFile;
         }
 
-        private string SetHtmlFormat(string html, string font, uint fontSize)
+        private string WrapHtmlWithStyle(string originalHtml, string font, uint fontSize)
         {
-            if (!html.ToLower().StartsWith("<html>"))
+            // Check if the originalHtml is already wrapped with <html> tags
+            if (originalHtml.TrimStart().StartsWith("<html>", StringComparison.OrdinalIgnoreCase) &&
+                originalHtml.TrimEnd().EndsWith("</html>", StringComparison.OrdinalIgnoreCase))
             {
-                // This method wraps the HTML content with inline styles, since Word does not reliably support <style> tags in altChunk
+                HtmlDocument doc = new HtmlDocument();
+                doc.LoadHtml(originalHtml);
+
+                var bodyNode = doc.DocumentNode.SelectSingleNode("//body");
+
+                if (bodyNode != null)
+                {
+                    string newStyle = $"font-family: {font}, sans-serif; font-size: {fontSize}pt;";
+
+                    string existingStyle = bodyNode.GetAttributeValue("style", "");
+                    string combinedStyle = string.IsNullOrEmpty(existingStyle)
+                             ? newStyle
+                             : existingStyle + " " + newStyle;
+                    bodyNode.SetAttributeValue("style", combinedStyle);
+                }
+
+
+
+                string modifiedHtml = doc.DocumentNode.OuterHtml;
+                return modifiedHtml;
+            }
+            else
+            {
+                // If it is not wrapped, wrap it with <html> and <body> tags and apply inline styles
                 return $@"
                     <html>
                     <body style='font-family: {font}, sans-serif; font-size: {fontSize}pt;'>
-                        {ApplyInlineStyles(html, font, fontSize)}
+                        {ApplyInlineStyles(originalHtml, font, fontSize)}
                     </body>
                     </html>";
             }
-
-            return html;
         }
 
 

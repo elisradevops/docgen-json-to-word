@@ -30,6 +30,7 @@ namespace JsonToWord
             services.AddSingleton<IFileService, FileService>();
             services.AddSingleton<IUtilsService, UtilsService>();
             services.AddSingleton<IRunService, RunService>();
+            services.AddSingleton<IHtmlService, HtmlService>();
         }
 
         // Remove ILoggingBuilder from the method signature
