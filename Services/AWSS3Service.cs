@@ -10,6 +10,7 @@ using Amazon;
 using Amazon.S3.Util;
 using Amazon.S3.Model;
 using Microsoft.Extensions.Logging;
+using System.Net.Http;
 
 namespace JsonToWord.Services
 {
@@ -35,7 +36,7 @@ namespace JsonToWord.Services
             string fullPath;
             if (string.IsNullOrWhiteSpace(fileExt))
             {
-            fullPath = localPath + filename + webExt;
+                fullPath = localPath + filename + webExt;
             }
             else
             {
@@ -43,14 +44,17 @@ namespace JsonToWord.Services
             }
             try
             {
-                using (var client = new WebClient())
+                using (var client = new HttpClient())
                 {
-                    client.DownloadFile(webPath, fullPath);
+                    var response = client.GetAsync(webPath).Result;
+                    response.EnsureSuccessStatusCode();
+                    var fileBytes = response.Content.ReadAsByteArrayAsync().Result;
+                    File.WriteAllBytes(fullPath, fileBytes);
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError("Something went wrong during file download", ex);
+                _logger.LogError(ex, "Something went wrong during file download");
                 throw;
             }
             return fullPath;
@@ -83,7 +87,7 @@ namespace JsonToWord.Services
             }
             catch (Exception ex) when (ex is AmazonS3Exception)
             {
-                _logger.LogError("Something went wrong during file upload", ex);
+                _logger.LogError(ex,"Something went wrong during file upload");
                 throw;
             }
         }
@@ -137,8 +141,9 @@ namespace JsonToWord.Services
             }
             catch (Exception ex) when (ex is AmazonS3Exception)
             {
-                _logger.LogError("Something went wrong during file upload", ex);
+                _logger.LogError(ex, "Something went wrong during file download");
                 throw;
+
             }
         }
 

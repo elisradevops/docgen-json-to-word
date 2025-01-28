@@ -15,25 +15,23 @@ namespace JsonToWord
         private readonly ContentControlService _contentControlService;
         private readonly IFileService _fileService;
         private readonly ILogger<WordService> _logger;
-        private readonly HtmlService _htmlService;
         private readonly IPictureService _pictureService;
         private readonly ITableService _tableService;
         private readonly ITextService _textService;
-        private readonly IListService _listService;
+        private readonly IHtmlService _htmlService;
         private readonly DocumentService _documentService;
         private bool _isZipNeeded = false;
         #endregion
         
         #region Constructor
-        public WordService(ITableService tableService, IPictureService pictureService, ITextService textService,IFileService fileService, IListService listService, ILogger<WordService> logger)
+        public WordService(ITableService tableService, IPictureService pictureService, ITextService textService, IHtmlService htmlService ,IFileService fileService, ILogger<WordService> logger)
         {
             _contentControlService = new ContentControlService();
             _fileService = fileService;
-            _htmlService = new HtmlService();
+            _htmlService = htmlService;
             _pictureService = pictureService;
             _tableService = tableService;
             _textService = textService;
-            _listService = listService;
             _documentService = new DocumentService();
             _logger = logger;
             OnSubscribeEvents();
@@ -73,9 +71,6 @@ namespace JsonToWord
                                 break;
                             case WordObjectType.Table:
                                 _tableService.Insert(document, contentControl.Title, (WordTable)wordObject);
-                                break;
-                            case WordObjectType.List:
-                                _listService.Insert(document, contentControl.Title, (WordList)wordObject);
                                 break;
                             default:
                                 throw new ArgumentOutOfRangeException();

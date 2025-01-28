@@ -2,7 +2,6 @@
 using DocumentFormat.OpenXml.Wordprocessing;
 using JsonToWord.Models;
 using JsonToWord.Services.Interfaces;
-using System;
 
 namespace JsonToWord.Services
 {
@@ -23,34 +22,6 @@ namespace JsonToWord.Services
 
             return paragraph;
         }
-
-
-
-        public Paragraph InitParagraphForListItem(
-            WordListItem wordListItem,
-            bool isOrdered,
-            int numberingId,
-            bool multiLevel)
-        {
-            var paragraph = new Paragraph();
-            var pPr = new ParagraphProperties();
-
-            // If single-level => clamp to 0
-            int level = multiLevel ? wordListItem.Level : 0;
-            level = Math.Max(0, Math.Min(level, 8)); // clamp
-
-            var numProps = new NumberingProperties(
-                new NumberingLevelReference { Val = level },
-                new NumberingId { Val = numberingId }
-            );
-            pPr.Append(numProps);
-
-            pPr.ParagraphStyleId = new ParagraphStyleId { Val = "ListParagraph" };
-
-            paragraph.ParagraphProperties = pPr;
-            return paragraph;
-        }
-
 
 
         public Paragraph CreateCaption(string captionText)

@@ -8,6 +8,7 @@ using DocumentFormat.OpenXml.Wordprocessing;
 using JsonToWord.Models;
 using JsonToWord.Services.Interfaces;
 using Microsoft.Extensions.Logging;
+using HtmlAgilityPack;
 
 namespace JsonToWord.Services
 {
@@ -18,16 +19,18 @@ namespace JsonToWord.Services
         private readonly IPictureService _pictureService;
         private readonly IFileService _fileService;
         private readonly IRunService _runService;
+        private readonly IHtmlService _htmlService;
         private readonly IUtilsService _utilsService;
         private readonly ILogger<TableService> _logger;
 
-        public TableService(IParagraphService paragraphService, IRunService runService, IPictureService pictureService, IFileService fileService, ILogger<TableService> logger, IUtilsService utils) {
+        public TableService(IParagraphService paragraphService, IRunService runService, IHtmlService htmlService, IPictureService pictureService, IFileService fileService, ILogger<TableService> logger, IUtilsService utils) {
             _pictureService = pictureService;
             _paragraphService = paragraphService;
             _fileService = fileService;
             _logger = logger;
             _utilsService = utils;
             _runService = runService;
+            _htmlService = htmlService;
         }
 
         public void Insert(WordprocessingDocument document, string contentControlTitle, WordTable wordTable)
@@ -203,10 +206,9 @@ namespace JsonToWord.Services
             }
             var styledHtml = WrapHtmlWithStyle(html.Html, html.Font, html.FontSize);
 
-            var htmlService = new HtmlService();
             _logger.LogDebug("styledHtml" + styledHtml);
 
-            var tempHtmlFile = htmlService.CreateHtmlWordDocument(styledHtml);
+            var tempHtmlFile = _htmlService.CreateHtmlWordDocument(styledHtml).GetAwaiter().GetResult();
 
             var altChunkId = "altChunkId" + Guid.NewGuid().ToString("N");
             var chunk = document.MainDocumentPart.AddAlternativeFormatImportPart(AlternativeFormatImportPartType.WordprocessingML, altChunkId);
@@ -223,13 +225,39 @@ namespace JsonToWord.Services
         }
         private string WrapHtmlWithStyle(string originalHtml, string font, uint fontSize)
         {
-            // This method wraps the HTML content with inline styles, since Word does not reliably support <style> tags in altChunk
-            return $@"
+            // Check if the originalHtml is already wrapped with <html> tags
+            if (originalHtml.TrimStart().StartsWith("<html>", StringComparison.OrdinalIgnoreCase) &&
+                originalHtml.TrimEnd().EndsWith("</html>", StringComparison.OrdinalIgnoreCase))
+            {
+                HtmlDocument doc = new HtmlDocument();
+                doc.LoadHtml(originalHtml);
+
+                var bodyNode = doc.DocumentNode.SelectSingleNode("//body");
+
+                if (bodyNode!=null)
+                {
+                    string newStyle = $"font-family: {font}, sans-serif; font-size: {fontSize}pt;";
+
+                    string existingStyle = bodyNode.GetAttributeValue("style", "");
+                    string combinedStyle = string.IsNullOrEmpty(existingStyle)
+                             ? newStyle
+                             : existingStyle + " " + newStyle;
+                    bodyNode.SetAttributeValue("style", combinedStyle);
+                }
+
+                string modifiedHtml = doc.DocumentNode.OuterHtml;
+                return modifiedHtml;
+            }
+            else
+            {
+                // If it is not wrapped, wrap it with <html> and <body> tags and apply inline styles
+                return $@"
                     <html>
                     <body style='font-family: {font}, sans-serif; font-size: {fontSize}pt;'>
                         {ApplyInlineStyles(originalHtml, font, fontSize)}
                     </body>
                     </html>";
+            }
         }
 
         // A method to apply inline styles to relevant HTML tags
@@ -293,53 +321,47 @@ namespace JsonToWord.Services
         {
             if (wordParagraphs == null || !wordParagraphs.Any())
                 return tableCell;
-            try
+
+            foreach (var wordParagraph in wordParagraphs)
             {
-                foreach (var wordParagraph in wordParagraphs)
+                var paragraph = _paragraphService.CreateParagraph(wordParagraph);
+
+                if (wordParagraph.Runs != null && wordParagraph.Runs.Any())
                 {
-                    var paragraph = _paragraphService.CreateParagraph(wordParagraph);
 
-                    if (wordParagraph.Runs != null && wordParagraph.Runs.Any())
+                    foreach (var wordRun in wordParagraph.Runs)
                     {
-
-                        foreach (var wordRun in wordParagraph.Runs)
+                        var run = _runService.CreateRun(wordRun);
+                        if (!string.IsNullOrEmpty(wordRun.Uri))
                         {
-                            var run = _runService.CreateRun(wordRun, document);
-                            if (!string.IsNullOrEmpty(wordRun.TextStyling.Uri))
+                            try
                             {
-                                try
-                                {
-                                    var id = HyperlinkService.AddHyperlinkRelationship(document.MainDocumentPart, new Uri(wordRun.TextStyling.Uri));
-                                    var hyperlink = HyperlinkService.CreateHyperlink(id);
-                                    hyperlink.AppendChild(run);
+                                var id = HyperlinkService.AddHyperlinkRelationship(document.MainDocumentPart, new Uri(wordRun.Uri));
+                                var hyperlink = HyperlinkService.CreateHyperlink(id);
+                                hyperlink.AppendChild(run);
 
-                                    paragraph.AppendChild(hyperlink);
-                                }
-                                catch (UriFormatException e)
-                                {
-                                    _logger.LogError(wordRun.TextStyling.Uri + " is an invalid uri \n" + e.Message);
-                                    paragraph.AppendChild(run);
-                                }
+                                paragraph.AppendChild(hyperlink);
                             }
-                            else
+                            catch (UriFormatException e)
                             {
+                                Console.WriteLine(wordRun.Uri + " is an invalid uri \n" + e.Message);
                                 paragraph.AppendChild(run);
                             }
                         }
-                        tableCell.AppendChild(paragraph);
+                        else
+                        {
+                            paragraph.AppendChild(run);
+                        }
                     }
-                    else if (appendEmptyParagraph)
-                    {
-                        tableCell.Append(paragraph);
-                    }
+                    tableCell.AppendChild(paragraph);
+                }
+                else if(appendEmptyParagraph)
+                {
+                    tableCell.Append(paragraph);
                 }
             }
-            catch (Exception e)
-            {
-                _logger.LogError(e, "Error while appending paragraphs to table cell");
-            }
-            return tableCell;
 
+            return tableCell;
         }
 
         private TableCellBorders CreateTableCellBorders()
