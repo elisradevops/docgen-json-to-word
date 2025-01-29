@@ -72,7 +72,10 @@ namespace JsonToWord.Services
                     new Document(new Body()).Save(mainPart);
                 }
 
-                var converter = new HtmlConverter(mainPart);
+                var converter = new HtmlConverter(mainPart, new HtmlToOpenXml.IO.DefaultWebRequest()
+                {
+                    BaseImageUrl = new Uri(Environment.CurrentDirectory)
+                });
 
                 try
                 {
@@ -80,8 +83,11 @@ namespace JsonToWord.Services
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "DocGen ran into an issue parsing the html due to :");
-                    await converter.ParseBody("<p style='color: red'><b>DocGen ran into an issue parsing the html due to :" + ex.Message + "<b></p>");
+                    string errorMessage = ex.Message;
+                    _logger.LogError(ex, "DocGen ran into an issue parsing the html due to: {Message}", errorMessage);
+
+                    string errorHtml = "<html><head></head><body><p style='color: red'><b>DocGen ran into an issue parsing the html due to: " + errorMessage + "</b></p></body></html>";
+                    await converter.ParseBody(errorHtml);
                 }
                 mainPart.Document.Save();
             }
