@@ -29,8 +29,8 @@ namespace JsonToWord.Services
 
             run.AppendChild(runProperties);
 
-            SetBreak(wordRun, run);
             SetText(wordRun, run);
+            SetBreak(wordRun, run);
 
             return run;
         }
