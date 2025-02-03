@@ -6,6 +6,13 @@
 
   <ItemGroup>
     <None Remove="Models\nifmydir.dm1~" />
+    <None Remove="Resources\template.docx" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\template.docx">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </EmbeddedResource>
   </ItemGroup>
 
   <ItemGroup>
