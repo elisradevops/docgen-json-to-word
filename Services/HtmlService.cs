@@ -1,10 +1,14 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
+using System.IO.Packaging;
+using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
-using DocumentFormat.OpenXml.Spreadsheet;
+using DocumentFormat.OpenXml.Validation;
 using DocumentFormat.OpenXml.Wordprocessing;
 using HtmlAgilityPack;
 using HtmlToOpenXml;
@@ -60,54 +64,161 @@ namespace JsonToWord.Services
             if (!Directory.Exists(tempHtmlDirectory))
                 Directory.CreateDirectory(tempHtmlDirectory);
 
-            var tempHtmlFile = CreateTempDocument(tempHtmlDirectory);
-
-            using (var document = WordprocessingDocument.Open(tempHtmlFile, true))
+            using (MemoryStream generatedDocument = new MemoryStream())
             {
-                var mainPart = document.MainDocumentPart;
-
-                if (mainPart == null)
+                using (var buffer = ResourceHelper.GetStream("Resources.template.docx"))
                 {
-                    mainPart = document.AddMainDocumentPart();
-                    new Document(new Body()).Save(mainPart);
+                    buffer.CopyTo(generatedDocument);
                 }
 
-                var converter = new HtmlConverter(mainPart, new HtmlToOpenXml.IO.DefaultWebRequest()
-                {
-                    BaseImageUrl = new Uri(Environment.CurrentDirectory)
-                });
+                generatedDocument.Position = 0;
 
-                try
-                {
-                    await converter.ParseBody(html);
-                }
-                catch (Exception ex)
-                {
-                    string errorMessage = ex.Message;
-                    _logger.LogError(ex, "DocGen ran into an issue parsing the html due to: {Message}", errorMessage);
+                var tempDocumentFile = Path.Combine(tempHtmlDirectory, $"{Guid.NewGuid():N}.docx");
 
-                    string errorHtml = "<html><head></head><body><p style='color: red'><b>DocGen ran into an issue parsing the html due to: " + errorMessage + "</b></p></body></html>";
-                    await converter.ParseBody(errorHtml);
+                using (var document = WordprocessingDocument.Create(generatedDocument, WordprocessingDocumentType.Document))
+                {
+                    var mainPart = document.MainDocumentPart;
+
+                    if (mainPart == null)
+                    {
+                        mainPart = document.AddMainDocumentPart();
+                        new Document(new Body()).Save(mainPart);
+                    }
+
+                    var converter = new HtmlConverter(mainPart, new HtmlToOpenXml.IO.DefaultWebRequest()
+                    {
+                        BaseImageUrl = new Uri(Environment.CurrentDirectory)
+                    });
+                    converter.ContinueNumbering = false;
+                    converter.SupportsHeadingNumbering = false;
+                    try
+                    {
+                        var elements = converter.Parse(html);
+                        mainPart.Document.Body.Append(elements);
+
+                        // Fix numbering ID conflicts
+                        var numberingPart = mainPart.NumberingDefinitionsPart;
+                        if (numberingPart != null)
+                        {
+                            FixNumberingIdConflicts(numberingPart);
+                        }
+                        AssertThatHtmlToOpenXmlDocumentIsValid(document);
+
+                    }
+                    catch (Exception ex)
+                    {
+                        string errorMessage = ex.Message;
+                        _logger.LogError(ex, "DocGen ran into an issue parsing the html due to: {Message}", errorMessage);
+
+                        string errorHtml = "<html><head></head><body><p style='color: red'><b>DocGen ran into an issue parsing the html due to: " + errorMessage + "</b></p></body></html>";
+                        var elements = converter.Parse(errorHtml);
+                        mainPart.Document.Body.Append(elements);
+                    }
                 }
-                mainPart.Document.Save();
+
+                File.WriteAllBytes(tempDocumentFile, generatedDocument.ToArray());
+                return tempDocumentFile;
             }
 
-            return tempHtmlFile;
         }
 
-        private string CreateTempDocument(string directory)
+        private void FixNumberingIdConflicts(NumberingDefinitionsPart numberingPart)
         {
-            var tempDocumentFile = Path.Combine(directory, $"{Guid.NewGuid():N}.docx");
+            var numbering = numberingPart.Numbering;
+            if (numbering == null)
+                return;
 
-            using (var wordDocument = WordprocessingDocument.Create(tempDocumentFile, WordprocessingDocumentType.Document))
+            // Collect existing abstractNumIds and numIds
+            var abstractNumIds = numbering.Elements<AbstractNum>()
+                .Select(an => an.AbstractNumberId.Value)
+                .ToList();
+
+            var numIds = numbering.Elements<NumberingInstance>()
+                .Select(ni => ni.NumberID.Value)
+                .ToList();
+
+            // Create mappings to keep track of new IDs
+            var abstractNumIdMapping = new Dictionary<int, int>();
+            var numIdMapping = new Dictionary<int, int>();
+
+            int nextAbstractNumId = abstractNumIds.Any() ? abstractNumIds.Max() + 1 : 1;
+            int nextNumId = numIds.Any() ? numIds.Max() + 1 : 1;
+
+            // Ensure unique abstractNumIds and map levels
+            foreach (var abstractNum in numbering.Elements<AbstractNum>())
             {
-                var mainPart = wordDocument.AddMainDocumentPart();
+                int oldId = abstractNum.AbstractNumberId.Value;
+                if (abstractNumIds.Count(id => id == oldId) > 1 || abstractNumIdMapping.ContainsKey(oldId))
+                {
+                    abstractNum.AbstractNumberId.Value = nextAbstractNumId;
+                    abstractNumIdMapping[oldId] = nextAbstractNumId;
+                    nextAbstractNumId++;
+                }
+                else
+                {
+                    abstractNumIdMapping[oldId] = oldId;
+                }
 
-                mainPart.Document = new Document();
-                mainPart.Document.AppendChild(new Body());
+                // Assign numbering formats for different levels
+                foreach (var level in abstractNum.Elements<Level>())
+                {
+                    switch (level.LevelIndex.Value)
+                    {
+                        case 0:
+                            level.NumberingFormat = new NumberingFormat() { Val = NumberFormatValues.Decimal };
+                            break;
+                        case 1:
+                            level.NumberingFormat = new NumberingFormat() { Val = NumberFormatValues.LowerLetter };
+                            break;
+                        case 2:
+                            level.NumberingFormat = new NumberingFormat() { Val = NumberFormatValues.LowerRoman };
+                            break;
+                        default:
+                            level.NumberingFormat = new NumberingFormat() { Val = NumberFormatValues.Bullet };
+                            break;
+                    }
+                }
             }
 
-            return tempDocumentFile;
+            // Ensure unique numIds and update AbstractNumId references
+            foreach (var numberingInstance in numbering.Elements<NumberingInstance>())
+            {
+                int oldNumId = numberingInstance.NumberID.Value;
+                if (numIds.Count(id => id == oldNumId) > 1 || numIdMapping.ContainsKey(oldNumId))
+                {
+                    numberingInstance.NumberID.Value = nextNumId;
+                    numIdMapping[oldNumId] = nextNumId;
+                    nextNumId++;
+                }
+                else
+                {
+                    numIdMapping[oldNumId] = oldNumId;
+                }
+
+                // Update the AbstractNumId reference
+                int oldAbstractNumId = numberingInstance.AbstractNumId.Val.Value;
+                numberingInstance.AbstractNumId.Val.Value = abstractNumIdMapping[oldAbstractNumId];
+            }
+
+            // Save changes to the numbering definitions part
+            numbering.Save(numberingPart);
+        }
+        private void AssertThatHtmlToOpenXmlDocumentIsValid(WordprocessingDocument wpDoc)
+        {
+            var validator = new OpenXmlValidator(FileFormatVersions.Office2016);
+            var errors = validator.Validate(wpDoc);
+
+            if (!errors.GetEnumerator().MoveNext())
+                return;
+
+            var errorMessage = new StringBuilder("The document doesn't look 100% compatible with Office 2016.\n");
+
+            foreach (ValidationErrorInfo error in errors)
+            {
+                errorMessage.AppendFormat("{0}\n\t{1}\n", error.Path.XPath, error.Description);
+            }
+
+            throw new InvalidOperationException(errorMessage.ToString());
         }
 
         private string WrapHtmlWithStyle(string originalHtml, string font, uint fontSize)
