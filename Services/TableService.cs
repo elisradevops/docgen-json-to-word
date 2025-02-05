@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
@@ -8,7 +7,7 @@ using DocumentFormat.OpenXml.Wordprocessing;
 using JsonToWord.Models;
 using JsonToWord.Services.Interfaces;
 using Microsoft.Extensions.Logging;
-using HtmlAgilityPack;
+
 
 namespace JsonToWord.Services
 {
@@ -21,13 +20,11 @@ namespace JsonToWord.Services
         private readonly IRunService _runService;
         private readonly IHtmlService _htmlService;
         private readonly IUtilsService _utilsService;
-        private readonly ILogger<TableService> _logger;
 
         public TableService(IParagraphService paragraphService, IRunService runService, IHtmlService htmlService, IPictureService pictureService, IFileService fileService, ILogger<TableService> logger, IUtilsService utils) {
             _pictureService = pictureService;
             _paragraphService = paragraphService;
             _fileService = fileService;
-            _logger = logger;
             _utilsService = utils;
             _runService = runService;
             _htmlService = htmlService;
@@ -204,73 +201,23 @@ namespace JsonToWord.Services
 
                 return tableCell;
             }
-            var styledHtml = WrapHtmlWithStyle(html.Html, html.Font, html.FontSize);
 
-            _logger.LogDebug("styledHtml" + styledHtml);
+            var elements = _htmlService.ConvertHtmlToOpenXmlElements(html, document);
 
-            var tempHtmlFile = _htmlService.CreateHtmlWordDocument(styledHtml).GetAwaiter().GetResult();
-
-            var altChunkId = "altChunkId" + Guid.NewGuid().ToString("N");
-            var chunk = document.MainDocumentPart.AddAlternativeFormatImportPart(AlternativeFormatImportPartType.WordprocessingML, altChunkId);
-
-            using (var fileStream = File.Open(tempHtmlFile, FileMode.Open))
+            if (elements.Any())
             {
-                chunk.FeedData(fileStream);
+                tableCell.Append(elements);
             }
-
-            var altChunk = new AltChunk { Id = altChunkId };
-            tableCell.AppendChild(altChunk);
+            //In a table cell, there must be at least one paragraph
+            if (!elements.OfType<Paragraph>().Any())
+            {
+                var paragraph = new Paragraph();
+                tableCell.AppendChild(paragraph);
+            }
 
             return tableCell;
         }
-        private string WrapHtmlWithStyle(string originalHtml, string font, uint fontSize)
-        {
-            // Check if the originalHtml is already wrapped with <html> tags
-            if (originalHtml.TrimStart().StartsWith("<html>", StringComparison.OrdinalIgnoreCase) &&
-                originalHtml.TrimEnd().EndsWith("</html>", StringComparison.OrdinalIgnoreCase))
-            {
-                HtmlDocument doc = new HtmlDocument();
-                doc.LoadHtml(originalHtml);
 
-                var bodyNode = doc.DocumentNode.SelectSingleNode("//body");
-
-                if (bodyNode!=null)
-                {
-                    string newStyle = $"font-family: {font}, sans-serif; font-size: {fontSize}pt;";
-
-                    string existingStyle = bodyNode.GetAttributeValue("style", "");
-                    string combinedStyle = string.IsNullOrEmpty(existingStyle)
-                             ? newStyle
-                             : existingStyle + " " + newStyle;
-                    bodyNode.SetAttributeValue("style", combinedStyle);
-                }
-
-                string modifiedHtml = doc.DocumentNode.OuterHtml;
-                return modifiedHtml;
-            }
-            else
-            {
-                // If it is not wrapped, wrap it with <html> and <body> tags and apply inline styles
-                return $@"
-                    <html>
-                    <body style='font-family: {font}, sans-serif; font-size: {fontSize}pt;'>
-                        {ApplyInlineStyles(originalHtml, font, fontSize)}
-                    </body>
-                    </html>";
-            }
-        }
-
-        // A method to apply inline styles to relevant HTML tags
-        private string ApplyInlineStyles(string html, string font, uint fontSize)
-        {
-            // This is a basic example of how to insert inline styles for some common tags.
-            // For more complex HTML, consider parsing the HTML and applying inline styles dynamically.
-            return html
-                .Replace("<p>", $"<p style='font-family: {font}, sans-serif; font-size: {fontSize}pt;'>")
-                .Replace("<div>", $"<div style='font-family: {font}, sans-serif; font-size: {fontSize}pt;'>")
-                .Replace("<span>", $"<span style='font-family: {font}, sans-serif; font-size: {fontSize}pt;'>")
-                .Replace("<li>", $"<li style='font-family: {font}, sans-serif; font-size: {fontSize}pt;'>");
-        }
 
         private TableCell AppendAttachments(TableCell tableCell, List<WordAttachment> wordAttachments, WordprocessingDocument document)
         {
