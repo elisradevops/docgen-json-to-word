@@ -8,16 +8,16 @@ namespace JsonToWord.Services
 {
     public class TextService : ITextService
     {
+        private readonly IContentControlService _contentControlService;
         private readonly IParagraphService _paragraphService;
         private readonly IRunService _runService;
-        private readonly ContentControlService _contentControlService;
 
 
-        public TextService(IParagraphService paragraphService, IRunService runService)
+        public TextService(IContentControlService contentControlService, IParagraphService paragraphService, IRunService runService)
         {
             _paragraphService = paragraphService;
             _runService = runService;
-            _contentControlService = new ContentControlService();
+            _contentControlService = contentControlService;
         }
         public void Write(WordprocessingDocument document, string contentControlTitle, WordParagraph wordParagraph)
         {

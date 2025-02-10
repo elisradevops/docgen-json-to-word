@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
@@ -7,24 +8,27 @@ using DocumentFormat.OpenXml.Wordprocessing;
 using JsonToWord.Models;
 using JsonToWord.Services.Interfaces;
 using Microsoft.Extensions.Logging;
-
+using HtmlAgilityPack;
 
 namespace JsonToWord.Services
 {
     public class TableService : ITableService
     {
-
+        private readonly IContentControlService _contentControlService;
         private readonly IParagraphService _paragraphService;
         private readonly IPictureService _pictureService;
         private readonly IFileService _fileService;
         private readonly IRunService _runService;
         private readonly IHtmlService _htmlService;
         private readonly IUtilsService _utilsService;
+        private readonly ILogger<TableService> _logger;
 
-        public TableService(IParagraphService paragraphService, IRunService runService, IHtmlService htmlService, IPictureService pictureService, IFileService fileService, ILogger<TableService> logger, IUtilsService utils) {
+        public TableService(IContentControlService contentControlService, IParagraphService paragraphService, IRunService runService, IHtmlService htmlService, IPictureService pictureService, IFileService fileService, ILogger<TableService> logger, IUtilsService utils) {
+            _contentControlService = contentControlService;
             _pictureService = pictureService;
             _paragraphService = paragraphService;
             _fileService = fileService;
+            _logger = logger;
             _utilsService = utils;
             _runService = runService;
             _htmlService = htmlService;
@@ -34,8 +38,7 @@ namespace JsonToWord.Services
         {
             var table = CreateTable(document, wordTable);
         
-            var contentControlService = new ContentControlService();
-            var sdtBlock = contentControlService.FindContentControl(document, contentControlTitle);
+            var sdtBlock = _contentControlService.FindContentControl(document, contentControlTitle);
         
             var sdtContentBlock = new SdtContentBlock();
             sdtContentBlock.AppendChild(table);
@@ -100,22 +103,32 @@ namespace JsonToWord.Services
             wordTable.RepeatHeaderRow = true;  
 
             var tableBorders = CreateTableBorders();
-            var tableWidth = new TableWidth { Width = "5000", Type = TableWidthUnitValues.Pct };
+            var totalWidth = 5000;
+            var tableWidth = new TableWidth { Width = totalWidth.ToString(), Type = TableWidthUnitValues.Pct };
             TableLayout tableLayout = new TableLayout() { Type = TableLayoutValues.Fixed };
             var tableProperties = new TableProperties();
-            tableProperties.AppendChild(tableBorders);
-            tableProperties.AppendChild(tableWidth);
-            tableProperties.AppendChild(tableLayout);
+            tableProperties.TableBorders = tableBorders;
+            tableProperties.TableWidth = tableWidth;
+            tableProperties.TableLayout = tableLayout;
 
             int pageWidthDxa = _utilsService.GetPageWidthDxa(document.MainDocumentPart);
-            
 
             var isHeaderRow = true;
             var table = new Table();
             table.AppendChild(tableProperties);
 
             var rows = wordTable.Rows;
-            for (int i=0; i < rows.Count; i++)
+
+            int maxColumns = rows.Max(r => r.Cells.Count);
+            var tableGrid = new TableGrid();
+            var width = totalWidth / maxColumns;
+            for (int i = 0; i < maxColumns; i++)
+            {
+                tableGrid.Append(new GridColumn { Width = width.ToString() });
+            }
+            table.AppendChild(tableGrid);
+
+            for (int i = 0; i < rows.Count; i++)
             {
                 var tableRow = new TableRow { RsidTableRowProperties = "00812C40" };
 
@@ -124,9 +137,9 @@ namespace JsonToWord.Services
                     var tableHeader = new TableHeader();
 
                     var tableRowProperties = new TableRowProperties();
-                    tableRowProperties.AppendChild(tableHeader);
 
-                    tableRow.AppendChild(tableRowProperties);
+                    tableRowProperties.AppendChild(tableHeader);
+                    tableRow.TableRowProperties = tableRowProperties;
 
                     isHeaderRow = false;
                 }
@@ -156,12 +169,11 @@ namespace JsonToWord.Services
                             Color = cells[j].Shading.Color,
                             Fill = cells[j].Shading.Fill,
                         };
-
                         tableCellProperties.AppendChild(cellShading);
                     }
 
                     var tableCell = new TableCell();
-                    tableCell.AppendChild(tableCellProperties);
+                    tableCell.TableCellProperties = tableCellProperties;
 
                     //Check if there is no data in the cell (HTML or an Attachment)
                     bool isEmpty = cells[j].Html == null && cells[j].Attachments?.Count == 0; 
@@ -201,23 +213,71 @@ namespace JsonToWord.Services
 
                 return tableCell;
             }
+            var styledHtml = WrapHtmlWithStyle(html.Html, html.Font, html.FontSize);
 
-            var elements = _htmlService.ConvertHtmlToOpenXmlElements(html, document);
+            var tempHtmlFile = _htmlService.CreateHtmlWordDocument(styledHtml);
 
-            if (elements.Any())
+            var altChunkId = "altChunkId" + Guid.NewGuid().ToString("N");
+            var chunk = document.MainDocumentPart.AddAlternativeFormatImportPart(AlternativeFormatImportPartType.WordprocessingML, altChunkId);
+
+            using (var fileStream = File.Open(tempHtmlFile, FileMode.Open))
             {
-                tableCell.Append(elements);
+                chunk.FeedData(fileStream);
             }
-            //In a table cell, there must be at least one paragraph
-            if (!elements.OfType<Paragraph>().Any())
-            {
-                var paragraph = new Paragraph();
-                tableCell.AppendChild(paragraph);
-            }
+
+            var altChunk = new AltChunk { Id = altChunkId };
+            tableCell.AppendChild(altChunk);
 
             return tableCell;
         }
+        private string WrapHtmlWithStyle(string originalHtml, string font, uint fontSize)
+        {
+            // Check if the originalHtml is already wrapped with <html> tags
+            if (originalHtml.TrimStart().StartsWith("<html>", StringComparison.OrdinalIgnoreCase) &&
+                originalHtml.TrimEnd().EndsWith("</html>", StringComparison.OrdinalIgnoreCase))
+            {
+                HtmlDocument doc = new HtmlDocument();
+                doc.LoadHtml(originalHtml);
 
+                var bodyNode = doc.DocumentNode.SelectSingleNode("//body");
+
+                if (bodyNode!=null)
+                {
+                    string newStyle = $"font-family: {font}, sans-serif; font-size: {fontSize}pt;";
+
+                    string existingStyle = bodyNode.GetAttributeValue("style", "");
+                    string combinedStyle = string.IsNullOrEmpty(existingStyle)
+                             ? newStyle
+                             : existingStyle + " " + newStyle;
+                    bodyNode.SetAttributeValue("style", combinedStyle);
+                }
+
+                string modifiedHtml = doc.DocumentNode.OuterHtml;
+                return modifiedHtml;
+            }
+            else
+            {
+                // If it is not wrapped, wrap it with <html> and <body> tags and apply inline styles
+                return $@"
+                    <html>
+                    <body style='font-family: {font}, sans-serif; font-size: {fontSize}pt;'>
+                        {ApplyInlineStyles(originalHtml, font, fontSize)}
+                    </body>
+                    </html>";
+            }
+        }
+
+        // A method to apply inline styles to relevant HTML tags
+        private string ApplyInlineStyles(string html, string font, uint fontSize)
+        {
+            // This is a basic example of how to insert inline styles for some common tags.
+            // For more complex HTML, consider parsing the HTML and applying inline styles dynamically.
+            return html
+                .Replace("<p>", $"<p style='font-family: {font}, sans-serif; font-size: {fontSize}pt;'>")
+                .Replace("<div>", $"<div style='font-family: {font}, sans-serif; font-size: {fontSize}pt;'>")
+                .Replace("<span>", $"<span style='font-family: {font}, sans-serif; font-size: {fontSize}pt;'>")
+                .Replace("<li>", $"<li style='font-family: {font}, sans-serif; font-size: {fontSize}pt;'>");
+        }
 
         private TableCell AppendAttachments(TableCell tableCell, List<WordAttachment> wordAttachments, WordprocessingDocument document)
         {

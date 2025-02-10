@@ -17,8 +17,8 @@ namespace JsonToWord.Services
             var paragraphProperties = new ParagraphProperties();
             var paragraphStyleId = new ParagraphStyleId { Val = $"Heading{wordParagraph.HeadingLevel}" };
 
-            paragraphProperties.AppendChild(paragraphStyleId);
-            paragraph.AppendChild(paragraphProperties);
+            paragraphProperties.ParagraphStyleId = paragraphStyleId;
+            paragraph.ParagraphProperties = paragraphProperties;
 
             return paragraph;
         }
@@ -31,9 +31,8 @@ namespace JsonToWord.Services
             ParagraphStyleId paragraphStyleId1 = new ParagraphStyleId() { Val = "Caption" };
             Justification justification1 = new Justification() { Val = JustificationValues.Left };
 
-
-            paragraphProperties1.Append(paragraphStyleId1);
-            paragraphProperties1.Append(justification1);
+            paragraphProperties1.ParagraphStyleId = paragraphStyleId1;
+            paragraphProperties1.Justification = justification1;
             ProofError proofError1 = new ProofError() { Type = ProofingErrorValues.SpellStart };
 
             Run run1 = new Run();
@@ -42,8 +41,7 @@ namespace JsonToWord.Services
 
             run1.Append(text1);
             ProofError proofError2 = new ProofError() { Type = ProofingErrorValues.SpellEnd };
-
-            paragraph1.Append(paragraphProperties1);
+            paragraph1.ParagraphProperties = paragraphProperties1;
             paragraph1.Append(proofError1);
             paragraph1.Append(run1);
             paragraph1.Append(proofError2);

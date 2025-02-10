@@ -1,6 +1,5 @@
 ﻿using System;
 using DocumentFormat.OpenXml;
-using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using JsonToWord.Models;
 using JsonToWord.Services.Interfaces;
@@ -44,7 +43,7 @@ namespace JsonToWord.Services
                     System.Drawing.Color color = System.Drawing.Color.FromName(wordRun.FontColor);
                     string colorHex = color.R.ToString("X2") + color.G.ToString("X2") + color.B.ToString("X2");
                     Color wordColor = new Color() { Val = colorHex };
-                    runProperties.AppendChild(wordColor);
+                    runProperties.Color = wordColor;
                 }
                 catch (Exception exception)
                 {
@@ -89,11 +88,8 @@ namespace JsonToWord.Services
             if (!wordRun.Italic)
                 return;
 
-            var italic = new Italic();
-            var italicComplexScript = new ItalicComplexScript();
-
-            runProperties.AppendChild(italic);
-            runProperties.AppendChild(italicComplexScript);
+            runProperties.Italic = new Italic();
+            runProperties.ItalicComplexScript = new ItalicComplexScript();
         }
 
         private static void SetBold(WordRun wordRun, RunProperties runProperties)
@@ -101,11 +97,8 @@ namespace JsonToWord.Services
             if (!wordRun.Bold)
                 return;
 
-            var bold = new Bold();
-            var boldComplexScript = new BoldComplexScript();
-
-            runProperties.AppendChild(bold);
-            runProperties.AppendChild(boldComplexScript);
+            runProperties.Bold = new Bold();
+            runProperties.BoldComplexScript = new BoldComplexScript();
         }
 
         private static void SetHyperlink(WordRun wordRun, RunProperties runProperties)
@@ -114,22 +107,21 @@ namespace JsonToWord.Services
             {
                 var runStyle = new RunStyle() { Val = "Hyperlink" };
                 var color = new Color() { Val = "auto", ThemeColor = ThemeColorValues.Hyperlink };
-
-                runProperties.AppendChild(runStyle);
-                runProperties.AppendChild(color);
+                runProperties.RunStyle = runStyle;
+                runProperties.Color = color;
                 AddUnderline(runProperties);
             }
             else
             {
                 var runFonts = new RunFonts { Ascii = wordRun.Font, HighAnsi = wordRun.Font, ComplexScript = wordRun.Font };
-                runProperties.AppendChild(runFonts);
+                runProperties.RunFonts = runFonts;
             }
         }
 
         private static void AddUnderline(RunProperties runProperties)
         {
             var underline = new Underline() { Val = UnderlineValues.Single };
-            runProperties.AppendChild(underline);
+            runProperties.Underline = new Underline() { Val = UnderlineValues.Single };
         }
     }
 }

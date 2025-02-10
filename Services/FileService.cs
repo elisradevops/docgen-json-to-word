@@ -19,6 +19,7 @@ public class FileService : IFileService
     #endregion
 
     #region Fields
+    private readonly IContentControlService _contentControlService;
     private readonly ILogger<FileService> _logger;
     #endregion
 
@@ -26,8 +27,9 @@ public class FileService : IFileService
     public event NonOfficeAttachmentEventHandler nonOfficeAttachmentEventHandler;
     #endregion
 
-    public FileService(ILogger<FileService> logger)
+    public FileService(IContentControlService contentControlService, ILogger<FileService> logger)
     {
+        _contentControlService = contentControlService;
         _logger = logger;
     }
 
@@ -41,8 +43,7 @@ public class FileService : IFileService
         var sdtContentBlock = new SdtContentBlock();
         sdtContentBlock.AppendChild(attachedFileParagraph);
 
-        var contentControlService = new ContentControlService();
-        var sdtBlock = contentControlService.FindContentControl(document, contentControlTitle);
+        var sdtBlock = _contentControlService.FindContentControl(document, contentControlTitle);
         sdtBlock.AppendChild(sdtContentBlock);
     }
 
@@ -145,13 +146,16 @@ public class FileService : IFileService
             // Create a Run for the text with a line break
             var textRun = new Run();
             textRun.Append(new Break()); // Insert a line break between image and text
-            textRun.Append(new RunProperties(new FontSize { Val = "16" })); // Font size 9 (in half-points)
+            RunProperties runProperties = new RunProperties();
+            runProperties.FontSize = new FontSize { Val = "16" }; // Font size 9 (in half-points)
+            textRun.RunProperties = runProperties;
             textRun.Append(new Text(wordAttachment.Name)); // Add the name of the attachment
 
             // Create the Paragraph to hold the Runs
-            var paragraph = new Paragraph(new ParagraphProperties(
-                new Justification { Val = JustificationValues.Left } // Center-align the paragraph
-            ));
+            var paragraphProperties = new ParagraphProperties();
+            paragraphProperties.Justification = new Justification { Val = JustificationValues.Left }; // Center align the entire paragraph
+            var paragraph = new Paragraph();
+            paragraph.ParagraphProperties = paragraphProperties;
             paragraph.Append(run); // Add the run with the image
             paragraph.Append(textRun); // Add the run with the text
 
@@ -165,15 +169,14 @@ public class FileService : IFileService
 
         // Create a hyperlink relationship with a relative path to the file in the 'attachments' folder
         HyperlinkRelationship hyperlinkRelationship = mainPart.AddHyperlinkRelationship(new Uri(relativePath, UriKind.Relative), true);
+        var runProperties = new RunProperties();
+        runProperties.Underline = new Underline { Val = UnderlineValues.Single }; // Style the hyperlink text
+        runProperties.Color = new Color { Val = "0000FF" }; // Hyperlink blue color
 
         // Create the hyperlink run (for text only)
-        var hyperlinkRun = new Run(
-            new RunProperties(
-                new Underline() { Val = UnderlineValues.Single }, // Style the hyperlink text
-                new Color() { Val = "0000FF" } // Hyperlink blue color
-            ),
-            new Text(wordAttachment.Name)
-        );
+        var hyperlinkRun = new Run();
+        hyperlinkRun.RunProperties = runProperties;
+        hyperlinkRun.Append(new Text(wordAttachment.Name));
 
         // Create a hyperlink element that wraps the hyperlink run
         var hyperlink = new Hyperlink(hyperlinkRun)
@@ -182,13 +185,13 @@ public class FileService : IFileService
         };
 
         // Add the image and hyperlink to the document in a single paragraph
-        var paragraph = new Paragraph(
-            new ParagraphProperties(
-                new Justification() { Val = JustificationValues.Left } // Center align the entire paragraph
-            )
-        );
+        var paragraphProperties = new ParagraphProperties();
+        paragraphProperties.Justification = new Justification { Val = JustificationValues.Left }; // Center align the entire paragraph
+        
+        var paragraph = new Paragraph();
+        paragraph.ParagraphProperties = paragraphProperties;
         paragraph.Append(new Run(iconDrawing));  // Add the icon (image)
-        paragraph.Append(new Break()); // Line break between image and text
+        paragraph.Append(new Run(new Break())); // Line break between image and text
         paragraph.Append(hyperlink); // Add the hyperlink for the file name
 
 

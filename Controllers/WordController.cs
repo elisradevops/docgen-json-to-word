@@ -156,10 +156,7 @@ namespace JsonToWord.Controllers
 
                 _logger.LogInformation("Initilized word model object");
 
-                var wordService = _wordService;
-
-
-                var document = wordService.Create(wordModel);
+                var document = _wordService.Create(wordModel);
                 _logger.LogInformation("Created word document");
 
                 return Ok(document);
@@ -167,7 +164,7 @@ namespace JsonToWord.Controllers
             catch (Exception e)
             {
                 _logger.LogError($"Error: {e.Message}",e);
-                return null;
+                return BadRequest($"Error: {e.Message}");
             }
 
         }
