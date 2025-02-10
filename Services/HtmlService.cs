@@ -21,12 +21,14 @@ namespace JsonToWord.Services
 {
     internal class HtmlService : IHtmlService
     {
-        private readonly ContentControlService _contentControlService;
+        private readonly IContentControlService _contentControlService;
+        private readonly IDocumentValidatorService _documentValidator;
         private readonly ILogger<HtmlService> _logger;
-        public HtmlService(ILogger<HtmlService> logger)
+        public HtmlService(IContentControlService contentControlService,IDocumentValidatorService documentValidator, ILogger<HtmlService> logger)
         {
-            _contentControlService = new ContentControlService();
+            _contentControlService = contentControlService;
             _logger = logger;
+            _documentValidator = documentValidator;
         }
         public void Insert(WordprocessingDocument document, string contentControlTitle, WordHtml wordHtml)
         {
@@ -36,10 +38,10 @@ namespace JsonToWord.Services
 
             html = FixBullets(html);
 
-            var tempHtmlFile = CreateHtmlWordDocument(html).GetAwaiter().GetResult();
+            var tempHtmlFile = CreateHtmlWordDocument(html);
 
-            var altChunkId = "altChunkId" + Guid.NewGuid().ToString("N");
             var mainPart = document.MainDocumentPart;
+            var altChunkId = "altChunkId" + Guid.NewGuid().ToString("N");
             var chunk = mainPart.AddAlternativeFormatImportPart(AlternativeFormatImportPartType.WordprocessingML, altChunkId);
 
             using (var fileStream = File.Open(tempHtmlFile, FileMode.Open))
@@ -55,9 +57,10 @@ namespace JsonToWord.Services
             sdtContentBlock.AppendChild(altChunk);
 
             sdtBlock.AppendChild(sdtContentBlock);
+
         }
 
-        public async Task<string> CreateHtmlWordDocument(string html)
+        public string CreateHtmlWordDocument(string html)
         {
             var tempHtmlDirectory = Path.Combine(Path.GetTempPath(), "MicrosoftWordOpenXml", Guid.NewGuid().ToString("N"));
 
@@ -102,7 +105,10 @@ namespace JsonToWord.Services
                         {
                             FixNumberingIdConflicts(numberingPart);
                         }
-                        AssertThatHtmlToOpenXmlDocumentIsValid(document);
+                        if(!_documentValidator.ValidateDocument(document))
+                        {
+                            throw new Exception("Document validation failed after HTML insertion");
+                        }
 
                     }
                     catch (Exception ex)

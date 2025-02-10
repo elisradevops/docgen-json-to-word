@@ -7,6 +7,6 @@ namespace JsonToWord.Services.Interfaces
     public interface IHtmlService
     {
         void Insert(WordprocessingDocument document, string contentControlTitle, WordHtml wordHtml);
-        Task<string> CreateHtmlWordDocument(string html);
+        string CreateHtmlWordDocument(string html);
     }
 }

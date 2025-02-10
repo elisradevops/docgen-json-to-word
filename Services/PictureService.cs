@@ -16,11 +16,11 @@ namespace JsonToWord.Services
 {
     internal class PictureService : IPictureService
     {
-        private readonly ContentControlService _contentControlService;
+        private readonly IContentControlService _contentControlService;
         private readonly IParagraphService _paragraphService;
-        public PictureService(IParagraphService paragraphService)
+        public PictureService(IContentControlService contentControlService, IParagraphService paragraphService)
         {
-            _contentControlService = new ContentControlService();
+            _contentControlService = contentControlService;
             _paragraphService = paragraphService;
         }
         public void Insert(WordprocessingDocument document, string contentControlTitle, WordAttachment wordAttachment)

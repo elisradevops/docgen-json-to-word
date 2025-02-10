@@ -14,7 +14,7 @@ namespace JsonToWord.Services
 {
     public class TableService : ITableService
     {
-
+        private readonly IContentControlService _contentControlService;
         private readonly IParagraphService _paragraphService;
         private readonly IPictureService _pictureService;
         private readonly IFileService _fileService;
@@ -23,7 +23,8 @@ namespace JsonToWord.Services
         private readonly IUtilsService _utilsService;
         private readonly ILogger<TableService> _logger;
 
-        public TableService(IParagraphService paragraphService, IRunService runService, IHtmlService htmlService, IPictureService pictureService, IFileService fileService, ILogger<TableService> logger, IUtilsService utils) {
+        public TableService(IContentControlService contentControlService, IParagraphService paragraphService, IRunService runService, IHtmlService htmlService, IPictureService pictureService, IFileService fileService, ILogger<TableService> logger, IUtilsService utils) {
+            _contentControlService = contentControlService;
             _pictureService = pictureService;
             _paragraphService = paragraphService;
             _fileService = fileService;
@@ -37,8 +38,7 @@ namespace JsonToWord.Services
         {
             var table = CreateTable(document, wordTable);
         
-            var contentControlService = new ContentControlService();
-            var sdtBlock = contentControlService.FindContentControl(document, contentControlTitle);
+            var sdtBlock = _contentControlService.FindContentControl(document, contentControlTitle);
         
             var sdtContentBlock = new SdtContentBlock();
             sdtContentBlock.AppendChild(table);
@@ -103,22 +103,32 @@ namespace JsonToWord.Services
             wordTable.RepeatHeaderRow = true;  
 
             var tableBorders = CreateTableBorders();
-            var tableWidth = new TableWidth { Width = "5000", Type = TableWidthUnitValues.Pct };
+            var totalWidth = 5000;
+            var tableWidth = new TableWidth { Width = totalWidth.ToString(), Type = TableWidthUnitValues.Pct };
             TableLayout tableLayout = new TableLayout() { Type = TableLayoutValues.Fixed };
             var tableProperties = new TableProperties();
-            tableProperties.AppendChild(tableBorders);
-            tableProperties.AppendChild(tableWidth);
-            tableProperties.AppendChild(tableLayout);
+            tableProperties.TableBorders = tableBorders;
+            tableProperties.TableWidth = tableWidth;
+            tableProperties.TableLayout = tableLayout;
 
             int pageWidthDxa = _utilsService.GetPageWidthDxa(document.MainDocumentPart);
-            
 
             var isHeaderRow = true;
             var table = new Table();
             table.AppendChild(tableProperties);
 
             var rows = wordTable.Rows;
-            for (int i=0; i < rows.Count; i++)
+
+            int maxColumns = rows.Max(r => r.Cells.Count);
+            var tableGrid = new TableGrid();
+            var width = totalWidth / maxColumns;
+            for (int i = 0; i < maxColumns; i++)
+            {
+                tableGrid.Append(new GridColumn { Width = width.ToString() });
+            }
+            table.AppendChild(tableGrid);
+
+            for (int i = 0; i < rows.Count; i++)
             {
                 var tableRow = new TableRow { RsidTableRowProperties = "00812C40" };
 
@@ -127,9 +137,9 @@ namespace JsonToWord.Services
                     var tableHeader = new TableHeader();
 
                     var tableRowProperties = new TableRowProperties();
-                    tableRowProperties.AppendChild(tableHeader);
 
-                    tableRow.AppendChild(tableRowProperties);
+                    tableRowProperties.AppendChild(tableHeader);
+                    tableRow.TableRowProperties = tableRowProperties;
 
                     isHeaderRow = false;
                 }
@@ -159,12 +169,11 @@ namespace JsonToWord.Services
                             Color = cells[j].Shading.Color,
                             Fill = cells[j].Shading.Fill,
                         };
-
                         tableCellProperties.AppendChild(cellShading);
                     }
 
                     var tableCell = new TableCell();
-                    tableCell.AppendChild(tableCellProperties);
+                    tableCell.TableCellProperties = tableCellProperties;
 
                     //Check if there is no data in the cell (HTML or an Attachment)
                     bool isEmpty = cells[j].Html == null && cells[j].Attachments?.Count == 0; 
@@ -206,9 +215,7 @@ namespace JsonToWord.Services
             }
             var styledHtml = WrapHtmlWithStyle(html.Html, html.Font, html.FontSize);
 
-            _logger.LogDebug("styledHtml" + styledHtml);
-
-            var tempHtmlFile = _htmlService.CreateHtmlWordDocument(styledHtml).GetAwaiter().GetResult();
+            var tempHtmlFile = _htmlService.CreateHtmlWordDocument(styledHtml);
 
             var altChunkId = "altChunkId" + Guid.NewGuid().ToString("N");
             var chunk = document.MainDocumentPart.AddAlternativeFormatImportPart(AlternativeFormatImportPartType.WordprocessingML, altChunkId);

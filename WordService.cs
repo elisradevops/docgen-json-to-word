@@ -12,7 +12,7 @@ namespace JsonToWord
     public class WordService : IWordService, IDisposable
     {
         #region Fields
-        private readonly ContentControlService _contentControlService;
+        private readonly IContentControlService _contentControlService;
         private readonly IFileService _fileService;
         private readonly ILogger<WordService> _logger;
         private readonly IPictureService _pictureService;
@@ -24,16 +24,16 @@ namespace JsonToWord
         #endregion
         
         #region Constructor
-        public WordService(ITableService tableService, IPictureService pictureService, ITextService textService, IHtmlService htmlService ,IFileService fileService, ILogger<WordService> logger)
+        public WordService(IContentControlService contentControlService, ITableService tableService, IPictureService pictureService, ITextService textService, IHtmlService htmlService ,IFileService fileService, ILogger<WordService> logger)
         {
-            _contentControlService = new ContentControlService();
+            _contentControlService = contentControlService;
             _fileService = fileService;
             _htmlService = htmlService;
             _pictureService = pictureService;
             _tableService = tableService;
             _textService = textService;
-            _documentService = new DocumentService();
             _logger = logger;
+            _documentService = new DocumentService();
             OnSubscribeEvents();
 
         }
@@ -79,7 +79,6 @@ namespace JsonToWord
                     document.MainDocumentPart.Document.Save();
                     _contentControlService.RemoveContentControl(document, contentControl.Title);
                 }
-               
             }
 
             var generatedDocPath = _isZipNeeded ? ZipDocument(documentPath) : documentPath;
