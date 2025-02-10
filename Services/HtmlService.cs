@@ -1,8 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
+using System.IO.Packaging;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Validation;
@@ -27,35 +30,96 @@ namespace JsonToWord.Services
         }
         public void Insert(WordprocessingDocument document, string contentControlTitle, WordHtml wordHtml)
         {
-            var elements = ConvertHtmlToOpenXmlElements(wordHtml, document);
+            var html = WrapHtmlWithStyle(wordHtml.Html, wordHtml.Font, wordHtml.FontSize);
+            
+            html = RemoveWordHeading(html);
 
+            html = FixBullets(html);
+
+            var tempHtmlFile = CreateHtmlWordDocument(html).GetAwaiter().GetResult();
+
+            var altChunkId = "altChunkId" + Guid.NewGuid().ToString("N");
+            var mainPart = document.MainDocumentPart;
+            var chunk = mainPart.AddAlternativeFormatImportPart(AlternativeFormatImportPartType.WordprocessingML, altChunkId);
+
+            using (var fileStream = File.Open(tempHtmlFile, FileMode.Open))
+            {
+                chunk.FeedData(fileStream);
+            }
+
+            var altChunk = new AltChunk { Id = altChunkId };
+            
             var sdtBlock = _contentControlService.FindContentControl(document, contentControlTitle);
 
             var sdtContentBlock = new SdtContentBlock();
-
-            sdtContentBlock.Append(elements);
+            sdtContentBlock.AppendChild(altChunk);
 
             sdtBlock.AppendChild(sdtContentBlock);
         }
 
-
-        public IEnumerable<OpenXmlCompositeElement> ConvertHtmlToOpenXmlElements(WordHtml wordHtml, WordprocessingDocument document)
+        public async Task<string> CreateHtmlWordDocument(string html)
         {
-            var html = WrapHtmlWithStyle(wordHtml.Html, wordHtml.Font, wordHtml.FontSize);
+            var tempHtmlDirectory = Path.Combine(Path.GetTempPath(), "MicrosoftWordOpenXml", Guid.NewGuid().ToString("N"));
 
-            html = RemoveWordHeading(html);
+            if (!Directory.Exists(tempHtmlDirectory))
+                Directory.CreateDirectory(tempHtmlDirectory);
 
-            html = FixBullets(html);
-            var converter = new HtmlConverter(document.MainDocumentPart, new HtmlToOpenXml.IO.DefaultWebRequest()
+            using (MemoryStream generatedDocument = new MemoryStream())
             {
-                BaseImageUrl = new Uri(Environment.CurrentDirectory)
-            });
-            converter.ContinueNumbering = false;
-            converter.SupportsHeadingNumbering = false;
+                using (var buffer = ResourceHelper.GetStream("Resources.template.docx"))
+                {
+                    buffer.CopyTo(generatedDocument);
+                }
 
-            var elements = converter.Parse(html);
+                generatedDocument.Position = 0;
 
-            return elements;
+                var tempDocumentFile = Path.Combine(tempHtmlDirectory, $"{Guid.NewGuid():N}.docx");
+
+                using (var document = WordprocessingDocument.Create(generatedDocument, WordprocessingDocumentType.Document))
+                {
+                    var mainPart = document.MainDocumentPart;
+
+                    if (mainPart == null)
+                    {
+                        mainPart = document.AddMainDocumentPart();
+                        new Document(new Body()).Save(mainPart);
+                    }
+
+                    var converter = new HtmlConverter(mainPart, new HtmlToOpenXml.IO.DefaultWebRequest()
+                    {
+                        BaseImageUrl = new Uri(Environment.CurrentDirectory)
+                    });
+                    converter.ContinueNumbering = false;
+                    converter.SupportsHeadingNumbering = false;
+                    try
+                    {
+                        var elements = converter.Parse(html);
+                        mainPart.Document.Body.Append(elements);
+
+                        // Fix numbering ID conflicts
+                        var numberingPart = mainPart.NumberingDefinitionsPart;
+                        if (numberingPart != null)
+                        {
+                            FixNumberingIdConflicts(numberingPart);
+                        }
+                        AssertThatHtmlToOpenXmlDocumentIsValid(document);
+
+                    }
+                    catch (Exception ex)
+                    {
+                        string errorMessage = ex.Message;
+                        _logger.LogError(ex, "DocGen ran into an issue parsing the html due to: {Message}", errorMessage);
+
+                        string errorHtml = "<html><head></head><body><p style='color: red'><b>DocGen ran into an issue parsing the html due to: " + errorMessage + "</b></p></body></html>";
+                        var elements = converter.Parse(errorHtml);
+                        mainPart.Document.Body.Append(elements);
+                    }
+                }
+
+                File.WriteAllBytes(tempDocumentFile, generatedDocument.ToArray());
+                return tempDocumentFile;
+            }
+
         }
 
         private void FixNumberingIdConflicts(NumberingDefinitionsPart numberingPart)
