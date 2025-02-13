@@ -1,21 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
-using System.IO.Packaging;
-using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
-using DocumentFormat.OpenXml.Validation;
 using DocumentFormat.OpenXml.Wordprocessing;
 using HtmlAgilityPack;
 using HtmlToOpenXml;
 using JsonToWord.Models;
 using JsonToWord.Services.Interfaces;
 using Microsoft.Extensions.Logging;
-using SixLabors.ImageSharp;
 
 namespace JsonToWord.Services
 {
@@ -32,199 +25,47 @@ namespace JsonToWord.Services
         }
         public void Insert(WordprocessingDocument document, string contentControlTitle, WordHtml wordHtml)
         {
-            var html = WrapHtmlWithStyle(wordHtml.Html, wordHtml.Font, wordHtml.FontSize);
-            
-            html = RemoveWordHeading(html);
+            var elements = ConvertHtmlToOpenXmlElements(wordHtml, document);
 
-            html = FixBullets(html);
-
-            var tempHtmlFile = CreateHtmlWordDocument(html);
-
-            var mainPart = document.MainDocumentPart;
-            var altChunkId = "altChunkId" + Guid.NewGuid().ToString("N");
-            var chunk = mainPart.AddAlternativeFormatImportPart(AlternativeFormatImportPartType.WordprocessingML, altChunkId);
-
-            using (var fileStream = File.Open(tempHtmlFile, FileMode.Open))
-            {
-                chunk.FeedData(fileStream);
-            }
-
-            var altChunk = new AltChunk { Id = altChunkId };
-            
             var sdtBlock = _contentControlService.FindContentControl(document, contentControlTitle);
 
             var sdtContentBlock = new SdtContentBlock();
-            sdtContentBlock.AppendChild(altChunk);
+
+            sdtContentBlock.Append(elements);
 
             sdtBlock.AppendChild(sdtContentBlock);
-
         }
 
-        public string CreateHtmlWordDocument(string html)
+
+        public IEnumerable<OpenXmlCompositeElement> ConvertHtmlToOpenXmlElements(WordHtml wordHtml, WordprocessingDocument document)
         {
-            var tempHtmlDirectory = Path.Combine(Path.GetTempPath(), "MicrosoftWordOpenXml", Guid.NewGuid().ToString("N"));
+            var html = WrapHtmlWithStyle(wordHtml.Html, wordHtml.Font, wordHtml.FontSize);
 
-            if (!Directory.Exists(tempHtmlDirectory))
-                Directory.CreateDirectory(tempHtmlDirectory);
+            html = RemoveWordHeading(html);
 
-            using (MemoryStream generatedDocument = new MemoryStream())
+            html = FixBullets(html);
+            var converter = new HtmlConverter(document.MainDocumentPart, new HtmlToOpenXml.IO.DefaultWebRequest()
             {
-                using (var buffer = ResourceHelper.GetStream("Resources.template.docx"))
-                {
-                    buffer.CopyTo(generatedDocument);
-                }
+                BaseImageUrl = new Uri(Environment.CurrentDirectory)
+            });
+            converter.ContinueNumbering = false;
+            converter.SupportsHeadingNumbering = false;
 
-                generatedDocument.Position = 0;
-
-                var tempDocumentFile = Path.Combine(tempHtmlDirectory, $"{Guid.NewGuid():N}.docx");
-
-                using (var document = WordprocessingDocument.Create(generatedDocument, WordprocessingDocumentType.Document))
-                {
-                    var mainPart = document.MainDocumentPart;
-
-                    if (mainPart == null)
-                    {
-                        mainPart = document.AddMainDocumentPart();
-                        new Document(new Body()).Save(mainPart);
-                    }
-
-                    var converter = new HtmlConverter(mainPart, new HtmlToOpenXml.IO.DefaultWebRequest()
-                    {
-                        BaseImageUrl = new Uri(Environment.CurrentDirectory)
-                    });
-                    converter.ContinueNumbering = false;
-                    converter.SupportsHeadingNumbering = false;
-                    try
-                    {
-                        var elements = converter.Parse(html);
-                        mainPart.Document.Body.Append(elements);
-
-                        // Fix numbering ID conflicts
-                        var numberingPart = mainPart.NumberingDefinitionsPart;
-                        if (numberingPart != null)
-                        {
-                            FixNumberingIdConflicts(numberingPart);
-                        }
-                        if(!_documentValidator.ValidateDocument(document))
-                        {
-                            throw new Exception("Document validation failed after HTML insertion");
-                        }
-
-                    }
-                    catch (Exception ex)
-                    {
-                        string errorMessage = ex.Message;
-                        _logger.LogError(ex, "DocGen ran into an issue parsing the html due to: {Message}", errorMessage);
-
-                        string errorHtml = "<html><head></head><body><p style='color: red'><b>DocGen ran into an issue parsing the html due to: " + errorMessage + "</b></p></body></html>";
-                        var elements = converter.Parse(errorHtml);
-                        mainPart.Document.Body.Append(elements);
-                    }
-                }
-
-                File.WriteAllBytes(tempDocumentFile, generatedDocument.ToArray());
-                return tempDocumentFile;
-            }
-
-        }
-
-        private void FixNumberingIdConflicts(NumberingDefinitionsPart numberingPart)
-        {
-            var numbering = numberingPart.Numbering;
-            if (numbering == null)
-                return;
-
-            // Collect existing abstractNumIds and numIds
-            var abstractNumIds = numbering.Elements<AbstractNum>()
-                .Select(an => an.AbstractNumberId.Value)
-                .ToList();
-
-            var numIds = numbering.Elements<NumberingInstance>()
-                .Select(ni => ni.NumberID.Value)
-                .ToList();
-
-            // Create mappings to keep track of new IDs
-            var abstractNumIdMapping = new Dictionary<int, int>();
-            var numIdMapping = new Dictionary<int, int>();
-
-            int nextAbstractNumId = abstractNumIds.Any() ? abstractNumIds.Max() + 1 : 1;
-            int nextNumId = numIds.Any() ? numIds.Max() + 1 : 1;
-
-            // Ensure unique abstractNumIds and map levels
-            foreach (var abstractNum in numbering.Elements<AbstractNum>())
+            try
             {
-                int oldId = abstractNum.AbstractNumberId.Value;
-                if (abstractNumIds.Count(id => id == oldId) > 1 || abstractNumIdMapping.ContainsKey(oldId))
-                {
-                    abstractNum.AbstractNumberId.Value = nextAbstractNumId;
-                    abstractNumIdMapping[oldId] = nextAbstractNumId;
-                    nextAbstractNumId++;
-                }
-                else
-                {
-                    abstractNumIdMapping[oldId] = oldId;
-                }
-
-                // Assign numbering formats for different levels
-                foreach (var level in abstractNum.Elements<Level>())
-                {
-                    switch (level.LevelIndex.Value)
-                    {
-                        case 0:
-                            level.NumberingFormat = new NumberingFormat() { Val = NumberFormatValues.Decimal };
-                            break;
-                        case 1:
-                            level.NumberingFormat = new NumberingFormat() { Val = NumberFormatValues.LowerLetter };
-                            break;
-                        case 2:
-                            level.NumberingFormat = new NumberingFormat() { Val = NumberFormatValues.LowerRoman };
-                            break;
-                        default:
-                            level.NumberingFormat = new NumberingFormat() { Val = NumberFormatValues.Bullet };
-                            break;
-                    }
-                }
+                var elements = converter.Parse(html);
+                return elements;
             }
-
-            // Ensure unique numIds and update AbstractNumId references
-            foreach (var numberingInstance in numbering.Elements<NumberingInstance>())
+            catch (Exception ex)
             {
-                int oldNumId = numberingInstance.NumberID.Value;
-                if (numIds.Count(id => id == oldNumId) > 1 || numIdMapping.ContainsKey(oldNumId))
-                {
-                    numberingInstance.NumberID.Value = nextNumId;
-                    numIdMapping[oldNumId] = nextNumId;
-                    nextNumId++;
-                }
-                else
-                {
-                    numIdMapping[oldNumId] = oldNumId;
-                }
+                string errorMessage = ex.Message;
+                _logger.LogError(ex, $"DocGen ran into an issue parsing the html due to: {errorMessage}");
+                _logger.LogError($"The html that caused the issue is: {html}");
 
-                // Update the AbstractNumId reference
-                int oldAbstractNumId = numberingInstance.AbstractNumId.Val.Value;
-                numberingInstance.AbstractNumId.Val.Value = abstractNumIdMapping[oldAbstractNumId];
+                string errorHtml = "<html><head></head><body><p style='color: red'><b>Docgen Error: Invalid HTML Format: " + errorMessage + "</b></p></body></html>";
+                var elements = converter.Parse(errorHtml);
+                return elements;
             }
-
-            // Save changes to the numbering definitions part
-            numbering.Save(numberingPart);
-        }
-        private void AssertThatHtmlToOpenXmlDocumentIsValid(WordprocessingDocument wpDoc)
-        {
-            var validator = new OpenXmlValidator(FileFormatVersions.Office2016);
-            var errors = validator.Validate(wpDoc);
-
-            if (!errors.GetEnumerator().MoveNext())
-                return;
-
-            var errorMessage = new StringBuilder("The document doesn't look 100% compatible with Office 2016.\n");
-
-            foreach (ValidationErrorInfo error in errors)
-            {
-                errorMessage.AppendFormat("{0}\n\t{1}\n", error.Path.XPath, error.Description);
-            }
-
-            throw new InvalidOperationException(errorMessage.ToString());
         }
 
         private string WrapHtmlWithStyle(string originalHtml, string font, uint fontSize)
