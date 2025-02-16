@@ -39,9 +39,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="HtmlToOpenXml">
-      <HintPath>lib\HtmlToOpenXml.dll</HintPath>
-      <Private>True</Private>
+    <Reference Include="HtmlToOpenXml.Custom">
+      <HintPath>lib\HtmlToOpenXml.Custom.dll</HintPath>
     </Reference>
   </ItemGroup>
 
