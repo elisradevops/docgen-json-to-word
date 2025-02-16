@@ -7,7 +7,7 @@
   "targets": {
     ".NETStandard,Version=v2.0": {},
     ".NETStandard,Version=v2.0/": {
-      "HtmlToOpenXml/3.2.2": {
+      "HtmlToOpenXml.Custom/3.2.3": {
         "dependencies": {
           "AngleSharp": "1.1.0",
           "DocumentFormat.OpenXml": "3.1.0",
@@ -16,7 +16,7 @@
           "NETStandard.Library": "2.0.3"
         },
         "runtime": {
-          "HtmlToOpenXml.dll": {}
+          "HtmlToOpenXml.Custom.dll": {}
         }
       },
       "AngleSharp/1.1.0": {
@@ -141,7 +141,7 @@
     }
   },
   "libraries": {
-    "HtmlToOpenXml/3.2.2": {
+    "HtmlToOpenXml.Custom/3.2.3": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
