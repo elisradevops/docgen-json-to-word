@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
@@ -8,7 +7,6 @@ using DocumentFormat.OpenXml.Wordprocessing;
 using JsonToWord.Models;
 using JsonToWord.Services.Interfaces;
 using Microsoft.Extensions.Logging;
-using HtmlAgilityPack;
 
 namespace JsonToWord.Services
 {
@@ -171,25 +169,38 @@ namespace JsonToWord.Services
                         };
                         tableCellProperties.AppendChild(cellShading);
                     }
-
+                    
+                   
                     var tableCell = new TableCell();
                     tableCell.TableCellProperties = tableCellProperties;
 
-                    //Check if there is no data in the cell (HTML or an Attachment)
-                    bool isEmpty = cells[j].Html == null && cells[j].Attachments?.Count == 0; 
+                    try 
+                    { 
+                        //Check if there is no data in the cell (HTML or an Attachment)
+                        bool isEmpty = cells[j].Html == null && cells[j].Attachments?.Count == 0; 
 
+                        tableCell = AppendParagraphs(tableCell, cells[j].Paragraphs, document, isEmpty);
+                        if (cells[j].Attachments?.Count > 0)
+                        {
+                            tableCell = AppendAttachments(tableCell, cells[j].Attachments, document);
+                        }
 
-                    tableCell = AppendParagraphs(tableCell, cells[j].Paragraphs, document, isEmpty);
-                    if (cells[j].Attachments?.Count > 0)
-                    {
-                        tableCell = AppendAttachments(tableCell, cells[j].Attachments, document);
+                        if (cells[j].Html != null)
+                        {
+                            tableCell = AppendHtml(tableCell, cells[j].Html, document);
+                        }
+
+                        if (!tableCell.Descendants<Paragraph>().Any())
+                        {
+                            throw new Exception($"Table cell {i + 1}:{j + 1} must contain at least one paragraph");
+                        }
+
                     }
-
-                    if (cells[j].Html != null)
+                    catch (Exception e)
                     {
-                        tableCell = AppendHtml(tableCell, cells[j].Html, document);
+                        _logger.LogError(e, $"Error while creating table cell: ${e.Message}");
+                        tableCell.AppendChild(new Paragraph(new Run(new Text("DocGen Error: Invalid data format"))));
                     }
-
                     tableRow.AppendChild(tableCell);
                 }
 
@@ -201,16 +212,10 @@ namespace JsonToWord.Services
 
         private TableCell AppendHtml(TableCell tableCell, WordHtml html, WordprocessingDocument document)
         {
-
-            if (html == null)
-                return tableCell;
-
-            if (string.IsNullOrEmpty(html.Html))
+            if (html == null || string.IsNullOrEmpty(html.Html))
             {
-
                 var paragraph = new Paragraph();
                 tableCell.AppendChild(paragraph);
-
                 return tableCell;
             }
 
@@ -279,7 +284,14 @@ namespace JsonToWord.Services
         private TableCell AppendParagraphs(TableCell tableCell, List<WordParagraph> wordParagraphs, WordprocessingDocument document, bool appendEmptyParagraph)
         {
             if (wordParagraphs == null || !wordParagraphs.Any())
+            {
+                if (appendEmptyParagraph)
+                {
+                    var emptyParagraph = new Paragraph();
+                    tableCell.AppendChild(emptyParagraph);
+                }
                 return tableCell;
+            }
 
             foreach (var wordParagraph in wordParagraphs)
             {

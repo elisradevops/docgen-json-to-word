@@ -4,61 +4,61 @@
         <name>HtmlToOpenXml.Custom</name>
     </assembly>
     <members>
-        <member name="T:HtmlToOpenXml.HtmlAttributeCollection">
+        <member name="T:HtmlToOpenXml.Custom.HtmlAttributeCollection">
             <summary>
             Represents the collection of attributes present in the current html tag.
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.HtmlAttributeCollection.Item(System.String)">
+        <member name="P:HtmlToOpenXml.Custom.HtmlAttributeCollection.Item(System.String)">
             <summary>
             Gets the named attribute.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.HtmlAttributeCollection.GetColor(System.String)">
+        <member name="M:HtmlToOpenXml.Custom.HtmlAttributeCollection.GetColor(System.String)">
             <summary>
             Gets an attribute representing a color (named color, hexadecimal or hexadecimal 
             without the preceding # character).
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.HtmlAttributeCollection.GetUnit(System.String,HtmlToOpenXml.UnitMetric)">
+        <member name="M:HtmlToOpenXml.Custom.HtmlAttributeCollection.GetUnit(System.String,HtmlToOpenXml.Custom.UnitMetric)">
             <summary>
             Gets an attribute representing an unit: 120px, 10pt, 5em, 20%, ...
             </summary>
-            <returns>If the attribute is misformed, the <see cref="P:HtmlToOpenXml.Unit.IsValid"/> property is set to false.</returns>
+            <returns>If the attribute is misformed, the <see cref="P:HtmlToOpenXml.Custom.Unit.IsValid"/> property is set to false.</returns>
         </member>
-        <member name="M:HtmlToOpenXml.HtmlAttributeCollection.GetMargin(System.String)">
+        <member name="M:HtmlToOpenXml.Custom.HtmlAttributeCollection.GetMargin(System.String)">
             <summary>
             Gets an attribute representing the 4 unit sides.
             If a side has been specified individually, it will override the grouped definition.
             </summary>
-            <returns>If the attribute is misformed, the <see cref="P:HtmlToOpenXml.Margin.IsValid"/> property is set to false.</returns>
+            <returns>If the attribute is misformed, the <see cref="P:HtmlToOpenXml.Custom.Margin.IsValid"/> property is set to false.</returns>
         </member>
-        <member name="M:HtmlToOpenXml.HtmlAttributeCollection.GetBorders">
+        <member name="M:HtmlToOpenXml.Custom.HtmlAttributeCollection.GetBorders">
             <summary>
             Gets an attribute representing the 4 border sides.
             If a border style/color/width has been specified individually, it will override the grouped definition.
             </summary>
-            <returns>If the attribute is misformed, the <see cref="P:HtmlToOpenXml.HtmlBorder.IsEmpty"/> property is set to false.</returns>
+            <returns>If the attribute is misformed, the <see cref="P:HtmlToOpenXml.Custom.HtmlBorder.IsEmpty"/> property is set to false.</returns>
         </member>
-        <member name="M:HtmlToOpenXml.HtmlAttributeCollection.GetSideBorder(System.String)">
+        <member name="M:HtmlToOpenXml.Custom.HtmlAttributeCollection.GetSideBorder(System.String)">
             <summary>
             Gets an attribute representing a single border side.
             If a border style/color/width has been specified individually, it will override the grouped definition.
             </summary>
-            <returns>If the attribute is misformed, the <see cref="P:HtmlToOpenXml.HtmlBorder.IsEmpty"/> property is set to false.</returns>
+            <returns>If the attribute is misformed, the <see cref="P:HtmlToOpenXml.Custom.HtmlBorder.IsEmpty"/> property is set to false.</returns>
         </member>
-        <member name="M:HtmlToOpenXml.HtmlAttributeCollection.GetFont(System.String)">
+        <member name="M:HtmlToOpenXml.Custom.HtmlAttributeCollection.GetFont(System.String)">
             <summary>
             Gets the font attribute and combine with the style, size and family.
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.OpenXmlDocumentStyleCollection">
+        <member name="T:HtmlToOpenXml.Custom.OpenXmlDocumentStyleCollection">
             <summary>
             Typed collection that holds the Style of a document and their name.
             OpenXml is case-sensitive but CSS is not. This collection handles both cases.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.OpenXmlDocumentStyleCollection.TryGetValueIgnoreCase(System.String,DocumentFormat.OpenXml.Wordprocessing.StyleValues,DocumentFormat.OpenXml.Wordprocessing.Style@)">
+        <member name="M:HtmlToOpenXml.Custom.OpenXmlDocumentStyleCollection.TryGetValueIgnoreCase(System.String,DocumentFormat.OpenXml.Wordprocessing.StyleValues,DocumentFormat.OpenXml.Wordprocessing.Style@)">
             <summary>
             Gets the style associated with the specified name.
             </summary>
@@ -67,15 +67,15 @@
             <param name="style">When this method returns, the style associated with the specified name, if
             the key is found; otherwise, returns null. This parameter is passed uninitialized.</param>
         </member>
-        <member name="T:HtmlToOpenXml.RowSpanCollection">
+        <member name="T:HtmlToOpenXml.Custom.RowSpanCollection">
             <summary>
             Collection which contains the remaining row span per column.
             </summary>
         </member>
-        <member name="F:HtmlToOpenXml.RowSpanCollection.spans">
+        <member name="F:HtmlToOpenXml.Custom.RowSpanCollection.spans">
             <summary>Hold the remaining row span value per colum index</summary>
         </member>
-        <member name="M:HtmlToOpenXml.RowSpanCollection.Add(System.Int32,System.Int32,System.Int32)">
+        <member name="M:HtmlToOpenXml.Custom.RowSpanCollection.Add(System.Int32,System.Int32,System.Int32)">
             <summary>
             Register a new row span.
             </summary>
@@ -83,79 +83,79 @@
             <param name="rowSpan">Indicates for how many rows the data cell spans or extends</param>
             <param name="columnSpan">Whether the row span must be carried on the next columns</param>
         </member>
-        <member name="M:HtmlToOpenXml.RowSpanCollection.Decrement(System.Int32)">
+        <member name="M:HtmlToOpenXml.Custom.RowSpanCollection.Decrement(System.Int32)">
             <summary>
             Carry on the rown span on the next row.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.RowSpanCollection.UnionWith(System.Collections.Generic.IEnumerable{System.Collections.Generic.KeyValuePair{System.Int32,HtmlToOpenXml.RowSpanCollection.CellSpan}})">
+        <member name="M:HtmlToOpenXml.Custom.RowSpanCollection.UnionWith(System.Collections.Generic.IEnumerable{System.Collections.Generic.KeyValuePair{System.Int32,HtmlToOpenXml.Custom.RowSpanCollection.CellSpan}})">
             <summary>
             Reconciliate the carried row span from previous rows with the current spans.
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.RowSpanCollection.Columns">
+        <member name="P:HtmlToOpenXml.Custom.RowSpanCollection.Columns">
             <summary>
             Iterate through the column indexes of carried row span.
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.AcronymPosition">
+        <member name="T:HtmlToOpenXml.Custom.AcronymPosition">
             <summary>
             Specifies the position of an acronym or abbreviation in the resulting conversion.
             </summary>
         </member>
-        <member name="F:HtmlToOpenXml.AcronymPosition.PageEnd">
+        <member name="F:HtmlToOpenXml.Custom.AcronymPosition.PageEnd">
             <summary>
             Position at the end of the page.
             </summary>
         </member>
-        <member name="F:HtmlToOpenXml.AcronymPosition.DocumentEnd">
+        <member name="F:HtmlToOpenXml.Custom.AcronymPosition.DocumentEnd">
             <summary>
             Position at the end of the document.
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.QuoteChars">
+        <member name="T:HtmlToOpenXml.Custom.QuoteChars">
             <summary>
             Predefined quote style as defined by the browser (used for the &lt;q&gt; tag).
             </summary>
             <remarks>
-            Initializes a new instance of <see cref="T:HtmlToOpenXml.QuoteChars"/> class.
+            Initializes a new instance of <see cref="T:HtmlToOpenXml.Custom.QuoteChars"/> class.
             </remarks>
             <param name="begin">The characters at the beginning of a quote.</param>
             <param name="end">The characters at the end of a quote.</param>
         </member>
-        <member name="M:HtmlToOpenXml.QuoteChars.#ctor(System.String,System.String)">
+        <member name="M:HtmlToOpenXml.Custom.QuoteChars.#ctor(System.String,System.String)">
             <summary>
             Predefined quote style as defined by the browser (used for the &lt;q&gt; tag).
             </summary>
             <remarks>
-            Initializes a new instance of <see cref="T:HtmlToOpenXml.QuoteChars"/> class.
+            Initializes a new instance of <see cref="T:HtmlToOpenXml.Custom.QuoteChars"/> class.
             </remarks>
             <param name="begin">The characters at the beginning of a quote.</param>
             <param name="end">The characters at the end of a quote.</param>
         </member>
-        <member name="F:HtmlToOpenXml.QuoteChars.IE">
+        <member name="F:HtmlToOpenXml.Custom.QuoteChars.IE">
             <summary>Internet Explorer style: « abc » </summary>
         </member>
-        <member name="F:HtmlToOpenXml.QuoteChars.Gecko">
+        <member name="F:HtmlToOpenXml.Custom.QuoteChars.Gecko">
             <summary>Firefox style: “abc”</summary>
         </member>
-        <member name="F:HtmlToOpenXml.QuoteChars.WebKit">
+        <member name="F:HtmlToOpenXml.Custom.QuoteChars.WebKit">
             <summary>Chrome/Safari/Opera style: "abc"</summary>
         </member>
-        <member name="T:HtmlToOpenXml.Expressions.AbbreviationExpression">
+        <member name="T:HtmlToOpenXml.Custom.Expressions.AbbreviationExpression">
             <summary>
             Process the parsing of <c>abbr</c>, <c>acronym</c>.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.AbbreviationExpression.#ctor(AngleSharp.Html.Dom.IHtmlElement)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.AbbreviationExpression.#ctor(AngleSharp.Html.Dom.IHtmlElement)">
             <summary>
             Process the parsing of <c>abbr</c>, <c>acronym</c>.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.AbbreviationExpression.Interpret(HtmlToOpenXml.ParsingContext)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.AbbreviationExpression.Interpret(HtmlToOpenXml.Custom.ParsingContext)">
             <inheritdoc/>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.AbbreviationExpression.AddFootnoteReference(HtmlToOpenXml.ParsingContext,System.String)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.AbbreviationExpression.AddFootnoteReference(HtmlToOpenXml.Custom.ParsingContext,System.String)">
             <summary>
             Add a note to the FootNotes part and ensure it exists.
             </summary>
@@ -163,7 +163,7 @@
             <param name="description">The description of an acronym, abbreviation, some book references, ...</param>
             <returns>Returns the id of the footnote reference.</returns>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.AbbreviationExpression.AddEndnoteReference(HtmlToOpenXml.ParsingContext,System.String)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.AbbreviationExpression.AddEndnoteReference(HtmlToOpenXml.Custom.ParsingContext,System.String)">
             <summary>
             Add a note to the Endnotes part and ensure it exists.
             </summary>
@@ -171,19 +171,19 @@
             <param name="description">The description of an acronym, abbreviation, some book references, ...</param>
             <returns>Returns the id of the endnote reference.</returns>
         </member>
-        <member name="T:HtmlToOpenXml.Expressions.BlockElementExpression">
+        <member name="T:HtmlToOpenXml.Custom.Expressions.BlockElementExpression">
             <summary>
             Process the parsing of block contents (like <c>p</c>, <c>span</c>, <c>heading</c>).
             A block-level element always starts on a new line, and the browsers automatically add some space (a margin) before and after the element.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.BlockElementExpression.Interpret(HtmlToOpenXml.ParsingContext)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.BlockElementExpression.Interpret(HtmlToOpenXml.Custom.ParsingContext)">
             <inheritdoc/>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.BlockElementExpression.ComposeStyles(HtmlToOpenXml.ParsingContext)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.BlockElementExpression.ComposeStyles(HtmlToOpenXml.Custom.ParsingContext)">
             <inheritdoc/>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.BlockElementExpression.ComposeChildren(HtmlToOpenXml.ParsingContext,System.Collections.Generic.IEnumerable{AngleSharp.Dom.INode},DocumentFormat.OpenXml.Wordprocessing.ParagraphProperties,System.Action{System.Collections.Generic.IList{DocumentFormat.OpenXml.OpenXmlElement}},System.Action{System.Collections.Generic.IList{DocumentFormat.OpenXml.OpenXmlElement}})">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.BlockElementExpression.ComposeChildren(HtmlToOpenXml.Custom.ParsingContext,System.Collections.Generic.IEnumerable{AngleSharp.Dom.INode},DocumentFormat.OpenXml.Wordprocessing.ParagraphProperties,System.Action{System.Collections.Generic.IList{DocumentFormat.OpenXml.OpenXmlElement}},System.Action{System.Collections.Generic.IList{DocumentFormat.OpenXml.OpenXmlElement}})">
             <summary>
             Intrepret all the child nodes and combine them.
             </summary>
@@ -193,478 +193,478 @@
             <param name="preAction">Optionally insert new runs at the beginning of the processing.</param>
             <param name="postAction">Optionally insert new runs at the end of the processing.</param>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.BlockElementExpression.CreateParagraph(HtmlToOpenXml.ParsingContext,System.Collections.Generic.IList{DocumentFormat.OpenXml.OpenXmlElement},DocumentFormat.OpenXml.Wordprocessing.ParagraphProperties)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.BlockElementExpression.CreateParagraph(HtmlToOpenXml.Custom.ParsingContext,System.Collections.Generic.IList{DocumentFormat.OpenXml.OpenXmlElement},DocumentFormat.OpenXml.Wordprocessing.ParagraphProperties)">
             <summary>
             Create a new Paragraph and combine all the runs.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.BlockElementExpression.CreateFrame(System.Collections.Generic.IEnumerable{DocumentFormat.OpenXml.OpenXmlElement})">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.BlockElementExpression.CreateFrame(System.Collections.Generic.IEnumerable{DocumentFormat.OpenXml.OpenXmlElement})">
             <summary>
             Group all the paragraph inside a framed table.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.BlockElementExpression.IncrementBookmarkId(HtmlToOpenXml.ParsingContext)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.BlockElementExpression.IncrementBookmarkId(HtmlToOpenXml.Custom.ParsingContext)">
             <summary>
             Resolve the next available <see cref="P:DocumentFormat.OpenXml.Wordprocessing.BookmarkStart.Id"/> (they must be unique).
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.Expressions.BlockQuoteExpression">
+        <member name="T:HtmlToOpenXml.Custom.Expressions.BlockQuoteExpression">
             <summary>
             Process the parsing of <c>blockquote</c>.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.BlockQuoteExpression.#ctor(AngleSharp.Html.Dom.IHtmlElement)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.BlockQuoteExpression.#ctor(AngleSharp.Html.Dom.IHtmlElement)">
             <summary>
             Process the parsing of <c>blockquote</c>.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.BlockQuoteExpression.Interpret(HtmlToOpenXml.ParsingContext)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.BlockQuoteExpression.Interpret(HtmlToOpenXml.Custom.ParsingContext)">
             <inheritdoc/>
         </member>
-        <member name="T:HtmlToOpenXml.Expressions.BodyExpression">
+        <member name="T:HtmlToOpenXml.Custom.Expressions.BodyExpression">
             <summary>
             Top parent expression, processing the <c>body</c> tag,
             even if it is not directly specified in the provided Html.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.BodyExpression.#ctor(AngleSharp.Html.Dom.IHtmlElement,DocumentFormat.OpenXml.Wordprocessing.ParagraphStyleId)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.BodyExpression.#ctor(AngleSharp.Html.Dom.IHtmlElement,DocumentFormat.OpenXml.Wordprocessing.ParagraphStyleId)">
             <summary>
             Top parent expression, processing the <c>body</c> tag,
             even if it is not directly specified in the provided Html.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.BodyExpression.ChangePageOrientation(DocumentFormat.OpenXml.Wordprocessing.PageOrientationValues)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.BodyExpression.ChangePageOrientation(DocumentFormat.OpenXml.Wordprocessing.PageOrientationValues)">
             <summary>
             Generate the required OpenXml element for handling page orientation.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.BodyExpression.MarkAllBookmarks">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.BodyExpression.MarkAllBookmarks">
             <summary>
             Detect all bookmarks (in-document) and mark the nodes for future processing.
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.Expressions.CiteElementExpression">
+        <member name="T:HtmlToOpenXml.Custom.Expressions.CiteElementExpression">
             <summary>
             Process the parsing of <c>cite</c> element.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.CiteElementExpression.#ctor(AngleSharp.Html.Dom.IHtmlElement)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.CiteElementExpression.#ctor(AngleSharp.Html.Dom.IHtmlElement)">
             <summary>
             Process the parsing of <c>cite</c> element.
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.Expressions.FigureCaptionExpression">
+        <member name="T:HtmlToOpenXml.Custom.Expressions.FigureCaptionExpression">
             <summary>
             Process the parsing of a <c>figcaption</c> element, which is used to describe an image.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.FigureCaptionExpression.#ctor(AngleSharp.Html.Dom.IHtmlElement)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.FigureCaptionExpression.#ctor(AngleSharp.Html.Dom.IHtmlElement)">
             <summary>
             Process the parsing of a <c>figcaption</c> element, which is used to describe an image.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.FigureCaptionExpression.Interpret(HtmlToOpenXml.ParsingContext)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.FigureCaptionExpression.Interpret(HtmlToOpenXml.Custom.ParsingContext)">
             <inheritdoc/>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.FigureCaptionExpression.AddFigureCaption(HtmlToOpenXml.ParsingContext)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.FigureCaptionExpression.AddFigureCaption(HtmlToOpenXml.Custom.ParsingContext)">
             <summary>
             Add a new figure caption to the document.
             </summary>
             <returns>Returns the id of the new figure caption.</returns>
         </member>
-        <member name="T:HtmlToOpenXml.Expressions.FontElementExpression">
+        <member name="T:HtmlToOpenXml.Custom.Expressions.FontElementExpression">
             <summary>
             Process the parsing of a <c>font</c> element.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.FontElementExpression.#ctor(AngleSharp.Html.Dom.IHtmlElement)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.FontElementExpression.#ctor(AngleSharp.Html.Dom.IHtmlElement)">
             <summary>
             Process the parsing of a <c>font</c> element.
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.Expressions.HorizontalLineExpression">
+        <member name="T:HtmlToOpenXml.Custom.Expressions.HorizontalLineExpression">
             <summary>
             Process the parsing of a <c>hr</c> element
             by inserting an horizontal line as it stands in many emails.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.HorizontalLineExpression.#ctor(AngleSharp.Html.Dom.IHtmlElement)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.HorizontalLineExpression.#ctor(AngleSharp.Html.Dom.IHtmlElement)">
             <summary>
             Process the parsing of a <c>hr</c> element
             by inserting an horizontal line as it stands in many emails.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.HorizontalLineExpression.Interpret(HtmlToOpenXml.ParsingContext)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.HorizontalLineExpression.Interpret(HtmlToOpenXml.Custom.ParsingContext)">
             <inheritdoc/>
         </member>
-        <member name="T:HtmlToOpenXml.Expressions.HtmlDomExpression">
+        <member name="T:HtmlToOpenXml.Custom.Expressions.HtmlDomExpression">
             <summary>
             Represents the base processor of an HTML node (text, element, comment, processing instruction).
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.HtmlDomExpression.Interpret(HtmlToOpenXml.ParsingContext)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.HtmlDomExpression.Interpret(HtmlToOpenXml.Custom.ParsingContext)">
             <summary>
             Process the interpretation of the Html node to its Word OpenXml equivalence.
             </summary>
             <param name="context">The parsing context.</param>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.HtmlDomExpression.CreateFromHtmlNode(AngleSharp.Dom.INode)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.HtmlDomExpression.CreateFromHtmlNode(AngleSharp.Dom.INode)">
             <summary>
             Create a new interpreter for the given html tag.
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.Expressions.HtmlElementExpression">
+        <member name="T:HtmlToOpenXml.Custom.Expressions.HtmlElementExpression">
             <summary>
             Represents the base definition of the processor of an HTML tag.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.HtmlElementExpression.CascadeStyles(DocumentFormat.OpenXml.OpenXmlElement)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.HtmlElementExpression.CascadeStyles(DocumentFormat.OpenXml.OpenXmlElement)">
             <summary>
             Apply the style properties on the provided element.
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.Expressions.HyperlinkExpression">
+        <member name="T:HtmlToOpenXml.Custom.Expressions.HyperlinkExpression">
             <summary>
             Process the parsing of a link element.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.HyperlinkExpression.#ctor(AngleSharp.Html.Dom.IHtmlAnchorElement)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.HyperlinkExpression.#ctor(AngleSharp.Html.Dom.IHtmlAnchorElement)">
             <summary>
             Process the parsing of a link element.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.HyperlinkExpression.Interpret(HtmlToOpenXml.ParsingContext)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.HyperlinkExpression.Interpret(HtmlToOpenXml.Custom.ParsingContext)">
             <inheritdoc/>
         </member>
-        <member name="T:HtmlToOpenXml.Expressions.ImageExpression">
+        <member name="T:HtmlToOpenXml.Custom.Expressions.ImageExpression">
             <summary>
             Process the parsing of an image.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.ImageExpression.#ctor(AngleSharp.Html.Dom.IHtmlImageElement)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.ImageExpression.#ctor(AngleSharp.Html.Dom.IHtmlImageElement)">
             <summary>
             Process the parsing of an image.
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.Expressions.ImageExpressionBase">
+        <member name="T:HtmlToOpenXml.Custom.Expressions.ImageExpressionBase">
             <summary>
             Process the parsing of an image.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.ImageExpressionBase.#ctor(AngleSharp.Dom.IElement)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.ImageExpressionBase.#ctor(AngleSharp.Dom.IElement)">
             <summary>
             Process the parsing of an image.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.ImageExpressionBase.Interpret(HtmlToOpenXml.ParsingContext)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.ImageExpressionBase.Interpret(HtmlToOpenXml.Custom.ParsingContext)">
             <inheritdoc/>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.ImageExpressionBase.CreateDrawing(HtmlToOpenXml.ParsingContext)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.ImageExpressionBase.CreateDrawing(HtmlToOpenXml.Custom.ParsingContext)">
             <summary>
             Create the Drawing model referencing the iamge part.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.ImageExpressionBase.IncrementDrawingObjId(HtmlToOpenXml.ParsingContext)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.ImageExpressionBase.IncrementDrawingObjId(HtmlToOpenXml.Custom.ParsingContext)">
             <summary>
             Resolve the next available <see cref="P:DocumentFormat.OpenXml.Wordprocessing.AbstractNum.AbstractNumberId"/> (they must be unique and ordered).
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.Expressions.SvgExpression">
+        <member name="T:HtmlToOpenXml.Custom.Expressions.SvgExpression">
             <summary>
             Process the parsing of a <c>svg</c> element.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.SvgExpression.#ctor(AngleSharp.Svg.Dom.ISvgSvgElement)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.SvgExpression.#ctor(AngleSharp.Svg.Dom.ISvgSvgElement)">
             <summary>
             Process the parsing of a <c>svg</c> element.
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.Expressions.LineBreakExpression">
+        <member name="T:HtmlToOpenXml.Custom.Expressions.LineBreakExpression">
             <summary>
             Process the parsing of a <c>br</c> element.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.LineBreakExpression.Interpret(HtmlToOpenXml.ParsingContext)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.LineBreakExpression.Interpret(HtmlToOpenXml.Custom.ParsingContext)">
             <inheritdoc/>
         </member>
-        <member name="T:HtmlToOpenXml.Expressions.HeadingElementExpression">
+        <member name="T:HtmlToOpenXml.Custom.Expressions.HeadingElementExpression">
             <summary>
             Process the parsing of a heading element.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.HeadingElementExpression.#ctor(AngleSharp.Html.Dom.IHtmlElement)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.HeadingElementExpression.#ctor(AngleSharp.Html.Dom.IHtmlElement)">
             <summary>
             Process the parsing of a heading element.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.HeadingElementExpression.Interpret(HtmlToOpenXml.ParsingContext)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.HeadingElementExpression.Interpret(HtmlToOpenXml.Custom.ParsingContext)">
             <inheritdoc/>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.HeadingElementExpression.SetNumbering(DocumentFormat.OpenXml.Wordprocessing.Paragraph,System.Int32,System.Int32)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.HeadingElementExpression.SetNumbering(DocumentFormat.OpenXml.Wordprocessing.Paragraph,System.Int32,System.Int32)">
             <summary>
             Apply numbering to the heading paragraph.
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.Expressions.ListExpression">
+        <member name="T:HtmlToOpenXml.Custom.Expressions.ListExpression">
             <summary>
             Process the ordered <c>ol</c> and unordered <c>ul</c> list.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.ListExpression.#ctor(AngleSharp.Html.Dom.IHtmlElement)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.ListExpression.#ctor(AngleSharp.Html.Dom.IHtmlElement)">
             <summary>
             Process the ordered <c>ol</c> and unordered <c>ul</c> list.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.ListExpression.ConcretiseInstance(HtmlToOpenXml.ParsingContext,System.Int32,System.String,System.Int32)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.ListExpression.ConcretiseInstance(HtmlToOpenXml.Custom.ParsingContext,System.Int32,System.String,System.Int32)">
             <summary>
             Create a new instance of a list template.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.ListExpression.GetListName(AngleSharp.Dom.IElement,System.String)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.ListExpression.GetListName(AngleSharp.Dom.IElement,System.String)">
             <summary>
             Resolve the list style to determine which NumberList style to apply.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.ListExpression.GetStyleIdForListItem(HtmlToOpenXml.WordDocumentStyle,AngleSharp.Html.Dom.IHtmlElement,System.Boolean)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.ListExpression.GetStyleIdForListItem(HtmlToOpenXml.Custom.WordDocumentStyle,AngleSharp.Html.Dom.IHtmlElement,System.Boolean)">
             <summary>
             Resolve the <see cref="T:DocumentFormat.OpenXml.Wordprocessing.ParagraphStyleId"/> of a list element node, 
             based on its css class if provided and if matching.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.ListExpression.IsCascadingStyle(System.String)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.ListExpression.IsCascadingStyle(System.String)">
             <summary>
             Gets whether the given style is automatically promoted to child lists.
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.Expressions.NumberingExpressionBase">
+        <member name="T:HtmlToOpenXml.Custom.Expressions.NumberingExpressionBase">
             <summary>
             Base implementation for numbering list.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.NumberingExpressionBase.#ctor(AngleSharp.Html.Dom.IHtmlElement)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.NumberingExpressionBase.#ctor(AngleSharp.Html.Dom.IHtmlElement)">
             <summary>
             Base implementation for numbering list.
             </summary>
         </member>
-        <member name="F:HtmlToOpenXml.Expressions.NumberingExpressionBase.MaxLevel">
+        <member name="F:HtmlToOpenXml.Custom.Expressions.NumberingExpressionBase.MaxLevel">
             <summary>Hard-coded value from Word</summary>
         </member>
-        <member name="F:HtmlToOpenXml.Expressions.NumberingExpressionBase.knownAbsNumIds">
+        <member name="F:HtmlToOpenXml.Custom.Expressions.NumberingExpressionBase.knownAbsNumIds">
             <summary>Contains the list of templated list along with the AbstractNumbId</summary>
         </member>
-        <member name="F:HtmlToOpenXml.Expressions.NumberingExpressionBase.knownInstanceIds">
+        <member name="F:HtmlToOpenXml.Custom.Expressions.NumberingExpressionBase.knownInstanceIds">
             <summary>Contains the list of numbering instance.</summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.NumberingExpressionBase.GetOrCreateListTemplate(HtmlToOpenXml.ParsingContext,System.String)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.NumberingExpressionBase.GetOrCreateListTemplate(HtmlToOpenXml.Custom.ParsingContext,System.String)">
             <summary>
             Find or register an list template from the document.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.NumberingExpressionBase.GetListInstance(System.Int32)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.NumberingExpressionBase.GetListInstance(System.Int32)">
             <summary>
             Find or register a list template from the document.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.NumberingExpressionBase.IncrementAbstractNumId(HtmlToOpenXml.ParsingContext,DocumentFormat.OpenXml.Wordprocessing.Numbering)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.NumberingExpressionBase.IncrementAbstractNumId(HtmlToOpenXml.Custom.ParsingContext,DocumentFormat.OpenXml.Wordprocessing.Numbering)">
             <summary>
             Resolve the next available <see cref="P:DocumentFormat.OpenXml.Wordprocessing.AbstractNum.AbstractNumberId"/> (they must be unique and ordered).
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.NumberingExpressionBase.IncrementInstanceId(HtmlToOpenXml.ParsingContext,System.Int32,System.Boolean)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.NumberingExpressionBase.IncrementInstanceId(HtmlToOpenXml.Custom.ParsingContext,System.Int32,System.Boolean)">
             <summary>
             Resolve the next available <see cref="P:DocumentFormat.OpenXml.Wordprocessing.NumberingInstance.NumberID"/> (they must be unique and ordered).
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.NumberingExpressionBase.InitNumberingIds(HtmlToOpenXml.ParsingContext)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.NumberingExpressionBase.InitNumberingIds(HtmlToOpenXml.Custom.ParsingContext)">
             <summary>
             Discover the list of existing templates and instances, already registred in the document.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.NumberingExpressionBase.InitKnownLists">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.NumberingExpressionBase.InitKnownLists">
             <summary>
             Predefined template of lists.
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.Expressions.PhrasingElementExpression">
+        <member name="T:HtmlToOpenXml.Custom.Expressions.PhrasingElementExpression">
             <summary>
             Process the parsing of a phrasing content. A Phrasing content is an inline layout content at the lower level
             that consists of text and HTML elements that mark up the text within paragraphs.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.PhrasingElementExpression.#ctor(AngleSharp.Html.Dom.IHtmlElement,DocumentFormat.OpenXml.OpenXmlLeafElement)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.PhrasingElementExpression.#ctor(AngleSharp.Html.Dom.IHtmlElement,DocumentFormat.OpenXml.OpenXmlLeafElement)">
             <summary>
             Process the parsing of a phrasing content. A Phrasing content is an inline layout content at the lower level
             that consists of text and HTML elements that mark up the text within paragraphs.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.PhrasingElementExpression.Interpret(HtmlToOpenXml.ParsingContext)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.PhrasingElementExpression.Interpret(HtmlToOpenXml.Custom.ParsingContext)">
             <inheritdoc/>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.PhrasingElementExpression.ComposeStyles(HtmlToOpenXml.ParsingContext)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.PhrasingElementExpression.ComposeStyles(HtmlToOpenXml.Custom.ParsingContext)">
             <summary>
             Prepare the conversion of style attributes of the current Html Dom element to OpenXml equivalent.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.PhrasingElementExpression.CombineRuns(System.Collections.Generic.IEnumerable{DocumentFormat.OpenXml.OpenXmlElement})">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.PhrasingElementExpression.CombineRuns(System.Collections.Generic.IEnumerable{DocumentFormat.OpenXml.OpenXmlElement})">
             <summary>
             Mimics the behaviour of Html rendering when 2 consecutives runs are separated by a space.
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.Expressions.PreElementExpression">
+        <member name="T:HtmlToOpenXml.Custom.Expressions.PreElementExpression">
             <summary>
             Process the parsing of <c>pre</c> (preformatted) element.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.PreElementExpression.#ctor(AngleSharp.Html.Dom.IHtmlElement)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.PreElementExpression.#ctor(AngleSharp.Html.Dom.IHtmlElement)">
             <summary>
             Process the parsing of <c>pre</c> (preformatted) element.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.PreElementExpression.Interpret(HtmlToOpenXml.ParsingContext)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.PreElementExpression.Interpret(HtmlToOpenXml.Custom.ParsingContext)">
             <inheritdoc/>
         </member>
-        <member name="T:HtmlToOpenXml.Expressions.QuoteElementExpression">
+        <member name="T:HtmlToOpenXml.Custom.Expressions.QuoteElementExpression">
             <summary>
             Process the parsing of <c>quote</c> element.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.QuoteElementExpression.#ctor(AngleSharp.Html.Dom.IHtmlElement)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.QuoteElementExpression.#ctor(AngleSharp.Html.Dom.IHtmlElement)">
             <summary>
             Process the parsing of <c>quote</c> element.
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.Expressions.TableCaptionExpression">
+        <member name="T:HtmlToOpenXml.Custom.Expressions.TableCaptionExpression">
             <summary>
             Process the parsing of a <c>caption</c> element, which is used to describe a table.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.TableCaptionExpression.#ctor(DocumentFormat.OpenXml.Wordprocessing.Table,AngleSharp.Html.Dom.IHtmlElement)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.TableCaptionExpression.#ctor(DocumentFormat.OpenXml.Wordprocessing.Table,AngleSharp.Html.Dom.IHtmlElement)">
             <summary>
             Process the parsing of a <c>caption</c> element, which is used to describe a table.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.TableCaptionExpression.Interpret(HtmlToOpenXml.ParsingContext)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.TableCaptionExpression.Interpret(HtmlToOpenXml.Custom.ParsingContext)">
             <inheritdoc/>
         </member>
-        <member name="T:HtmlToOpenXml.Expressions.TableCellExpression">
+        <member name="T:HtmlToOpenXml.Custom.Expressions.TableCellExpression">
             <summary>
             Process the parsing of a <c>td</c> or <c>th</c> element which represent a cell in a table row.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.TableCellExpression.#ctor(AngleSharp.Html.Dom.IHtmlTableCellElement)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.TableCellExpression.#ctor(AngleSharp.Html.Dom.IHtmlTableCellElement)">
             <summary>
             Process the parsing of a <c>td</c> or <c>th</c> element which represent a cell in a table row.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.TableCellExpression.Interpret(HtmlToOpenXml.ParsingContext)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.TableCellExpression.Interpret(HtmlToOpenXml.Custom.ParsingContext)">
             <inheritdoc/>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.TableCellExpression.CreateEmpty(DocumentFormat.OpenXml.OpenXmlLeafElement[])">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.TableCellExpression.CreateEmpty(DocumentFormat.OpenXml.OpenXmlLeafElement[])">
             <summary>
             Create a minimal TableCell to fill placeholder.
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.Expressions.TableColExpression">
+        <member name="T:HtmlToOpenXml.Custom.Expressions.TableColExpression">
             <summary>
             Process the parsing of a <c>col</c> element.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.TableColExpression.#ctor(AngleSharp.Html.Dom.IHtmlTableColumnElement)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.TableColExpression.#ctor(AngleSharp.Html.Dom.IHtmlTableColumnElement)">
             <summary>
             Process the parsing of a <c>col</c> element.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.TableColExpression.Interpret(HtmlToOpenXml.ParsingContext)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.TableColExpression.Interpret(HtmlToOpenXml.Custom.ParsingContext)">
             <inheritdoc/>
         </member>
-        <member name="T:HtmlToOpenXml.Expressions.TableElementExpressionBase">
+        <member name="T:HtmlToOpenXml.Custom.Expressions.TableElementExpressionBase">
             <summary>
             Process the parsing of the style generic table element (cell, row, section or col).
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.TableElementExpressionBase.#ctor(AngleSharp.Html.Dom.IHtmlElement)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.TableElementExpressionBase.#ctor(AngleSharp.Html.Dom.IHtmlElement)">
             <summary>
             Process the parsing of the style generic table element (cell, row, section or col).
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.Expressions.TableExpression">
+        <member name="T:HtmlToOpenXml.Custom.Expressions.TableExpression">
             <summary>
             Process the parsing of <c>pre</c> (preformatted) element.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.TableExpression.#ctor(AngleSharp.Html.Dom.IHtmlTableElement)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.TableExpression.#ctor(AngleSharp.Html.Dom.IHtmlTableElement)">
             <summary>
             Process the parsing of <c>pre</c> (preformatted) element.
             </summary>
         </member>
-        <member name="F:HtmlToOpenXml.Expressions.TableExpression.MaxColumns">
+        <member name="F:HtmlToOpenXml.Custom.Expressions.TableExpression.MaxColumns">
             <summary>MS Word has this hard-limit.</summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.TableExpression.Interpret(HtmlToOpenXml.ParsingContext)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.TableExpression.Interpret(HtmlToOpenXml.Custom.ParsingContext)">
             <inheritdoc/>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.TableExpression.InterpretGridColumns(HtmlToOpenXml.ParsingContext,System.Int32)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.TableExpression.InterpretGridColumns(HtmlToOpenXml.Custom.ParsingContext,System.Int32)">
             <summary>
             Parse the <c>col</c> tags, defining some column styles.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.TableExpression.GuessColumnsCount(AngleSharp.Html.Dom.IHtmlTableElement)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.TableExpression.GuessColumnsCount(AngleSharp.Html.Dom.IHtmlTableElement)">
             <summary>
             OpenXml is less tolerant than HTML and expect the precise total number of columns.
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.Expressions.TablePartExpression">
+        <member name="T:HtmlToOpenXml.Custom.Expressions.TablePartExpression">
             <summary>
             Process the parsing of a <c>tbody</c>, <c>thead</c> or <c>tfoot</c> element.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.TablePartExpression.#ctor(AngleSharp.Html.Dom.IHtmlTableSectionElement,System.Int32)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.TablePartExpression.#ctor(AngleSharp.Html.Dom.IHtmlTableSectionElement,System.Int32)">
             <summary>
             Process the parsing of a <c>tbody</c>, <c>thead</c> or <c>tfoot</c> element.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.TablePartExpression.Interpret(HtmlToOpenXml.ParsingContext)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.TablePartExpression.Interpret(HtmlToOpenXml.Custom.ParsingContext)">
             <inheritdoc/>
         </member>
-        <member name="T:HtmlToOpenXml.Expressions.TableRowExpression">
+        <member name="T:HtmlToOpenXml.Custom.Expressions.TableRowExpression">
             <summary>
             Process the parsing of a <c>tr</c> element which represent a row in a table.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.TableRowExpression.Interpret(HtmlToOpenXml.ParsingContext)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.TableRowExpression.Interpret(HtmlToOpenXml.Custom.ParsingContext)">
             <inheritdoc/>
         </member>
-        <member name="P:HtmlToOpenXml.Expressions.TableRowExpression.RowSpans">
+        <member name="P:HtmlToOpenXml.Custom.Expressions.TableRowExpression.RowSpans">
             <summary>
             The carried row spans.
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.Expressions.TextExpression">
+        <member name="T:HtmlToOpenXml.Custom.Expressions.TextExpression">
             <summary>
             Leaf expression which process a simple text content.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.TextExpression.#ctor(AngleSharp.Dom.INode)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.TextExpression.#ctor(AngleSharp.Dom.INode)">
             <summary>
             Leaf expression which process a simple text content.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Expressions.TextExpression.Interpret(HtmlToOpenXml.ParsingContext)">
+        <member name="M:HtmlToOpenXml.Custom.Expressions.TextExpression.Interpret(HtmlToOpenXml.Custom.ParsingContext)">
             <inheritdoc/>
         </member>
-        <member name="T:HtmlToOpenXml.HtmlConverter">
+        <member name="T:HtmlToOpenXml.Custom.HtmlConverter">
             <summary>
             Helper class to convert some Html text to OpenXml elements.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.HtmlConverter.#ctor(DocumentFormat.OpenXml.Packaging.MainDocumentPart)">
+        <member name="M:HtmlToOpenXml.Custom.HtmlConverter.#ctor(DocumentFormat.OpenXml.Packaging.MainDocumentPart)">
             <summary>
             Constructor.
             </summary>
             <param name="mainPart">The mainDocumentPart of a document where to write the conversion to.</param>
             <remarks>We preload some configuration from inside the document such as style, bookmarks,...</remarks>
         </member>
-        <member name="M:HtmlToOpenXml.HtmlConverter.#ctor(DocumentFormat.OpenXml.Packaging.MainDocumentPart,HtmlToOpenXml.IO.IWebRequest)">
+        <member name="M:HtmlToOpenXml.Custom.HtmlConverter.#ctor(DocumentFormat.OpenXml.Packaging.MainDocumentPart,HtmlToOpenXml.Custom.IO.IWebRequest)">
             <summary>
             Constructor.
             </summary>
@@ -672,14 +672,14 @@
             <param name="webRequester">Factory to download the images.</param>
             <remarks>We preload some configuration from inside the document such as style, bookmarks,...</remarks>
         </member>
-        <member name="M:HtmlToOpenXml.HtmlConverter.Parse(System.String)">
+        <member name="M:HtmlToOpenXml.Custom.HtmlConverter.Parse(System.String)">
             <summary>
             Parse some HTML content where the output is intented to be inserted in <see cref="T:DocumentFormat.OpenXml.Packaging.MainDocumentPart"/>.
             </summary>
             <param name="html">The HTML content to parse</param>
             <returns>Returns a list of parsed paragraph.</returns>
         </member>
-        <member name="M:HtmlToOpenXml.HtmlConverter.Parse(System.String,System.Threading.CancellationToken)">
+        <member name="M:HtmlToOpenXml.Custom.HtmlConverter.Parse(System.String,System.Threading.CancellationToken)">
             <summary>
             Start the asynchroneous parse processing where the output is intented to be inserted in <see cref="T:DocumentFormat.OpenXml.Packaging.MainDocumentPart"/>.
             </summary>
@@ -687,7 +687,7 @@
             <param name="cancellationToken">The cancellation token.</param>
             <returns>Returns a list of parsed paragraph.</returns>
         </member>
-        <member name="M:HtmlToOpenXml.HtmlConverter.ParseAsync(System.String,System.Threading.CancellationToken)">
+        <member name="M:HtmlToOpenXml.Custom.HtmlConverter.ParseAsync(System.String,System.Threading.CancellationToken)">
             <summary>
             Start the asynchroneous parse processing where the output is intented to be inserted in <see cref="T:DocumentFormat.OpenXml.Packaging.MainDocumentPart"/>.
             </summary>
@@ -695,7 +695,7 @@
             <param name="cancellationToken">The cancellation token.</param>
             <returns>Returns a list of parsed paragraph.</returns>
         </member>
-        <member name="M:HtmlToOpenXml.HtmlConverter.ParseAsync(System.String,System.Threading.Tasks.ParallelOptions)">
+        <member name="M:HtmlToOpenXml.Custom.HtmlConverter.ParseAsync(System.String,System.Threading.Tasks.ParallelOptions)">
             <summary>
             Start the asynchroneous parse processing where the output is intented to be inserted in <see cref="T:DocumentFormat.OpenXml.Packaging.MainDocumentPart"/>.
             </summary>
@@ -703,7 +703,7 @@
             <param name="parallelOptions">The configuration of parallelism while downloading the remote resources.</param>
             <returns>Returns a list of parsed paragraph.</returns>
         </member>
-        <member name="M:HtmlToOpenXml.HtmlConverter.ParseHeader(System.String,System.Nullable{DocumentFormat.OpenXml.Wordprocessing.HeaderFooterValues},System.Threading.CancellationToken)">
+        <member name="M:HtmlToOpenXml.Custom.HtmlConverter.ParseHeader(System.String,System.Nullable{DocumentFormat.OpenXml.Wordprocessing.HeaderFooterValues},System.Threading.CancellationToken)">
             <summary>
             Parse asynchroneously the Html and append the output into the Header of the document.
             </summary>
@@ -713,7 +713,7 @@
             <param name="cancellationToken">The cancellation token.</param>
             <seealso cref="T:DocumentFormat.OpenXml.Packaging.HeaderPart"/>
         </member>
-        <member name="M:HtmlToOpenXml.HtmlConverter.ParseFooter(System.String,System.Nullable{DocumentFormat.OpenXml.Wordprocessing.HeaderFooterValues},System.Threading.CancellationToken)">
+        <member name="M:HtmlToOpenXml.Custom.HtmlConverter.ParseFooter(System.String,System.Nullable{DocumentFormat.OpenXml.Wordprocessing.HeaderFooterValues},System.Threading.CancellationToken)">
             <summary>
             Parse asynchroneously the Html and append the output into the Footer of the document.
             </summary>
@@ -723,7 +723,7 @@
             <param name="cancellationToken">The cancellation token.</param>
             <seealso cref="T:DocumentFormat.OpenXml.Packaging.FooterPart"/>
         </member>
-        <member name="M:HtmlToOpenXml.HtmlConverter.ParseBody(System.String,System.Threading.CancellationToken)">
+        <member name="M:HtmlToOpenXml.Custom.HtmlConverter.ParseBody(System.String,System.Threading.CancellationToken)">
             <summary>
             Parse asynchroneously the Html and append the output into the Body of the document.
             </summary>
@@ -731,7 +731,7 @@
             <param name="cancellationToken">The cancellation token.</param>
             <seealso cref="T:DocumentFormat.OpenXml.Packaging.MainDocumentPart"/>
         </member>
-        <member name="M:HtmlToOpenXml.HtmlConverter.Parse(System.String,System.Threading.Tasks.ParallelOptions)">
+        <member name="M:HtmlToOpenXml.Custom.HtmlConverter.Parse(System.String,System.Threading.Tasks.ParallelOptions)">
             <summary>
             Start the asynchroneous parse processing. Use this overload if you want to control the downloading of images.
             </summary>
@@ -739,19 +739,19 @@
             <param name="parallelOptions">The configuration of parallelism while downloading the remote resources.</param>
             <returns>Returns a list of parsed paragraph.</returns>
         </member>
-        <member name="M:HtmlToOpenXml.HtmlConverter.ParseHtml(System.String,System.Threading.CancellationToken)">
+        <member name="M:HtmlToOpenXml.Custom.HtmlConverter.ParseHtml(System.String,System.Threading.CancellationToken)">
             <summary>
             Start the asynchroneous parse processing and append the output into the Body of the document.
             </summary>
             <param name="html">The HTML content to parse</param>
             <param name="cancellationToken">The cancellation token.</param>
         </member>
-        <member name="M:HtmlToOpenXml.HtmlConverter.RefreshStyles">
+        <member name="M:HtmlToOpenXml.Custom.HtmlConverter.RefreshStyles">
             <summary>
             Refresh the cache of styles presents in the document.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.HtmlConverter.ParseCoreAsync(System.String,DocumentFormat.OpenXml.Packaging.OpenXmlPartContainer,HtmlToOpenXml.IO.IImageLoader,System.Threading.Tasks.ParallelOptions,DocumentFormat.OpenXml.Wordprocessing.ParagraphStyleId)">
+        <member name="M:HtmlToOpenXml.Custom.HtmlConverter.ParseCoreAsync(System.String,DocumentFormat.OpenXml.Packaging.OpenXmlPartContainer,HtmlToOpenXml.Custom.IO.IImageLoader,System.Threading.Tasks.ParallelOptions,DocumentFormat.OpenXml.Wordprocessing.ParagraphStyleId)">
             <summary>
             Start the asynchroneous parse processing. Use this overload if you want to control the downloading of images.
             </summary>
@@ -762,22 +762,22 @@
             <param name="defaultParagraphStyleId">The default OpenXml style to apply on paragraphs.</param> 
             <returns>Returns a list of parsed paragraph.</returns>
         </member>
-        <member name="M:HtmlToOpenXml.HtmlConverter.PreloadImages(AngleSharp.Dom.IDocument,HtmlToOpenXml.IO.IImageLoader,System.Threading.Tasks.ParallelOptions)">
+        <member name="M:HtmlToOpenXml.Custom.HtmlConverter.PreloadImages(AngleSharp.Dom.IDocument,HtmlToOpenXml.Custom.IO.IImageLoader,System.Threading.Tasks.ParallelOptions)">
             <summary>
             Walk through all the <c>img</c> tags and preload all the remote images.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.HtmlConverter.ResolveHeaderFooterPart``2(System.Nullable{DocumentFormat.OpenXml.Wordprocessing.HeaderFooterValues})">
+        <member name="M:HtmlToOpenXml.Custom.HtmlConverter.ResolveHeaderFooterPart``2(System.Nullable{DocumentFormat.OpenXml.Wordprocessing.HeaderFooterValues})">
             <summary>
             Create or resolve the header/footer related to the type.
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.HtmlConverter.AcronymPosition">
+        <member name="P:HtmlToOpenXml.Custom.HtmlConverter.AcronymPosition">
             <summary>
             Gets or sets where to render the acronym or abbreviation tag.
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.HtmlConverter.SupportsAnchorLinks">
+        <member name="P:HtmlToOpenXml.Custom.HtmlConverter.SupportsAnchorLinks">
             <summary>
             Gets or sets whether anchor links are included or not in the conversion
             (defaults <see langword="true" />).
@@ -793,7 +793,7 @@
             and set the value of href to <i><c>#name of your bookmark</c></i>.
             </remarks>
         </member>
-        <member name="P:HtmlToOpenXml.HtmlConverter.ExcludeLinkAnchor">
+        <member name="P:HtmlToOpenXml.Custom.HtmlConverter.ExcludeLinkAnchor">
             <summary>
             Gets or sets whether anchor links are included or not in the conversion.
             </summary>
@@ -808,29 +808,29 @@
             and set the value of href to <i><c>#name of your bookmark</c></i>.
             </remarks>
         </member>
-        <member name="P:HtmlToOpenXml.HtmlConverter.HtmlStyles">
+        <member name="P:HtmlToOpenXml.Custom.HtmlConverter.HtmlStyles">
             <summary>
             Gets the Html styles manager mapping to OpenXml style properties.
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.HtmlConverter.TableCaptionPosition">
+        <member name="P:HtmlToOpenXml.Custom.HtmlConverter.TableCaptionPosition">
             <summary>
             Gets or sets where the Legend tag (<c>caption</c>) should be rendered (above or below the table).
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.HtmlConverter.RenderPreAsTable">
+        <member name="P:HtmlToOpenXml.Custom.HtmlConverter.RenderPreAsTable">
             <summary>
             Gets or sets whether the <c>pre</c> tag should be rendered as a table (defaults <see langword="false"/>).
             </summary>
             <remarks>The table will contains only one cell.</remarks>
         </member>
-        <member name="P:HtmlToOpenXml.HtmlConverter.ContinueNumbering">
+        <member name="P:HtmlToOpenXml.Custom.HtmlConverter.ContinueNumbering">
             <summary>
             Defines whether ordered lists (<c>ol</c>) continue incrementing existing numbering
             or restarts to 1 (defaults continues numbering).
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.HtmlConverter.SupportsHeadingNumbering">
+        <member name="P:HtmlToOpenXml.Custom.HtmlConverter.SupportsHeadingNumbering">
             <summary>
             Defines whether any headings (<c>h1-h6</c>) could be considered as multi-level numbering, such as
             top-level headings (Heading 1) are numbered 1, 2, 3, for example, and second-level headings (Heading 2) are numbered 1.1, 1.2, 1.3.
@@ -840,17 +840,17 @@
             are considered as numbering.
             </remarks>
         </member>
-        <member name="P:HtmlToOpenXml.HtmlConverter.MainPart">
+        <member name="P:HtmlToOpenXml.Custom.HtmlConverter.MainPart">
             <summary>
             Gets the mainDocumentPart of the destination OpenXml document.
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.IO.DataUri">
+        <member name="T:HtmlToOpenXml.Custom.IO.DataUri">
             <summary>
             Represents an URI that includes inline data as if they were external resources.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.IO.DataUri.TryCreate(System.String,HtmlToOpenXml.IO.DataUri@)">
+        <member name="M:HtmlToOpenXml.Custom.IO.DataUri.TryCreate(System.String,HtmlToOpenXml.Custom.IO.DataUri@)">
             <summary>
             Parse an instance of the Data URI scheme.
             </summary>
@@ -860,75 +860,75 @@
             <returns>A <see cref="T:System.Boolean"/> value that is true if the DataUri was 
             successfully created; otherwise, false.</returns>
         </member>
-        <member name="M:HtmlToOpenXml.IO.DataUri.IsWellFormed(System.String)">
+        <member name="M:HtmlToOpenXml.Custom.IO.DataUri.IsWellFormed(System.String)">
             <summary>
             Indicates whether the string is well-formed by attempting to construct a DataUri with the string.
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.IO.DataUri.Mime">
+        <member name="P:HtmlToOpenXml.Custom.IO.DataUri.Mime">
             <summary>
             Gets the MIME type of the encoded data.
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.IO.DataUri.Data">
+        <member name="P:HtmlToOpenXml.Custom.IO.DataUri.Data">
             <summary>
             Gets the decoded data.
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.IO.DefaultWebRequest">
+        <member name="T:HtmlToOpenXml.Custom.IO.DefaultWebRequest">
             <summary>
-            Default implementation of the <see cref="T:HtmlToOpenXml.IO.IWebRequest"/>.
+            Default implementation of the <see cref="T:HtmlToOpenXml.Custom.IO.IWebRequest"/>.
             Supports http, https, local file and inline data.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.IO.DefaultWebRequest.#ctor(Microsoft.Extensions.Logging.ILogger)">
+        <member name="M:HtmlToOpenXml.Custom.IO.DefaultWebRequest.#ctor(Microsoft.Extensions.Logging.ILogger)">
             <summary>
-            Initialize a new instance of the <see cref="T:HtmlToOpenXml.IO.DefaultWebRequest"/> class.
+            Initialize a new instance of the <see cref="T:HtmlToOpenXml.Custom.IO.DefaultWebRequest"/> class.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.IO.DefaultWebRequest.#ctor(System.Net.Http.HttpClient,Microsoft.Extensions.Logging.ILogger)">
+        <member name="M:HtmlToOpenXml.Custom.IO.DefaultWebRequest.#ctor(System.Net.Http.HttpClient,Microsoft.Extensions.Logging.ILogger)">
             <summary>
-            Initialize a new instance of the <see cref="T:HtmlToOpenXml.IO.DefaultWebRequest"/> class with
+            Initialize a new instance of the <see cref="T:HtmlToOpenXml.Custom.IO.DefaultWebRequest"/> class with
             the specified <see cref="T:System.Net.Http.HttpClient"/>.
             </summary>
             <param name="httpClient">The HTTP client to use to download remote resources.</param>
             <param name="logger">Provide an logging mechanism for diagnose.</param>
         </member>
-        <member name="M:HtmlToOpenXml.IO.DefaultWebRequest.FetchAsync(System.Uri,System.Threading.CancellationToken)">
+        <member name="M:HtmlToOpenXml.Custom.IO.DefaultWebRequest.FetchAsync(System.Uri,System.Threading.CancellationToken)">
             <inheritdoc/>
         </member>
-        <member name="M:HtmlToOpenXml.IO.DefaultWebRequest.DownloadLocalFile(System.Uri,System.Threading.CancellationToken)">
+        <member name="M:HtmlToOpenXml.Custom.IO.DefaultWebRequest.DownloadLocalFile(System.Uri,System.Threading.CancellationToken)">
             <summary>
             Process to the read of a file from the File System.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.IO.DefaultWebRequest.DownloadHttpFile(System.Uri,System.Threading.CancellationToken)">
+        <member name="M:HtmlToOpenXml.Custom.IO.DefaultWebRequest.DownloadHttpFile(System.Uri,System.Threading.CancellationToken)">
             <summary>
             Process to the download of a resource with Http/Https protocol.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.IO.DefaultWebRequest.SupportsProtocol(System.String)">
+        <member name="M:HtmlToOpenXml.Custom.IO.DefaultWebRequest.SupportsProtocol(System.String)">
             <inheritdoc/>
         </member>
-        <member name="M:HtmlToOpenXml.IO.DefaultWebRequest.UrlCombine(System.Uri,System.String)">
+        <member name="M:HtmlToOpenXml.Custom.IO.DefaultWebRequest.UrlCombine(System.Uri,System.String)">
             <summary>
             Combine two URIs.
             </summary>
             <param name="baseUrl">The absolute base uri</param>
             <param name="path">The relative uri</param>
         </member>
-        <member name="P:HtmlToOpenXml.IO.DefaultWebRequest.BaseImageUrl">
+        <member name="P:HtmlToOpenXml.Custom.IO.DefaultWebRequest.BaseImageUrl">
             <summary>
             Gets or sets the base Uri used to automaticaly resolve relative images 
             if used with ImageProcessing = AutomaticDownload.
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.IO.ImageHeader">
+        <member name="T:HtmlToOpenXml.Custom.IO.ImageHeader">
             <summary>
             Utility class to extract some information of an image file without reading the entire file.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.IO.ImageHeader.TryDetectFileType(System.IO.Stream,HtmlToOpenXml.IO.ImageHeader.FileType@)">
+        <member name="M:HtmlToOpenXml.Custom.IO.ImageHeader.TryDetectFileType(System.IO.Stream,HtmlToOpenXml.Custom.IO.ImageHeader.FileType@)">
             <summary>
             Read a image stream and try to detect its file type.
             </summary>
@@ -936,7 +936,7 @@
             <param name="type">The guess file type.</param>
             <returns>Returns true if the detection was successful.</returns>
         </member>
-        <member name="M:HtmlToOpenXml.IO.ImageHeader.GetDimensions(System.IO.Stream)">
+        <member name="M:HtmlToOpenXml.Custom.IO.ImageHeader.GetDimensions(System.IO.Stream)">
             <summary>
             Gets the dimensions of an image.
             </summary>
@@ -944,34 +944,34 @@
             <returns>The dimensions of the specified image.</returns>
             <exception cref="T:System.ArgumentException">The image was of an unrecognised format.</exception>
         </member>
-        <member name="M:HtmlToOpenXml.IO.ImageHeader.KeepAspectRatio(HtmlToOpenXml.Size,HtmlToOpenXml.Size)">
+        <member name="M:HtmlToOpenXml.Custom.IO.ImageHeader.KeepAspectRatio(HtmlToOpenXml.Custom.Size,HtmlToOpenXml.Custom.Size)">
             <summary>
             Resize an image keeping its aspect ratio.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.IO.ImageHeader.DetectFileType(HtmlToOpenXml.IO.SequentialBinaryReader)">
+        <member name="M:HtmlToOpenXml.Custom.IO.ImageHeader.DetectFileType(HtmlToOpenXml.Custom.IO.SequentialBinaryReader)">
             <summary>
             Examines the first bytes of the file and estimates its image type if possible.
             </summary>
-            <returns>Returns <see cref="F:HtmlToOpenXml.IO.ImageHeader.FileType.Unrecognized"/> if not recognized.</returns>
+            <returns>Returns <see cref="F:HtmlToOpenXml.Custom.IO.ImageHeader.FileType.Unrecognized"/> if not recognized.</returns>
         </member>
-        <member name="M:HtmlToOpenXml.IO.ImageHeader.StartsWith(System.Byte[],System.Byte[])">
+        <member name="M:HtmlToOpenXml.Custom.IO.ImageHeader.StartsWith(System.Byte[],System.Byte[])">
             <summary>
             Determines whether the beginning of this byte array instance matches the specified byte array.
             </summary>
             <returns>Returns true if the first array starts with the bytes of the second array.</returns>
         </member>
-        <member name="M:HtmlToOpenXml.IO.IImageLoader.Download(System.String,System.Threading.CancellationToken)">
+        <member name="M:HtmlToOpenXml.Custom.IO.IImageLoader.Download(System.String,System.Threading.CancellationToken)">
             <summary>
             Download the remote or local image located at the specified url.
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.IO.ImagePrefetcher`1">
+        <member name="T:HtmlToOpenXml.Custom.IO.ImagePrefetcher`1">
             <summary>
             Download and provison the metadata of a requested image.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.IO.ImagePrefetcher`1.#ctor(`0,HtmlToOpenXml.IO.IWebRequest)">
+        <member name="M:HtmlToOpenXml.Custom.IO.ImagePrefetcher`1.#ctor(`0,HtmlToOpenXml.Custom.IO.IWebRequest)">
             <summary>
             Constructor.
             </summary>
@@ -979,43 +979,43 @@
             Images are not shared between header, footer and body.</param>
             <param name="resourceLoader">Service to resolve an image.</param>
         </member>
-        <member name="M:HtmlToOpenXml.IO.ImagePrefetcher`1.Download(System.String,System.Threading.CancellationToken)">
+        <member name="M:HtmlToOpenXml.Custom.IO.ImagePrefetcher`1.Download(System.String,System.Threading.CancellationToken)">
             <summary>
             Download the remote or local image located at the specified url.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.IO.ImagePrefetcher`1.DownloadRemoteImage(System.String,System.Threading.CancellationToken)">
+        <member name="M:HtmlToOpenXml.Custom.IO.ImagePrefetcher`1.DownloadRemoteImage(System.String,System.Threading.CancellationToken)">
             <summary>
             Download the image and try to find its format type.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.IO.ImagePrefetcher`1.ReadDataUri(System.String)">
+        <member name="M:HtmlToOpenXml.Custom.IO.ImagePrefetcher`1.ReadDataUri(System.String)">
             <summary>
             Parse the Data inline image.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.IO.ImagePrefetcher`1.TryInspectMimeType(System.String,DocumentFormat.OpenXml.Packaging.PartTypeInfo@)">
+        <member name="M:HtmlToOpenXml.Custom.IO.ImagePrefetcher`1.TryInspectMimeType(System.String,DocumentFormat.OpenXml.Packaging.PartTypeInfo@)">
             <summary>
             Inspect the response headers of a web request and decode the mime type if provided
             </summary>
             <returns>Returns the extension of the image if provideds.</returns>
         </member>
-        <member name="M:HtmlToOpenXml.IO.ImagePrefetcher`1.TryGuessTypeFromUri(System.Uri,DocumentFormat.OpenXml.Packaging.PartTypeInfo@)">
+        <member name="M:HtmlToOpenXml.Custom.IO.ImagePrefetcher`1.TryGuessTypeFromUri(System.Uri,DocumentFormat.OpenXml.Packaging.PartTypeInfo@)">
             <summary>
             Gets the OpenXml PartTypeInfo associated to an image.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.IO.ImagePrefetcher`1.TryGuessTypeFromStream(System.IO.Stream,DocumentFormat.OpenXml.Packaging.PartTypeInfo@)">
+        <member name="M:HtmlToOpenXml.Custom.IO.ImagePrefetcher`1.TryGuessTypeFromStream(System.IO.Stream,DocumentFormat.OpenXml.Packaging.PartTypeInfo@)">
             <summary>
             Gets the OpenXml PartTypeInfo associated to an image.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.IO.ImagePrefetcher`1.GetImageSize(System.IO.Stream)">
+        <member name="M:HtmlToOpenXml.Custom.IO.ImagePrefetcher`1.GetImageSize(System.IO.Stream)">
             <summary>
             Loads an image from a stream and grab its size.
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.IO.IWebRequest">
+        <member name="T:HtmlToOpenXml.Custom.IO.IWebRequest">
             <summary>
             Interface used to handle resource requests for a document. These
             requests include, but are not limited to, media, script and styling
@@ -1023,7 +1023,7 @@
             The expected protocols to support are: http, https and file.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.IO.IWebRequest.FetchAsync(System.Uri,System.Threading.CancellationToken)">
+        <member name="M:HtmlToOpenXml.Custom.IO.IWebRequest.FetchAsync(System.Uri,System.Threading.CancellationToken)">
             <summary>
             Performs an asynchronous request that can be cancelled.
             </summary>
@@ -1032,237 +1032,237 @@
             notice of cancellation.</param>
             <returns>The task that will eventually give the resource's response data.</returns>
         </member>
-        <member name="M:HtmlToOpenXml.IO.IWebRequest.SupportsProtocol(System.String)">
+        <member name="M:HtmlToOpenXml.Custom.IO.IWebRequest.SupportsProtocol(System.String)">
             <summary>
             Checks if the given protocol is supported.
             </summary>
             <param name="protocol">The protocol to check for, e.g. http.</param>
         </member>
-        <member name="T:HtmlToOpenXml.IO.Resource">
+        <member name="T:HtmlToOpenXml.Custom.IO.Resource">
             <summary>
             Specifies what is stored when receiving data.
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.IO.Resource.StatusCode">
+        <member name="P:HtmlToOpenXml.Custom.IO.Resource.StatusCode">
             <summary>
             Gets the status code that has been send with the response.
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.IO.Resource.Headers">
+        <member name="P:HtmlToOpenXml.Custom.IO.Resource.Headers">
             <summary>
             Gets the headers that have been send with the response.
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.IO.Resource.Content">
+        <member name="P:HtmlToOpenXml.Custom.IO.Resource.Content">
             <summary>
             Gets the content that has been send with the response.
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.IO.SequentialBinaryReader">
+        <member name="T:HtmlToOpenXml.Custom.IO.SequentialBinaryReader">
             <summary>
             Reads primitive data types as binary values with endianness support.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.IO.SequentialBinaryReader.Skip(System.Int32)">
+        <member name="M:HtmlToOpenXml.Custom.IO.SequentialBinaryReader.Skip(System.Int32)">
             <summary>
             Skips forward in the sequence.
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.ParsingContext">
+        <member name="T:HtmlToOpenXml.Custom.ParsingContext">
             <summary>
             Contains information that is global to the parsing.
             </summary>
             <remarks>The list of paragraphs that will be returned.</remarks>
         </member>
-        <member name="M:HtmlToOpenXml.ParsingContext.#ctor(HtmlToOpenXml.HtmlConverter,DocumentFormat.OpenXml.Packaging.OpenXmlPartContainer,HtmlToOpenXml.IO.IImageLoader)">
+        <member name="M:HtmlToOpenXml.Custom.ParsingContext.#ctor(HtmlToOpenXml.Custom.HtmlConverter,DocumentFormat.OpenXml.Packaging.OpenXmlPartContainer,HtmlToOpenXml.Custom.IO.IImageLoader)">
             <summary>
             Contains information that is global to the parsing.
             </summary>
             <remarks>The list of paragraphs that will be returned.</remarks>
         </member>
-        <member name="P:HtmlToOpenXml.ParsingContext.DocumentStyle">
-            <summary>Shorthand for <see cref="P:HtmlToOpenXml.ParsingContext.Converter"/>.HtmlStyles</summary>
+        <member name="P:HtmlToOpenXml.Custom.ParsingContext.DocumentStyle">
+            <summary>Shorthand for <see cref="P:HtmlToOpenXml.Custom.ParsingContext.Converter"/>.HtmlStyles</summary>
         </member>
-        <member name="P:HtmlToOpenXml.ParsingContext.PreserveLinebreaks">
+        <member name="P:HtmlToOpenXml.Custom.ParsingContext.PreserveLinebreaks">
             <summary>Whether the text content should preserve the line breaks.</summary>
         </member>
-        <member name="P:HtmlToOpenXml.ParsingContext.CollapseWhitespaces">
+        <member name="P:HtmlToOpenXml.Custom.ParsingContext.CollapseWhitespaces">
             <summary>Whether the text content should collapse the whitespaces.</summary>
         </member>
-        <member name="M:HtmlToOpenXml.ParsingContext.Properties``1(System.String)">
+        <member name="M:HtmlToOpenXml.Custom.ParsingContext.Properties``1(System.String)">
             <summary>Retrieves a variable tied to the context of the parsing.</summary>
         </member>
-        <member name="M:HtmlToOpenXml.ParsingContext.Properties(System.String,System.Object)">
+        <member name="M:HtmlToOpenXml.Custom.ParsingContext.Properties(System.String,System.Object)">
             <summary>Store a variable in the global context of the parsing.</summary>
         </member>
-        <member name="T:HtmlToOpenXml.PredefinedStyles">
+        <member name="T:HtmlToOpenXml.Custom.PredefinedStyles">
             <summary>
             Helper class to get chunks of OpenXml predefined style.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.PredefinedStyles.GetOuterXml(System.String)">
+        <member name="M:HtmlToOpenXml.Custom.PredefinedStyles.GetOuterXml(System.String)">
             <summary>
             Retrieves the embedded resource.
             </summary>
             <param name="styleName">The key name of the resource to find.</param>
         </member>
-        <member name="P:HtmlToOpenXml.PredefinedStyles.ResourceManager">
+        <member name="P:HtmlToOpenXml.Custom.PredefinedStyles.ResourceManager">
             <summary>
             Returns the cached ResourceManager instance used by this class.
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.DefaultStyles">
+        <member name="T:HtmlToOpenXml.Custom.DefaultStyles">
             <summary>
             Contains the default styles of Word elements
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.DefaultStyles.CaptionStyle">
+        <member name="P:HtmlToOpenXml.Custom.DefaultStyles.CaptionStyle">
             <summary>
             Default style for captions
             </summary>
             <value>Caption</value>
         </member>
-        <member name="P:HtmlToOpenXml.DefaultStyles.EndnoteTextStyle">
+        <member name="P:HtmlToOpenXml.Custom.DefaultStyles.EndnoteTextStyle">
             <summary>
             Default style for new endnote texts
             </summary>
             <value>EndnoteText</value>
         </member>
-        <member name="P:HtmlToOpenXml.DefaultStyles.EndnoteReferenceStyle">
+        <member name="P:HtmlToOpenXml.Custom.DefaultStyles.EndnoteReferenceStyle">
             <summary>
             Default style for new endnote references
             </summary>
             <value>EndnoteReference</value>
         </member>
-        <member name="P:HtmlToOpenXml.DefaultStyles.FootnoteTextStyle">
+        <member name="P:HtmlToOpenXml.Custom.DefaultStyles.FootnoteTextStyle">
             <summary>
             Default style for new footnote texts
             </summary>
             <value>FootnoteText</value>
         </member>
-        <member name="P:HtmlToOpenXml.DefaultStyles.FootnoteReferenceStyle">
+        <member name="P:HtmlToOpenXml.Custom.DefaultStyles.FootnoteReferenceStyle">
             <summary>
             Default style for new footnote references
             </summary>
             <value>FootnoteReference</value>
         </member>
-        <member name="P:HtmlToOpenXml.DefaultStyles.HeadingStyle">
+        <member name="P:HtmlToOpenXml.Custom.DefaultStyles.HeadingStyle">
             <summary>
             Default style for headings
             Appends the level at the end of the style name
             </summary>
             <value>Heading</value>
         </member>
-        <member name="P:HtmlToOpenXml.DefaultStyles.HyperlinkStyle">
+        <member name="P:HtmlToOpenXml.Custom.DefaultStyles.HyperlinkStyle">
             <summary>
             Default style for hyperlinks
             </summary>
             <value>Hyperlink</value>
         </member>
-        <member name="P:HtmlToOpenXml.DefaultStyles.ListParagraphStyle">
+        <member name="P:HtmlToOpenXml.Custom.DefaultStyles.ListParagraphStyle">
             <summary>
             Default style for list paragraphs
             </summary>
             <value>ListParagraph</value>
         </member>
-        <member name="P:HtmlToOpenXml.DefaultStyles.PreTableStyle">
+        <member name="P:HtmlToOpenXml.Custom.DefaultStyles.PreTableStyle">
             <summary>
             Default style for the <c>pre</c> table
             </summary>
             <value>TableGrid</value>
         </member>
-        <member name="P:HtmlToOpenXml.DefaultStyles.QuoteStyle">
+        <member name="P:HtmlToOpenXml.Custom.DefaultStyles.QuoteStyle">
             <summary>
             Default style for quotes
             </summary>
             <value>Quote</value>
         </member>
-        <member name="P:HtmlToOpenXml.DefaultStyles.IntenseQuoteStyle">
+        <member name="P:HtmlToOpenXml.Custom.DefaultStyles.IntenseQuoteStyle">
             <summary>
             Default style for intense quotes
             </summary>
             <value>IntenseQuote</value>
         </member>
-        <member name="P:HtmlToOpenXml.DefaultStyles.TableStyle">
+        <member name="P:HtmlToOpenXml.Custom.DefaultStyles.TableStyle">
             <summary>
             Default style for tables
             </summary>
             <value>TableGrid</value>
         </member>
-        <member name="P:HtmlToOpenXml.DefaultStyles.HeaderStyle">
+        <member name="P:HtmlToOpenXml.Custom.DefaultStyles.HeaderStyle">
             <summary>
             Default style for header paragraphs.
             </summary>
             <value>Header</value>
         </member>
-        <member name="P:HtmlToOpenXml.DefaultStyles.FooterStyle">
+        <member name="P:HtmlToOpenXml.Custom.DefaultStyles.FooterStyle">
             <summary>
             Default style for footer paragraphs.
             </summary>
             <value>Footer</value>
         </member>
-        <member name="P:HtmlToOpenXml.DefaultStyles.Paragraph">
+        <member name="P:HtmlToOpenXml.Custom.DefaultStyles.Paragraph">
             <summary>
             Default style for body paragraph.
             </summary>
             <value>Normal</value>
         </member>
-        <member name="T:HtmlToOpenXml.FontStyle">
+        <member name="T:HtmlToOpenXml.Custom.FontStyle">
             <summary>
             Specifies the font style for a text.
             </summary>
         </member>
-        <member name="F:HtmlToOpenXml.FontStyle.Italic">
+        <member name="F:HtmlToOpenXml.Custom.FontStyle.Italic">
             <summary>
             Displays an italic font style.
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.FontVariant">
+        <member name="T:HtmlToOpenXml.Custom.FontVariant">
             <summary>
             Specifies the variation of letters for a font.
             </summary>
         </member>
-        <member name="F:HtmlToOpenXml.FontVariant.SmallCaps">
+        <member name="F:HtmlToOpenXml.Custom.FontVariant.SmallCaps">
             <summary>
             In a small-caps font, all lowercase letters are converted to uppercase letters.
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.FontWeight">
+        <member name="T:HtmlToOpenXml.Custom.FontWeight">
             <summary>
             Specifies how thick or thin characters in text should be displayed.
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.HtmlBorder">
+        <member name="T:HtmlToOpenXml.Custom.HtmlBorder">
             <summary>
             Represents a Html Border with the 4 sides.
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.HtmlBorder.Bottom">
+        <member name="P:HtmlToOpenXml.Custom.HtmlBorder.Bottom">
             <summary>
             Gets or sets the border of the bottom side.
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.HtmlBorder.Left">
+        <member name="P:HtmlToOpenXml.Custom.HtmlBorder.Left">
             <summary>
             Gets or sets the border of the left side.
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.HtmlBorder.Top">
+        <member name="P:HtmlToOpenXml.Custom.HtmlBorder.Top">
             <summary>
             Gets or sets the border of the top side.
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.HtmlBorder.Right">
+        <member name="P:HtmlToOpenXml.Custom.HtmlBorder.Right">
             <summary>
             Gets or sets the border of the right side.
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.HtmlBorder.IsEmpty">
+        <member name="P:HtmlToOpenXml.Custom.HtmlBorder.IsEmpty">
             <summary>
             Gets whether at least one side has been specified.
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.HtmlColor">
+        <member name="T:HtmlToOpenXml.Custom.HtmlColor">
             <summary>
             Represents an ARGB color.
             </summary>
@@ -1270,47 +1270,47 @@
             Helper class to translate a named color to its ARGB representation.
             </summary>
         </member>
-        <member name="F:HtmlToOpenXml.HtmlColor.Empty">
+        <member name="F:HtmlToOpenXml.Custom.HtmlColor.Empty">
             <summary>
             Represents a color that is null.
             </summary>
         </member>
-        <member name="F:HtmlToOpenXml.HtmlColor.Black">
+        <member name="F:HtmlToOpenXml.Custom.HtmlColor.Black">
             <summary>
             Gets a system-defined color that has an ARGB value of #FF000000.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.HtmlColor.Parse(System.String)">
+        <member name="M:HtmlToOpenXml.Custom.HtmlColor.Parse(System.String)">
             <summary>
             Try to parse a value (RGB(A) or HSL(A), hexadecimal, or named color) to its RGB representation.
             </summary>
             <param name="htmlColor">The color to parse.</param>
-            <returns>Returns <see cref="F:HtmlToOpenXml.HtmlColor.Empty"/> if parsing failed.</returns>
+            <returns>Returns <see cref="F:HtmlToOpenXml.Custom.HtmlColor.Empty"/> if parsing failed.</returns>
         </member>
-        <member name="M:HtmlToOpenXml.HtmlColor.ParsePercent(System.String)">
+        <member name="M:HtmlToOpenXml.Custom.HtmlColor.ParsePercent(System.String)">
             <summary>
             Convert a potential percentage value to its numeric representation.
             Saturation and Lightness can contains both a percentage value or a value comprised between 0.0 and 1.0. 
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.HtmlColor.FromArgb(System.Byte,System.Byte,System.Byte)">
+        <member name="M:HtmlToOpenXml.Custom.HtmlColor.FromArgb(System.Byte,System.Byte,System.Byte)">
             <summary>
-            Creates a <see cref="T:HtmlToOpenXml.HtmlColor"/> structure from the four RGB component values.
+            Creates a <see cref="T:HtmlToOpenXml.Custom.HtmlColor"/> structure from the four RGB component values.
             </summary>
             <param name="red">The red component.</param>
             <param name="green">The green component.</param>
             <param name="blue">The blue component.</param>
         </member>
-        <member name="M:HtmlToOpenXml.HtmlColor.FromArgb(System.Double,System.Byte,System.Byte,System.Byte)">
+        <member name="M:HtmlToOpenXml.Custom.HtmlColor.FromArgb(System.Double,System.Byte,System.Byte,System.Byte)">
             <summary>
-            Creates a <see cref="T:HtmlToOpenXml.HtmlColor"/> structure from the four ARGB component values.
+            Creates a <see cref="T:HtmlToOpenXml.Custom.HtmlColor"/> structure from the four ARGB component values.
             </summary>
             <param name="alpha">The alpha component (0.0-1.0).</param>
             <param name="red">The red component (0-255).</param>
             <param name="green">The green component (0-255).</param>
             <param name="blue">The blue component (0-255).</param>
         </member>
-        <member name="M:HtmlToOpenXml.HtmlColor.FromHsl(System.Double,System.Double,System.Double,System.Double)">
+        <member name="M:HtmlToOpenXml.Custom.HtmlColor.FromHsl(System.Double,System.Double,System.Double,System.Double)">
             <summary>
             Convert a color using the HSL to RGB.
             </summary>
@@ -1319,117 +1319,117 @@
             <param name="saturation">The saturation component (0.0 - 1.0).</param>
             <param name="luminosity">The luminosity component (0.0 - 1.0).</param>
         </member>
-        <member name="M:HtmlToOpenXml.HtmlColor.Equals(HtmlToOpenXml.HtmlColor)">
+        <member name="M:HtmlToOpenXml.Custom.HtmlColor.Equals(HtmlToOpenXml.Custom.HtmlColor)">
             <summary>
             Tests whether the specified object is a HtmlColor structure and is equivalent to this color structure.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.HtmlColor.ToHexString">
+        <member name="M:HtmlToOpenXml.Custom.HtmlColor.ToHexString">
             <summary>
             Convert a .Net Color to a hex string.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.HtmlColor.ToString">
+        <member name="M:HtmlToOpenXml.Custom.HtmlColor.ToString">
             <summary>
             Gets a representation of this color expressed in ARGB.
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.HtmlColor.A">
+        <member name="P:HtmlToOpenXml.Custom.HtmlColor.A">
             <summary>Gets the alpha component value of this color structure.</summary>
         </member>
-        <member name="P:HtmlToOpenXml.HtmlColor.R">
+        <member name="P:HtmlToOpenXml.Custom.HtmlColor.R">
             <summary>Gets the red component value of this cColor structure.</summary>
         </member>
-        <member name="P:HtmlToOpenXml.HtmlColor.G">
+        <member name="P:HtmlToOpenXml.Custom.HtmlColor.G">
             <summary>Gets the green component value of this color structure.</summary>
         </member>
-        <member name="P:HtmlToOpenXml.HtmlColor.B">
+        <member name="P:HtmlToOpenXml.Custom.HtmlColor.B">
             <summary>Gets the blue component value of this color structure.</summary>
         </member>
-        <member name="P:HtmlToOpenXml.HtmlColor.IsEmpty">
+        <member name="P:HtmlToOpenXml.Custom.HtmlColor.IsEmpty">
             <summary>
             Specifies whether this HtmlColor structure is uninitialized.
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.HtmlFont">
+        <member name="T:HtmlToOpenXml.Custom.HtmlFont">
             <summary>
             Represents a Html font (15px arial,sans-serif).
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.HtmlFont.#ctor(System.Nullable{HtmlToOpenXml.FontStyle},System.Nullable{HtmlToOpenXml.FontVariant},System.Nullable{HtmlToOpenXml.FontWeight},System.Nullable{HtmlToOpenXml.Unit},System.String)">
+        <member name="M:HtmlToOpenXml.Custom.HtmlFont.#ctor(System.Nullable{HtmlToOpenXml.Custom.FontStyle},System.Nullable{HtmlToOpenXml.Custom.FontVariant},System.Nullable{HtmlToOpenXml.Custom.FontWeight},System.Nullable{HtmlToOpenXml.Custom.Unit},System.String)">
             <summary>
             Represents a Html font (15px arial,sans-serif).
             </summary>
         </member>
-        <member name="F:HtmlToOpenXml.HtmlFont.Empty">
+        <member name="F:HtmlToOpenXml.Custom.HtmlFont.Empty">
             <summary>Represents an empty font (not defined).</summary>
         </member>
-        <member name="P:HtmlToOpenXml.HtmlFont.Family">
+        <member name="P:HtmlToOpenXml.Custom.HtmlFont.Family">
             <summary>
             Gets or sets the name of this font.
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.HtmlFont.Style">
+        <member name="P:HtmlToOpenXml.Custom.HtmlFont.Style">
             <summary>
             Gest or sets the style for the text.
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.HtmlFont.Variant">
+        <member name="P:HtmlToOpenXml.Custom.HtmlFont.Variant">
             <summary>
             Gets or sets the variation of the characters.
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.HtmlFont.Size">
+        <member name="P:HtmlToOpenXml.Custom.HtmlFont.Size">
             <summary>
             Gets or sets the size of the font, expressed in half points.
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.HtmlFont.Weight">
+        <member name="P:HtmlToOpenXml.Custom.HtmlFont.Weight">
             <summary>
             Gets or sets the weight of the characters (thin or thick).
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.HtmlImageInfo">
+        <member name="T:HtmlToOpenXml.Custom.HtmlImageInfo">
             <summary>
             Represents an image and its metadata.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.HtmlImageInfo.#ctor(System.String,System.String)">
+        <member name="M:HtmlToOpenXml.Custom.HtmlImageInfo.#ctor(System.String,System.String)">
             <summary>
             Represents an image and its metadata.
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.HtmlImageInfo.Source">
+        <member name="P:HtmlToOpenXml.Custom.HtmlImageInfo.Source">
             <summary>
             The URI identifying this cached image information.
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.HtmlImageInfo.ImagePartId">
+        <member name="P:HtmlToOpenXml.Custom.HtmlImageInfo.ImagePartId">
             <summary>
             The Unique identifier of the ImagePart in the <see cref="T:DocumentFormat.OpenXml.Packaging.MainDocumentPart"/>.
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.HtmlImageInfo.Size">
+        <member name="P:HtmlToOpenXml.Custom.HtmlImageInfo.Size">
             <summary>
             Gets or sets the original size of the image.
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.HtmlImageInfo.TypeInfo">
+        <member name="P:HtmlToOpenXml.Custom.HtmlImageInfo.TypeInfo">
             <summary>
             Gets the content type of the image.
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.HtmlImageInfoCollection">
+        <member name="T:HtmlToOpenXml.Custom.HtmlImageInfoCollection">
             <summary>
-            Typed dictionary of <see cref="T:HtmlToOpenXml.HtmlImageInfo"/> where the Source URI is the identifier.
+            Typed dictionary of <see cref="T:HtmlToOpenXml.Custom.HtmlImageInfo"/> where the Source URI is the identifier.
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.Margin">
+        <member name="T:HtmlToOpenXml.Custom.Margin">
             <summary>
             Represents a Html Unit (ie: 120px, 10em, ...).
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Margin.Parse(System.String)">
+        <member name="M:HtmlToOpenXml.Custom.Margin.Parse(System.String)">
             <summary>
             Parse the margin style attribute.
             </summary>
@@ -1454,230 +1454,230 @@
             all four margins are 25px
             </remarks>
         </member>
-        <member name="P:HtmlToOpenXml.Margin.Bottom">
+        <member name="P:HtmlToOpenXml.Custom.Margin.Bottom">
             <summary>
             Gets or sets the unit of the bottom side.
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.Margin.Left">
+        <member name="P:HtmlToOpenXml.Custom.Margin.Left">
             <summary>
             Gets or sets the unit of the left side.
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.Margin.Top">
+        <member name="P:HtmlToOpenXml.Custom.Margin.Top">
             <summary>
             Gets or sets the unit of the top side.
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.Margin.Right">
+        <member name="P:HtmlToOpenXml.Custom.Margin.Right">
             <summary>
             Gets or sets the unit of the right side.
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.Margin.IsEmpty">
+        <member name="P:HtmlToOpenXml.Custom.Margin.IsEmpty">
             <summary>
             Gets whether at least one side has been specified.
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.SideBorder">
+        <member name="T:HtmlToOpenXml.Custom.SideBorder">
             <summary>
             Represents a Html Unit (ie: 120px, 10em, ...).
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.SideBorder.#ctor(DocumentFormat.OpenXml.Wordprocessing.BorderValues,HtmlToOpenXml.HtmlColor,HtmlToOpenXml.Unit)">
+        <member name="M:HtmlToOpenXml.Custom.SideBorder.#ctor(DocumentFormat.OpenXml.Wordprocessing.BorderValues,HtmlToOpenXml.Custom.HtmlColor,HtmlToOpenXml.Custom.Unit)">
             <summary>
             Represents a Html Unit (ie: 120px, 10em, ...).
             </summary>
         </member>
-        <member name="F:HtmlToOpenXml.SideBorder.Empty">
+        <member name="F:HtmlToOpenXml.Custom.SideBorder.Empty">
             <summary>Represents an empty border (not defined).</summary>
         </member>
-        <member name="P:HtmlToOpenXml.SideBorder.Style">
+        <member name="P:HtmlToOpenXml.Custom.SideBorder.Style">
             <summary>
             Gets or sets the type of border (solid, dashed, dotted, ...)
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.SideBorder.Color">
+        <member name="P:HtmlToOpenXml.Custom.SideBorder.Color">
             <summary>
             Gets or sets the color of the border.
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.SideBorder.Width">
+        <member name="P:HtmlToOpenXml.Custom.SideBorder.Width">
             <summary>
             Gets or sets the size of the border expressed with its unit.
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.SideBorder.IsValid">
+        <member name="P:HtmlToOpenXml.Custom.SideBorder.IsValid">
             <summary>
             Gets whether the border is well formed and not empty.
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.Size">
+        <member name="T:HtmlToOpenXml.Custom.Size">
             <summary>
             Represents a dimension in 2D coordinate space.
             </summary>
         </member>
-        <member name="F:HtmlToOpenXml.Size.Empty">
+        <member name="F:HtmlToOpenXml.Custom.Size.Empty">
             <summary>
-            Initializes a new instance of the <see cref='T:HtmlToOpenXml.Size'/> class.
+            Initializes a new instance of the <see cref='T:HtmlToOpenXml.Custom.Size'/> class.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Size.#ctor(System.Int32,System.Int32)">
+        <member name="M:HtmlToOpenXml.Custom.Size.#ctor(System.Int32,System.Int32)">
             <summary>
-            Initializes a new instance of the <see cref='T:HtmlToOpenXml.Size'/> class from
+            Initializes a new instance of the <see cref='T:HtmlToOpenXml.Custom.Size'/> class from
             the specified dimensions.
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.Size.IsEmpty">
+        <member name="P:HtmlToOpenXml.Custom.Size.IsEmpty">
             <summary>
             Tests whether this size has zero width and height.
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.Size.Width">
+        <member name="P:HtmlToOpenXml.Custom.Size.Width">
             <summary>
             Represents the horizontal component of this size.
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.Size.Height">
+        <member name="P:HtmlToOpenXml.Custom.Size.Height">
             <summary>
             Represents the vertical component of this size.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Size.Equals(HtmlToOpenXml.Size)">
+        <member name="M:HtmlToOpenXml.Custom.Size.Equals(HtmlToOpenXml.Custom.Size)">
             <inheritdoc/>
         </member>
-        <member name="M:HtmlToOpenXml.Size.ToString">
+        <member name="M:HtmlToOpenXml.Custom.Size.ToString">
             <summary>
             Gets a representation of this size.
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.TextDecoration">
+        <member name="T:HtmlToOpenXml.Custom.TextDecoration">
             <summary>
             Specifies some decoration to apply to a text.
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.Unit">
+        <member name="T:HtmlToOpenXml.Custom.Unit">
             <summary>
             Represents a Html Unit (ie: 120px, 10em, ...).
             </summary>
         </member>
-        <member name="F:HtmlToOpenXml.Unit.Empty">
+        <member name="F:HtmlToOpenXml.Custom.Unit.Empty">
             <summary>Represents an empty unit (not defined).</summary>
         </member>
-        <member name="F:HtmlToOpenXml.Unit.Auto">
+        <member name="F:HtmlToOpenXml.Custom.Unit.Auto">
             <summary>Represents an Auto unit.</summary>
         </member>
-        <member name="M:HtmlToOpenXml.Unit.ComputeInEmus(HtmlToOpenXml.UnitMetric,System.Double)">
+        <member name="M:HtmlToOpenXml.Custom.Unit.ComputeInEmus(HtmlToOpenXml.Custom.UnitMetric,System.Double)">
             <summary>
             Gets the value expressed in the English Metrics Units.
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.Unit.Type">
+        <member name="P:HtmlToOpenXml.Custom.Unit.Type">
             <summary>
             Gets the type of unit (pixel, percent, point, ...)
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.Unit.Value">
+        <member name="P:HtmlToOpenXml.Custom.Unit.Value">
             <summary>
             Gets the value of this unit.
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.Unit.ValueInEmus">
+        <member name="P:HtmlToOpenXml.Custom.Unit.ValueInEmus">
             <summary>
             Gets the value expressed in English Metrics Unit.
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.Unit.ValueInDxa">
+        <member name="P:HtmlToOpenXml.Custom.Unit.ValueInDxa">
             <summary>
             Gets the value expressed in Dxa unit.
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.Unit.ValueInPx">
+        <member name="P:HtmlToOpenXml.Custom.Unit.ValueInPx">
             <summary>
             Gets the value expressed in Pixel unit.
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.Unit.ValueInPoint">
+        <member name="P:HtmlToOpenXml.Custom.Unit.ValueInPoint">
             <summary>
             Gets the value expressed in Point unit.
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.Unit.ValueInEighthPoint">
+        <member name="P:HtmlToOpenXml.Custom.Unit.ValueInEighthPoint">
             <summary>
             Gets the value expressed in 1/8 of a Point
             IMPORTANT: Use this for borders, as OpenXML expresses Border Width in 1/8 of points,
             with a minimum value of 2 (1/4 of a point) and a maximum value of 96 (12 points).
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.Unit.IsValid">
+        <member name="P:HtmlToOpenXml.Custom.Unit.IsValid">
             <summary>
             Gets whether the unit is well formed and not empty.
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.Unit.IsFixed">
+        <member name="P:HtmlToOpenXml.Custom.Unit.IsFixed">
             <summary>
             Gets whether the unit is well formed and not absolute nor auto.
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.UnitMetric">
+        <member name="T:HtmlToOpenXml.Custom.UnitMetric">
             <summary>
             Specifies the measurement values of a Html Unit.
             </summary>
         </member>
-        <member name="F:HtmlToOpenXml.UnitMetric.EM">
+        <member name="F:HtmlToOpenXml.Custom.UnitMetric.EM">
             <summary>1em is equal to the current font size.</summary>
         </member>
-        <member name="F:HtmlToOpenXml.UnitMetric.Ex">
+        <member name="F:HtmlToOpenXml.Custom.UnitMetric.Ex">
             <summary>one ex is the x-height of a font (x-height is usually about half the font-size)</summary>
         </member>
-        <member name="F:HtmlToOpenXml.UnitMetric.Auto">
+        <member name="F:HtmlToOpenXml.Custom.UnitMetric.Auto">
             <summary>Not convertible to any other units.</summary>
         </member>
-        <member name="F:HtmlToOpenXml.UnitMetric.Unitless">
+        <member name="F:HtmlToOpenXml.Custom.UnitMetric.Unitless">
             <summary>Raw value, not convertible to any other units</summary>
         </member>
-        <member name="T:HtmlToOpenXml.StyleEventArgs">
+        <member name="T:HtmlToOpenXml.Custom.StyleEventArgs">
             <summary>
             The event arguments used for a StyleMissing event.
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.StyleEventArgs.Name">
+        <member name="P:HtmlToOpenXml.Custom.StyleEventArgs.Name">
             <summary>
             Gets the invariant name of the style.
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.StyleEventArgs.Type">
+        <member name="P:HtmlToOpenXml.Custom.StyleEventArgs.Type">
             <summary>
             Gets the type of style seeked (character or paragraph).
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.AngleSharpExtensions">
+        <member name="T:HtmlToOpenXml.Custom.AngleSharpExtensions">
             <summary>
             Helper class that provide some extension methods to AngleSharp SDK.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.AngleSharpExtensions.IsTopAnchor(AngleSharp.Html.Dom.IHtmlAnchorElement)">
+        <member name="M:HtmlToOpenXml.Custom.AngleSharpExtensions.IsTopAnchor(AngleSharp.Html.Dom.IHtmlAnchorElement)">
             <summary>
             Gets whether the anchor is redirect to the `top` of the document.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.AngleSharpExtensions.IsPrecededByListElement(AngleSharp.Dom.INode,AngleSharp.Dom.IElement@)">
+        <member name="M:HtmlToOpenXml.Custom.AngleSharpExtensions.IsPrecededByListElement(AngleSharp.Dom.INode,AngleSharp.Dom.IElement@)">
             <summary>
             Gets whether the given child is preceded by any list element (<c>ol</c> or <c>ul</c>).
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.AngleSharpExtensions.TryParseUrl(System.String,System.UriKind,System.Uri@)">
+        <member name="M:HtmlToOpenXml.Custom.AngleSharpExtensions.TryParseUrl(System.String,System.UriKind,System.Uri@)">
             <summary>
             Aggresively try to parse an URL.
             </summary>
-            <remarks>Inline data in <see cref="T:HtmlToOpenXml.IO.DataUri"/> would returns <see langword="false"/>.</remarks>
+            <remarks>Inline data in <see cref="T:HtmlToOpenXml.Custom.IO.DataUri"/> would returns <see langword="false"/>.</remarks>
         </member>
-        <member name="M:HtmlToOpenXml.AngleSharpExtensions.AsTablePartEnumerable(AngleSharp.Html.Dom.IHtmlTableElement)">
+        <member name="M:HtmlToOpenXml.Custom.AngleSharpExtensions.AsTablePartEnumerable(AngleSharp.Html.Dom.IHtmlTableElement)">
             <summary>
             Enumerates all the table sections (<c>tbody</c>, <c>thead</c> and <c>tfoot</c>).
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.AngleSharpExtensions.CollapseLineBreaks(System.String)">
+        <member name="M:HtmlToOpenXml.Custom.AngleSharpExtensions.CollapseLineBreaks(System.String)">
             <summary>
             Collapse all line breaks from the given string.
             </summary>
@@ -1685,22 +1685,22 @@
             <returns>A new string, which excludes the line breaks and
             ensure that two lines are merged with a space between them.</returns>
         </member>
-        <member name="M:HtmlToOpenXml.AngleSharpExtensions.IsInlineLayout(System.String,System.String)">
+        <member name="M:HtmlToOpenXml.Custom.AngleSharpExtensions.IsInlineLayout(System.String,System.String)">
             <summary>
             Determines whether the layout mode is inline vs block or flex.
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.CollectionExtensions">
+        <member name="T:HtmlToOpenXml.Custom.CollectionExtensions">
             <summary>
             Helper class that provide some extension methods to <see cref="T:System.Collections.Generic.IEnumerable`1"/> API.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.CollectionExtensions.ForEachAsync``1(System.Collections.Generic.IEnumerable{``0},System.Func{``0,System.Threading.CancellationToken,System.Threading.Tasks.Task},System.Threading.Tasks.ParallelOptions)">
+        <member name="M:HtmlToOpenXml.Custom.CollectionExtensions.ForEachAsync``1(System.Collections.Generic.IEnumerable{``0},System.Func{``0,System.Threading.CancellationToken,System.Threading.Tasks.Task},System.Threading.Tasks.ParallelOptions)">
             <summary>
             Executes a <c>for-each</c> operation on an <see cref="T:System.Collections.Generic.IEnumerable`1" /> in which iterations may run in parallelc.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.CollectionExtensions.TryAdd``2(System.Collections.Generic.IDictionary{``0,``1},``0,``1)">
+        <member name="M:HtmlToOpenXml.Custom.CollectionExtensions.TryAdd``2(System.Collections.Generic.IDictionary{``0,``1},``0,``1)">
             <summary>
             Attempts to add the specified key and value to the dictionary.
             </summary>
@@ -1709,76 +1709,76 @@
             <param name="value">The value of the element to add. It can be <see langword="null"/>.</param>
             <returns><see langword="true"/> if the key/value pair was added to the dictionary successfully; otherwise, <see langword="false"/>.</returns>
         </member>
-        <member name="T:HtmlToOpenXml.Converter">
+        <member name="T:HtmlToOpenXml.Custom.Converter">
             <summary>
             Provides some utilities methods for translating Http attributes to OpenXml elements.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Converter.ToParagraphAlign(System.String)">
+        <member name="M:HtmlToOpenXml.Custom.Converter.ToParagraphAlign(System.String)">
             <summary>
             Convert the Html text align attribute (horizontal alignement) to its corresponding OpenXml value.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Converter.ToVAlign(System.String)">
+        <member name="M:HtmlToOpenXml.Custom.Converter.ToVAlign(System.String)">
             <summary>
             Convert the Html vertical-align attribute to its corresponding OpenXml value.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.Converter.ToFontSize(System.String)">
+        <member name="M:HtmlToOpenXml.Custom.Converter.ToFontSize(System.String)">
             <summary>
             Convert Html regular font-size to OpenXml font value (expressed in point).
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.HttpUtility">
+        <member name="T:HtmlToOpenXml.Custom.HttpUtility">
             <summary>
             Helper class that can be found in System.Web.HttpUtility. This class allows us to avoid a reference to System.Web.
             </summary>
         </member>
-        <member name="F:HtmlToOpenXml.HttpUtility.WhiteSpaces">
+        <member name="F:HtmlToOpenXml.Custom.HttpUtility.WhiteSpaces">
             <summary>The common characters considered as white space.</summary>
         </member>
-        <member name="M:HtmlToOpenXml.HttpUtility.HtmlDecode(System.String)">
+        <member name="M:HtmlToOpenXml.Custom.HttpUtility.HtmlDecode(System.String)">
             <summary>
             Converts a string that has been HTML-encoded for HTTP transmission into a decoded string.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.HttpUtility.HtmlDecode(System.String,System.IO.TextWriter)">
+        <member name="M:HtmlToOpenXml.Custom.HttpUtility.HtmlDecode(System.String,System.IO.TextWriter)">
             <summary>
             Converts a string that has been HTML-encoded into a decoded string, and sends
             the decoded string to a <see cref="T:System.IO.TextWriter"/> output stream.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.HttpUtility.UrlDecode(System.String)">
+        <member name="M:HtmlToOpenXml.Custom.HttpUtility.UrlDecode(System.String)">
             <summary>
             Converts a string that represents an Html-encoded URL to a decoded string.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.HttpUtility.IsLegalXmlChar(System.Int32)">
+        <member name="M:HtmlToOpenXml.Custom.HttpUtility.IsLegalXmlChar(System.Int32)">
             <summary>
             Gets whether a given character is allowed by XML 1.0.
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.OpenXmlExtensions">
+        <member name="T:HtmlToOpenXml.Custom.OpenXmlExtensions">
             <summary>
             Helper class that provide some extension methods to OpenXml SDK.
             </summary>
         </member>
-        <member name="T:HtmlToOpenXml.WordDocumentStyle">
+        <member name="T:HtmlToOpenXml.Custom.WordDocumentStyle">
             <summary>
             Defines the styles to apply on OpenXml elements.
             </summary>
         </member>
-        <member name="E:HtmlToOpenXml.WordDocumentStyle.StyleMissing">
+        <member name="E:HtmlToOpenXml.Custom.WordDocumentStyle.StyleMissing">
             <summary>
             Occurs when a Style is missing in the MainDocumentPart but will be used during the conversion process.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.WordDocumentStyle.PrepareStyles(DocumentFormat.OpenXml.Packaging.MainDocumentPart)">
+        <member name="M:HtmlToOpenXml.Custom.WordDocumentStyle.PrepareStyles(DocumentFormat.OpenXml.Packaging.MainDocumentPart)">
             <summary>
             Preload the styles in the document to match localized style name.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.WordDocumentStyle.GetStyle(System.String,DocumentFormat.OpenXml.Wordprocessing.StyleValues,System.Boolean)">
+        <member name="M:HtmlToOpenXml.Custom.WordDocumentStyle.GetStyle(System.String,DocumentFormat.OpenXml.Wordprocessing.StyleValues,System.Boolean)">
             <summary>
             Helper method to obtain the StyleId of a named style (invariant or localized name).
             </summary>
@@ -1787,22 +1787,22 @@
             <param name="ignoreCase">Indicate whether the search should be performed with the case-sensitive flag or not.</param>
             <returns>If not found, returns the given name argument.</returns>
         </member>
-        <member name="M:HtmlToOpenXml.WordDocumentStyle.AddStyle(DocumentFormat.OpenXml.Wordprocessing.Style)">
+        <member name="M:HtmlToOpenXml.Custom.WordDocumentStyle.AddStyle(DocumentFormat.OpenXml.Wordprocessing.Style)">
             <summary>
             Add a new style inside the document and refresh the style cache.
             </summary>
         </member>
-        <member name="M:HtmlToOpenXml.WordDocumentStyle.AddStyle(System.String,DocumentFormat.OpenXml.Wordprocessing.Style)">
+        <member name="M:HtmlToOpenXml.Custom.WordDocumentStyle.AddStyle(System.String,DocumentFormat.OpenXml.Wordprocessing.Style)">
             <summary>
             Add a new style inside the document and refresh the style cache.
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.WordDocumentStyle.DefaultStyles">
+        <member name="P:HtmlToOpenXml.Custom.WordDocumentStyle.DefaultStyles">
             <summary>
             Contains the default styles for new OpenXML elements
             </summary>
         </member>
-        <member name="P:HtmlToOpenXml.WordDocumentStyle.QuoteCharacters">
+        <member name="P:HtmlToOpenXml.Custom.WordDocumentStyle.QuoteCharacters">
             <summary>
             Gets or sets the beginning and ending characters used in the &lt;q&gt; tag.
             </summary>
