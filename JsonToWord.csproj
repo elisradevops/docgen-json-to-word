@@ -5,6 +5,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="lib\**" />
+    <Content Remove="lib\**" />
+    <EmbeddedResource Remove="lib\**" />
+    <None Remove="lib\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Remove="Models\nifmydir.dm1~" />
     <None Remove="Resources\template.docx" />
   </ItemGroup>
@@ -34,7 +41,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="lib\" />
     <Folder Include="TempFiles\" />
   </ItemGroup>
 
@@ -45,12 +51,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="lib\HtmlToOpenXml.dll">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="lib\HtmlToOpenXml.xml">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
     <None Update="Resources\Icons\access.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

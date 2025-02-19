@@ -5,7 +5,7 @@ using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using HtmlAgilityPack;
-using HtmlToOpenXml;
+using HtmlToOpenXml.Custom;
 using JsonToWord.Models;
 using JsonToWord.Services.Interfaces;
 using Microsoft.Extensions.Logging;
@@ -44,7 +44,7 @@ namespace JsonToWord.Services
             html = RemoveWordHeading(html);
 
             html = FixBullets(html);
-            var converter = new HtmlConverter(document.MainDocumentPart, new HtmlToOpenXml.IO.DefaultWebRequest()
+            var converter = new HtmlConverter(document.MainDocumentPart, new HtmlToOpenXml.Custom.IO.DefaultWebRequest()
             {
                 BaseImageUrl = new Uri(Environment.CurrentDirectory)
             });
