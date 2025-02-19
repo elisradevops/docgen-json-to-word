@@ -5,7 +5,6 @@ using DocumentFormat.OpenXml.Vml.Office;
 using DocumentFormat.OpenXml.Wordprocessing;
 using JsonToWord.EventHandlers;
 using JsonToWord.Models;
-using JsonToWord.Services;
 using JsonToWord.Services.Interfaces;
 using Microsoft.Extensions.Logging;
 using System;
@@ -256,8 +255,16 @@ public class FileService : IFileService
         {
             Directory.CreateDirectory(AttachmentsFolder);
         }
-        string destination = Path.Combine(AttachmentsFolder, Path.GetFileName(wordAttachment.Path));
-        File.Copy(sourcePath, destination, true);
+        var guidFileName = Path.GetFileName(wordAttachment.Path);
+        var extension = Path.GetExtension(guidFileName);
+
+        string destination = Path.Combine(AttachmentsFolder, wordAttachment.Name + extension);
+        while(File.Exists(destination))
+        {
+            string uniqueId = Guid.NewGuid().ToString("N").Substring(0, 4);
+            destination = Path.Combine(AttachmentsFolder, $"{wordAttachment.Name}-(CopyID-{uniqueId}){extension}");
+        }
+        File.Copy(sourcePath, destination, false);
         return destination;
     }
 
