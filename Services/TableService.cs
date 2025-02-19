@@ -49,7 +49,9 @@ namespace JsonToWord.Services
             sdtContentBlock.AppendChild(emptyParagraph);  // Adds an empty line
         
             sdtBlock.AppendChild(sdtContentBlock);
-        
+
+            _fileService.AppendCollectedWordDocuments(document, sdtBlock);
+
             RemoveExtraParagraphsAfterAltChunk(document);
         }
 

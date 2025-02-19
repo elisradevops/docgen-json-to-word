@@ -126,7 +126,7 @@ namespace JsonToWord.Controllers
             {
                 string logPath = @"c:\logs\prod\JsonToWord.log";
                 System.IO.File.AppendAllText(logPath, string.Format("\n{0} - {1}", DateTime.Now, e));
-                _logger.LogError($"Error occurred while trying to create a document: {e.Message}", e);
+                _logger.LogError(e, $"Error occurred while trying to create a document: {e.Message}");
                 _logger.LogError($"Error Stack:\n{e.StackTrace}");
                 var errorResponse = new
                 {
