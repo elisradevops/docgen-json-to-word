@@ -5,11 +5,12 @@ using DocumentFormat.OpenXml.Vml.Office;
 using DocumentFormat.OpenXml.Wordprocessing;
 using JsonToWord.EventHandlers;
 using JsonToWord.Models;
-using JsonToWord.Services;
 using JsonToWord.Services.Interfaces;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 public class FileService : IFileService
 {
@@ -21,6 +22,8 @@ public class FileService : IFileService
     #region Fields
     private readonly IContentControlService _contentControlService;
     private readonly ILogger<FileService> _logger;
+    // Field to store collected Word documents
+    private readonly Queue<WordAttachment> _collectedWordDocuments;
     #endregion
 
     #region Event Handlers
@@ -31,6 +34,7 @@ public class FileService : IFileService
     {
         _contentControlService = contentControlService;
         _logger = logger;
+        _collectedWordDocuments = new Queue<WordAttachment>();
     }
 
 
@@ -45,17 +49,19 @@ public class FileService : IFileService
 
         var sdtBlock = _contentControlService.FindContentControl(document, contentControlTitle);
         sdtBlock.AppendChild(sdtContentBlock);
+        AppendCollectedWordDocuments(document, sdtBlock);
     }
 
     public Paragraph AttachFileToParagraph(MainDocumentPart mainPart, WordAttachment wordAttachment)
     {
         try
         {
-
             if (wordAttachment == null)
             {
                 throw new Exception("Word attachment is not defined");
             }
+
+            AddNewDocumentToCollection(wordAttachment);
 
             var fileContentType = GetFileContentType(wordAttachment.Path);
             var imageId = "";
@@ -75,14 +81,63 @@ public class FileService : IFileService
         {
             string logPath = @"c:\logs\prod\JsonToWord.log";
             System.IO.File.AppendAllText(logPath, string.Format("\n{0} - {1}", DateTime.Now, ex));
-            _logger.LogError($"Error occurred: {ex.Message}", ex);
+            _logger.LogError(ex, $"Error occurred: {ex.Message}");
             throw;
         }
 
     }
+
+    public void AppendCollectedWordDocuments(WordprocessingDocument document, SdtBlock sdtBlock)
+    {
+        while (_collectedWordDocuments.Count > 0)
+        {
+            var wordAttachment = _collectedWordDocuments.Dequeue();
+
+            try
+            {
+                var fileNameParagraph = new Paragraph(
+                    new Run(new Text(wordAttachment.Name)) { RunProperties = new RunProperties() 
+                    { Bold = new Bold(), Underline= new Underline(), Italic = new Italic(), RunFonts = new RunFonts() { Ascii="Arial"} } });
+
+                sdtBlock.AppendChild(new SdtContentBlock(fileNameParagraph));
+
+                var mainPart = document.MainDocumentPart;
+                var altChunkId = "altChunkId" + Guid.NewGuid().ToString("N");
+                var chunk = mainPart.AddAlternativeFormatImportPart(AlternativeFormatImportPartType.WordprocessingML, altChunkId);
+
+                using (var fileStream = File.Open(wordAttachment.Path, FileMode.Open))
+                {
+                    chunk.FeedData(fileStream);
+                }
+                var altChunk = new AltChunk { Id = altChunkId };
+                var sdtContentBlock = new SdtContentBlock();
+                sdtContentBlock.AppendChild(altChunk);
+
+                sdtBlock.AppendChild(sdtContentBlock);
+            }
+            catch(Exception ex)
+            {
+                _logger.LogError(ex, $"Cannot add {wordAttachment.Name} document content");
+            }
+
+        }
+    }
     #endregion
 
     #region Private Methods
+
+    private void AddNewDocumentToCollection(WordAttachment wordAttachment)
+    {
+        if (wordAttachment.IncludeAttachmentContent == false)
+        {
+            return;
+        }
+        var extension = Path.GetExtension(wordAttachment.Path);
+        if(extension == ".docx" || extension == ".doc")
+        {
+            _collectedWordDocuments.Enqueue(wordAttachment);
+        }
+    }
 
     private Paragraph CreateEmbeddedOfficeFileParagraph(MainDocumentPart mainPart, WordAttachment wordAttachment,
      string imageId, string fileContentType)
@@ -256,8 +311,16 @@ public class FileService : IFileService
         {
             Directory.CreateDirectory(AttachmentsFolder);
         }
-        string destination = Path.Combine(AttachmentsFolder, Path.GetFileName(wordAttachment.Path));
-        File.Copy(sourcePath, destination, true);
+        var guidFileName = Path.GetFileName(wordAttachment.Path);
+        var extension = Path.GetExtension(guidFileName);
+
+        string destination = Path.Combine(AttachmentsFolder, wordAttachment.Name + extension);
+        while(File.Exists(destination))
+        {
+            string uniqueId = Guid.NewGuid().ToString("N").Substring(0, 4);
+            destination = Path.Combine(AttachmentsFolder, $"{wordAttachment.Name}-(CopyID-{uniqueId}){extension}");
+        }
+        File.Copy(sourcePath, destination, false);
         return destination;
     }
 
