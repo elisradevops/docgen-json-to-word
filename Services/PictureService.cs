@@ -6,6 +6,7 @@ using JsonToWord.Services.Interfaces;
 using SixLabors.ImageSharp;
 using System;
 using System.IO;
+using System.Linq;
 using A = DocumentFormat.OpenXml.Drawing;
 using DW = DocumentFormat.OpenXml.Drawing.Wordprocessing;
 using Paragraph = DocumentFormat.OpenXml.Wordprocessing.Paragraph;
@@ -18,6 +19,8 @@ namespace JsonToWord.Services
     {
         private readonly IContentControlService _contentControlService;
         private readonly IParagraphService _paragraphService;
+        private uint _currentId;
+
         public PictureService(IContentControlService contentControlService, IParagraphService paragraphService)
         {
             _contentControlService = contentControlService;
@@ -25,6 +28,7 @@ namespace JsonToWord.Services
         }
         public void Insert(WordprocessingDocument document, string contentControlTitle, WordAttachment wordAttachment)
         {
+            _currentId = GetMaxImageId(document) + 1;
             var drawing = CreateDrawing(document.MainDocumentPart, wordAttachment.Path);
 
             var run = new Run();
@@ -49,11 +53,12 @@ namespace JsonToWord.Services
         {
             var imagePartId = AddImagePart(mainDocumentPart, filePath);
             var drawingExtend = GetDrawingExtend(filePath, isFlattened);
+            uint uniqueId = _currentId++;
 
             var inline = new DW.Inline(
                 new DW.Extent { Cx = drawingExtend.Width, Cy = drawingExtend.Height },
                 new DW.EffectExtent { LeftEdge = 0L, TopEdge = 0L, RightEdge = 0L, BottomEdge = 0L },
-                new DW.DocProperties { Id = (UInt32Value)1U, Name = "Picture 1" },
+                new DW.DocProperties { Id = uniqueId, Name = $"Picture {uniqueId}" },
                 new DW.NonVisualGraphicFrameDrawingProperties(new A.GraphicFrameLocks { NoChangeAspect = true }),
                 new A.Graphic(
                     new A.GraphicData(
@@ -88,6 +93,18 @@ namespace JsonToWord.Services
             };
 
             return new Drawing(inline);
+        }
+
+        private uint GetMaxImageId(WordprocessingDocument document)
+        {
+            var ids = document.MainDocumentPart.Document.Body
+                .Descendants<DW.DocProperties>()
+                .Select(dp => dp.Id.Value)
+                .Union(document.MainDocumentPart.Document.Body
+                .Descendants<PIC.NonVisualDrawingProperties>()
+                .Select(nvdp => nvdp.Id.Value));
+
+            return ids.Any() ? ids.Max() : 0;
         }
 
         private static DrawingExtent GetDrawingExtend(string localPath, bool isFlattened = false)
