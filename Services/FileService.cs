@@ -128,6 +128,10 @@ public class FileService : IFileService
 
     private void AddNewDocumentToCollection(WordAttachment wordAttachment)
     {
+        if (wordAttachment.IncludeAttachmentContent == false)
+        {
+            return;
+        }
         var extension = Path.GetExtension(wordAttachment.Path);
         if(extension == ".docx" || extension == ".doc")
         {
