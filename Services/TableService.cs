@@ -203,6 +203,13 @@ namespace JsonToWord.Services
                         _logger.LogError(e, $"Error while creating table cell: ${e.Message}");
                         tableCell.AppendChild(new Paragraph(new Run(new Text("DocGen Error: Invalid data format"))));
                     }
+
+                    // Ensure the last child is a paragraph
+                    if (!(tableCell.LastChild is Paragraph))
+                    {
+                        tableCell.AppendChild(new Paragraph());
+                    }
+
                     tableRow.AppendChild(tableCell);
                 }
 
