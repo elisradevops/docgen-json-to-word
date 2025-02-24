@@ -5,10 +5,10 @@ using DocumentFormat.OpenXml.Vml.Office;
 using DocumentFormat.OpenXml.Wordprocessing;
 using JsonToWord.EventHandlers;
 using JsonToWord.Models;
+using JsonToWord.Services;
 using JsonToWord.Services.Interfaces;
 using Microsoft.Extensions.Logging;
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
@@ -22,8 +22,6 @@ public class FileService : IFileService
     #region Fields
     private readonly IContentControlService _contentControlService;
     private readonly ILogger<FileService> _logger;
-    // Field to store collected Word documents
-    private readonly Queue<WordAttachment> _collectedWordDocuments;
     #endregion
 
     #region Event Handlers
@@ -34,7 +32,6 @@ public class FileService : IFileService
     {
         _contentControlService = contentControlService;
         _logger = logger;
-        _collectedWordDocuments = new Queue<WordAttachment>();
     }
 
 
@@ -42,26 +39,34 @@ public class FileService : IFileService
 
     public void Insert(WordprocessingDocument document, string contentControlTitle, WordAttachment wordAttachment)
     {
-        var attachedFileParagraph = AttachFileToParagraph(document.MainDocumentPart, wordAttachment);
-
         var sdtContentBlock = new SdtContentBlock();
-        sdtContentBlock.AppendChild(attachedFileParagraph);
+        if (wordAttachment.IncludeAttachmentContent == false)
+        {
+            var attachedFileParagraph = AttachFileToParagraph(document.MainDocumentPart, wordAttachment);
+            sdtContentBlock.AppendChild(attachedFileParagraph);
+        }
+        else
+        {
+            var altChunk = AddDocFileContent(document.MainDocumentPart, wordAttachment);
+            if (altChunk != null)
+            {
+                sdtContentBlock.AppendChild(altChunk);
+            }
+        }
 
         var sdtBlock = _contentControlService.FindContentControl(document, contentControlTitle);
         sdtBlock.AppendChild(sdtContentBlock);
-        AppendCollectedWordDocuments(document, sdtBlock);
     }
 
     public Paragraph AttachFileToParagraph(MainDocumentPart mainPart, WordAttachment wordAttachment)
     {
         try
         {
+
             if (wordAttachment == null)
             {
                 throw new Exception("Word attachment is not defined");
             }
-
-            AddNewDocumentToCollection(wordAttachment);
 
             var fileContentType = GetFileContentType(wordAttachment.Path);
             var imageId = "";
@@ -81,63 +86,14 @@ public class FileService : IFileService
         {
             string logPath = @"c:\logs\prod\JsonToWord.log";
             System.IO.File.AppendAllText(logPath, string.Format("\n{0} - {1}", DateTime.Now, ex));
-            _logger.LogError(ex, $"Error occurred: {ex.Message}");
+            _logger.LogError($"Error occurred: {ex.Message}", ex);
             throw;
         }
 
     }
-
-    public void AppendCollectedWordDocuments(WordprocessingDocument document, SdtBlock sdtBlock)
-    {
-        while (_collectedWordDocuments.Count > 0)
-        {
-            var wordAttachment = _collectedWordDocuments.Dequeue();
-
-            try
-            {
-                var fileNameParagraph = new Paragraph(
-                    new Run(new Text(wordAttachment.Name)) { RunProperties = new RunProperties() 
-                    { Bold = new Bold(), Underline= new Underline(), Italic = new Italic(), RunFonts = new RunFonts() { Ascii="Arial"} } });
-
-                sdtBlock.AppendChild(new SdtContentBlock(fileNameParagraph));
-
-                var mainPart = document.MainDocumentPart;
-                var altChunkId = "altChunkId" + Guid.NewGuid().ToString("N");
-                var chunk = mainPart.AddAlternativeFormatImportPart(AlternativeFormatImportPartType.WordprocessingML, altChunkId);
-
-                using (var fileStream = File.Open(wordAttachment.Path, FileMode.Open))
-                {
-                    chunk.FeedData(fileStream);
-                }
-                var altChunk = new AltChunk { Id = altChunkId };
-                var sdtContentBlock = new SdtContentBlock();
-                sdtContentBlock.AppendChild(altChunk);
-
-                sdtBlock.AppendChild(sdtContentBlock);
-            }
-            catch(Exception ex)
-            {
-                _logger.LogError(ex, $"Cannot add {wordAttachment.Name} document content");
-            }
-
-        }
-    }
     #endregion
 
     #region Private Methods
-
-    private void AddNewDocumentToCollection(WordAttachment wordAttachment)
-    {
-        if (wordAttachment.IncludeAttachmentContent == false)
-        {
-            return;
-        }
-        var extension = Path.GetExtension(wordAttachment.Path);
-        if(extension == ".docx" || extension == ".doc")
-        {
-            _collectedWordDocuments.Enqueue(wordAttachment);
-        }
-    }
 
     private Paragraph CreateEmbeddedOfficeFileParagraph(MainDocumentPart mainPart, WordAttachment wordAttachment,
      string imageId, string fileContentType)
@@ -311,18 +267,88 @@ public class FileService : IFileService
         {
             Directory.CreateDirectory(AttachmentsFolder);
         }
-        var guidFileName = Path.GetFileName(wordAttachment.Path);
-        var extension = Path.GetExtension(guidFileName);
-
-        string destination = Path.Combine(AttachmentsFolder, wordAttachment.Name + extension);
-        while(File.Exists(destination))
-        {
-            string uniqueId = Guid.NewGuid().ToString("N").Substring(0, 4);
-            destination = Path.Combine(AttachmentsFolder, $"{wordAttachment.Name}-(CopyID-{uniqueId}){extension}");
-        }
-        File.Copy(sourcePath, destination, false);
+        string destination = Path.Combine(AttachmentsFolder, Path.GetFileName(wordAttachment.Path));
+        File.Copy(sourcePath, destination, true);
         return destination;
     }
+
+    private AltChunk AddDocFileContent(MainDocumentPart mainPart, WordAttachment wordAttachment)
+    {
+        try
+        {
+            var altChunkId = "altChunkId" + Guid.NewGuid().ToString("N");
+            var chunk = mainPart.AddAlternativeFormatImportPart(AlternativeFormatImportPartType.WordprocessingML, altChunkId);
+
+            // Clean the source document and get the cleaned content as a memory stream
+            using (MemoryStream cleanedDocumentStream = CleanWordDocument(wordAttachment.Path))
+            {
+                cleanedDocumentStream.Position = 0; // Reset the stream position
+                chunk.FeedData(cleanedDocumentStream);
+            }
+
+            var altChunk = new AltChunk { Id = altChunkId };
+            return altChunk;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Cannot add {wordAttachment.Name} document content");
+        }
+
+        return null;
+    }
+
+    private MemoryStream CleanWordDocument(string documentPath)
+    {
+        // Create a memory stream to hold the cleaned document
+        var cleanedStream = new MemoryStream();
+
+        // Open the source document as read-only
+        using (WordprocessingDocument sourceDoc = WordprocessingDocument.Open(documentPath, false))
+        {
+            // Clone the source document into the memory stream
+            sourceDoc.Clone(cleanedStream, true);
+        }
+
+        // Open the cloned document for editing
+        using (WordprocessingDocument cleanedDoc = WordprocessingDocument.Open(cleanedStream, true))
+        {
+            var body = cleanedDoc.MainDocumentPart.Document.Body;
+
+            // Remove redundant elements at the beginning
+            while (body.FirstChild is Paragraph paragraph && IsRedundantParagraph(paragraph))
+            {
+                paragraph.Remove();
+            }
+
+            // Remove redundant elements at the end
+            while (body.LastChild is Paragraph paragraph && IsRedundantParagraph(paragraph))
+            {
+                paragraph.Remove();
+            }
+
+            // Save changes to the document
+            cleanedDoc.MainDocumentPart.Document.Save();
+        }
+
+        // Reset the stream position before returning
+        cleanedStream.Position = 0;
+        return cleanedStream;
+    }
+
+
+    private bool IsRedundantParagraph(Paragraph paragraph)
+    {
+        // Check if the paragraph has no runs (completely empty)
+        if (!paragraph.Elements<Run>().Any())
+            return true;
+
+        // Check if all runs contain only breaks or whitespace
+        return paragraph.Elements<Run>().All(run =>
+            !run.Elements<Text>().Any(t => !string.IsNullOrWhiteSpace(t.Text)) &&
+            !run.Elements<FieldChar>().Any() && // Exclude fields
+            run.Elements<Break>().All(br => br.Type == BreakValues.TextWrapping || br.Type == BreakValues.Page));
+    }
+
 
     #endregion
 

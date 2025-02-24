@@ -10,7 +10,6 @@ namespace JsonToWord.Services.Interfaces
         void Insert(WordprocessingDocument document, string contentControlTitle, WordAttachment wordAttachment);
         Paragraph AttachFileToParagraph(MainDocumentPart mainPart, WordAttachment wordAttachment);
         event NonOfficeAttachmentEventHandler nonOfficeAttachmentEventHandler;
-        void AppendCollectedWordDocuments(WordprocessingDocument document, SdtBlock sdtBlock);
 
     }
 }
