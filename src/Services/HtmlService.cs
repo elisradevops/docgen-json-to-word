@@ -65,9 +65,10 @@ namespace JsonToWord.Services
             html = RemoveWordHeading(html);
 
             html = FixBullets(html);
+            var baseImageUrl = new Uri(System.IO.Path.GetFullPath(Environment.CurrentDirectory));
             var converter = new HtmlConverter(document.MainDocumentPart, new HtmlToOpenXml.Custom.IO.DefaultWebRequest()
             {
-                BaseImageUrl = new Uri(Environment.CurrentDirectory)
+                BaseImageUrl = baseImageUrl
             });
             converter.ContinueNumbering = false;
             converter.SupportsHeadingNumbering = false;
