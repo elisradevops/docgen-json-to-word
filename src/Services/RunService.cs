@@ -6,7 +6,7 @@ using JsonToWord.Services.Interfaces;
 
 namespace JsonToWord.Services
 {
-    internal class RunService: IRunService
+    public class RunService: IRunService
     {
         private readonly IPictureService _pictureService;
         public RunService(IPictureService pictureService)

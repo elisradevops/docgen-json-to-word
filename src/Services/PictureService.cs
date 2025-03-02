@@ -15,11 +15,11 @@ using Run = DocumentFormat.OpenXml.Wordprocessing.Run;
 
 namespace JsonToWord.Services
 {
-    internal class PictureService : IPictureService
+    public class PictureService : IPictureService
     {
         private readonly IContentControlService _contentControlService;
         private readonly IParagraphService _paragraphService;
-        private uint _currentId;
+        private uint _currentId = 1;
 
         public PictureService(IContentControlService contentControlService, IParagraphService paragraphService)
         {
@@ -104,7 +104,7 @@ namespace JsonToWord.Services
                 .Descendants<PIC.NonVisualDrawingProperties>()
                 .Select(nvdp => nvdp.Id.Value));
 
-            return ids.Any() ? ids.Max() : 0;
+            return ids.Any() ? ids.Max() : 1;
         }
 
         private static DrawingExtent GetDrawingExtend(string localPath, bool isFlattened = false)

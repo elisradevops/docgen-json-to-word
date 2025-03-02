@@ -6,6 +6,10 @@ WORKDIR /app
 # Copy everything else and build
 COPY . ./
 RUN dotnet restore
+
+# Run tests
+RUN dotnet test JsonToWord.Tests/JsonToWord.Tests.csproj
+
 RUN dotnet publish -c Release -o out
 
 # Build runtime image

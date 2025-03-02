@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.RegularExpressions;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
@@ -12,11 +13,27 @@ using Microsoft.Extensions.Logging;
 
 namespace JsonToWord.Services
 {
-    internal class HtmlService : IHtmlService
+    public class HtmlService : IHtmlService
     {
         private readonly IContentControlService _contentControlService;
         private readonly IDocumentValidatorService _documentValidator;
         private readonly ILogger<HtmlService> _logger;
+
+        // Common lists – these are not exhaustive, but cover many elements.
+        private readonly HashSet<string> inlineElements = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "a", "abbr", "acronym", "b", "bdo", "big", "br", "button", "cite", "code", "dfn",
+            "em", "i", "img", "input", "kbd", "label", "map", "object", "output", "q", "samp",
+            "script", "select", "small", "span", "strong", "sub", "sup", "textarea", "time", "tt", "var"
+        };
+
+        private readonly HashSet<string> blockElements = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "address", "article", "aside", "blockquote", "canvas", "dd", "div", "dl", "dt", "fieldset",
+            "figcaption", "figure", "footer", "form", "h1", "h2", "h3", "h4", "h5", "h6", "header", "hr",
+            "li", "main", "nav", "noscript", "ol", "p", "pre", "section", "table", "ul", "video"
+        };
+
         public HtmlService(IContentControlService contentControlService,IDocumentValidatorService documentValidator, ILogger<HtmlService> logger)
         {
             _contentControlService = contentControlService;
@@ -39,14 +56,19 @@ namespace JsonToWord.Services
 
         public IEnumerable<OpenXmlCompositeElement> ConvertHtmlToOpenXmlElements(WordHtml wordHtml, WordprocessingDocument document)
         {
+            bool isHtmlEmpty = string.IsNullOrEmpty(wordHtml.Html);
+
+            var errors = ValidateHtmlStructure(wordHtml.Html);
+
             var html = WrapHtmlWithStyle(wordHtml.Html, wordHtml.Font, wordHtml.FontSize);
 
             html = RemoveWordHeading(html);
 
             html = FixBullets(html);
+            var baseImageUrl = new Uri(System.IO.Path.GetFullPath(Environment.CurrentDirectory));
             var converter = new HtmlConverter(document.MainDocumentPart, new HtmlToOpenXml.Custom.IO.DefaultWebRequest()
             {
-                BaseImageUrl = new Uri(Environment.CurrentDirectory)
+                BaseImageUrl = baseImageUrl
             });
             converter.ContinueNumbering = false;
             converter.SupportsHeadingNumbering = false;
@@ -54,19 +76,30 @@ namespace JsonToWord.Services
             try
             {
                 var elements = converter.Parse(html);
+                if(elements.Count == 0 && errors.Count > 0 || isHtmlEmpty)
+                {
+                    if(errors.Count > 0)
+                    {
+                        string errorMessage = string.Join("\n", errors);
+                        _logger.LogError("Errors found in the html: " + errorMessage);
+                    }
+                    throw new Exception("Invalid HTML Format");
+                }
                 return elements;
             }
             catch (Exception ex)
             {
                 string errorMessage = ex.Message;
                 _logger.LogError(ex, $"DocGen ran into an issue parsing the html due to: {errorMessage}");
-                _logger.LogError($"The html that caused the issue is: {html}");
+                _logger.LogError($"The html that caused the issue is: {wordHtml.Html}");
 
                 string errorHtml = "<html><head></head><body><p style='color: red'><b>Docgen Error: Invalid HTML Format: " + errorMessage + "</b></p></body></html>";
                 var elements = converter.Parse(errorHtml);
                 return elements;
             }
         }
+
+        
 
         private string WrapHtmlWithStyle(string originalHtml, string font, uint fontSize)
         {
@@ -164,5 +197,69 @@ namespace JsonToWord.Services
 
             return res;
         }
+
+        #region HTML Validation
+
+        /// <summary>
+        /// Validates that no inline element contains a block element.
+        /// Returns a list of error messages; if empty, the structure passes this rule.
+        /// </summary>
+        private List<string> ValidateHtmlStructure(string html)
+        {
+            var errors = new List<string>();
+
+            var doc = new HtmlDocument
+            {
+                // Disable auto-correction so that our raw structure is examined.
+                OptionFixNestedTags = false,
+                OptionAutoCloseOnEnd = false
+            };
+            doc.LoadHtml(html);
+
+            // Check the entire document recursively.
+            ValidateNode(doc.DocumentNode, errors);
+
+            return errors;
+        }
+
+        private void ValidateNode(HtmlNode node, List<string> errors)
+        {
+            // If this node is an inline element, ensure it does not contain any block element as a descendant.
+
+            if (node.NodeType == HtmlNodeType.Element && inlineElements.Contains(node.Name))
+            {
+
+                // Descendants() gives all child nodes (recursively).
+                foreach (var descendant in node.Descendants().Where(n => n.NodeType == HtmlNodeType.Element))
+                {
+                    if (blockElements.Contains(descendant.Name))
+                    {
+                        errors.Add($"Invalid nesting: Inline element <{node.Name}> contains block element <{descendant.Name}> (line {descendant.Line}, pos {descendant.LinePosition}).");
+                    }
+                }
+            }
+
+            if (node.NodeType == HtmlNodeType.Element && blockElements.Contains(node.Name))
+            {
+                if (node.Name == "ul" || node.Name == "ol")
+                {
+                    foreach (var childs in node.ChildNodes.Where(n => n.NodeType == HtmlNodeType.Element))
+                    {
+                        if (childs.Name != "li")
+                        {
+                            errors.Add($"Invalid nesting: Parent item <{node.Name}> cannot have <{childs.Name}> (line {childs.Line}, pos {childs.LinePosition}).");
+                        }
+                    }
+                }
+            }
+
+            // Continue recursively.
+            foreach (var child in node.ChildNodes)
+            {
+                ValidateNode(child, errors);
+            }
+        }
+
+        #endregion
     }
 }
