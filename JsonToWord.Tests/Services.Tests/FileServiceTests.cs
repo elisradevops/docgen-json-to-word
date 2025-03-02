@@ -105,7 +105,7 @@ namespace JsonToWord.Services.Tests
             Assert.NotNull(contentBlock);
 
             // Verify paragraph was created
-            var paragraph = contentBlock.GetFirstChild<Paragraph>();
+            var paragraph = contentBlock?.GetFirstChild<Paragraph>();
             Assert.NotNull(paragraph);
         }
 
@@ -137,10 +137,10 @@ namespace JsonToWord.Services.Tests
             Assert.NotNull(contentBlock);
 
             // Verify AltChunk was created
-            var altChunk = contentBlock.GetFirstChild<AltChunk>();
+            var altChunk = contentBlock?.GetFirstChild<AltChunk>();
             Assert.NotNull(altChunk);
-            Assert.NotNull(altChunk.Id);
-            Assert.True(altChunk.Id.Value.StartsWith("altChunkId"));
+            Assert.NotNull(altChunk?.Id);
+            Assert.True(altChunk?.Id?.Value?.StartsWith("altChunkId"));
         }
 
         [Fact]
@@ -165,10 +165,10 @@ namespace JsonToWord.Services.Tests
             Assert.NotNull(embeddedObject);
 
             // Verify OleObject exists with proper attributes
-            var oleObject = embeddedObject.Descendants<OleObject>().FirstOrDefault();
+            var oleObject = embeddedObject?.Descendants<OleObject>().FirstOrDefault();
             Assert.NotNull(oleObject);
-            Assert.Equal("Word.Document", oleObject.ProgId);
-            Assert.Equal("embed", oleObject.Type.ToString().ToLower());
+            Assert.Equal("Word.Document", oleObject?.ProgId);
+            Assert.Equal("embed", oleObject?.Type?.ToString()?.ToLower());
 
             // Verify run with text is present (filename)
             var textRuns = paragraph.Descendants<Run>()
@@ -198,12 +198,12 @@ namespace JsonToWord.Services.Tests
             // Verify hyperlink exists
             var hyperlink = paragraph.Descendants<Hyperlink>().FirstOrDefault();
             Assert.NotNull(hyperlink);
-            Assert.NotNull(hyperlink.Id);
+            Assert.NotNull(hyperlink?.Id);
 
             // Verify text content
-            var hyperlinkText = hyperlink.Descendants<Text>().FirstOrDefault();
+            var hyperlinkText = hyperlink?.Descendants<Text>().FirstOrDefault();
             Assert.NotNull(hyperlinkText);
-            Assert.Equal(wordAttachment.Name, hyperlinkText.Text);
+            Assert.Equal(wordAttachment.Name, hyperlinkText?.Text);
 
             // Verify icon drawing exists
             var drawing = paragraph.Descendants<Drawing>().FirstOrDefault();
@@ -240,24 +240,24 @@ namespace JsonToWord.Services.Tests
                             BindingFlags.NonPublic | BindingFlags.Instance) ?? throw new InvalidOperationException("Method not found: CreateIconImageDrawing");
 
             // Act
-            var drawing = (Drawing)createIconMethod.Invoke(_fileService,
-                new object[] { _document.MainDocumentPart, wordAttachment, imageId });
+            var drawing = (Drawing?)createIconMethod.Invoke(_fileService,
+                new object[] { _document.MainDocumentPart!, wordAttachment, imageId });
 
             // Assert
             Assert.NotNull(drawing);
 
             // Verify Inline element exists
-            var inline = drawing.Descendants<Inline>().FirstOrDefault();
+            var inline = drawing?.Descendants<Inline>().FirstOrDefault();
             Assert.NotNull(inline);
 
             // Verify extent with dimensions
-            var extent = inline.Descendants<Extent>().FirstOrDefault();
+            var extent = inline?.Descendants<Extent>().FirstOrDefault();
             Assert.NotNull(extent);
-            Assert.Equal(32 * 9525, extent.Cx);
-            Assert.Equal(32 * 9525, extent.Cy);
+            Assert.Equal(32 * 9525, extent?.Cx);
+            Assert.Equal(32 * 9525, extent?.Cy);
 
             // Verify blip exists
-            var blip = drawing.Descendants<DocumentFormat.OpenXml.Drawing.Blip>().FirstOrDefault();
+            var blip = drawing?.Descendants<DocumentFormat.OpenXml.Drawing.Blip>().FirstOrDefault();
             Assert.NotNull(blip);
         }
 
@@ -274,20 +274,20 @@ namespace JsonToWord.Services.Tests
             };
 
             // Access the private method using reflection
-            MethodInfo addDocMethod = typeof(FileService).GetMethod("AddDocFileContent",
+            MethodInfo? addDocMethod = typeof(FileService).GetMethod("AddDocFileContent",
                 BindingFlags.NonPublic | BindingFlags.Instance);
 
             // Act
-            var altChunk = (AltChunk)addDocMethod.Invoke(_fileService,
-                new object[] { _document.MainDocumentPart, wordAttachment });
+            var altChunk = (AltChunk)addDocMethod?.Invoke(_fileService,
+                        new object[] { _document.MainDocumentPart!, wordAttachment })!;
 
             // Assert
             Assert.NotNull(altChunk);
             Assert.NotNull(altChunk.Id);
-            Assert.True(altChunk.Id.Value.StartsWith("altChunkId"));
+            Assert.True(altChunk?.Id?.Value?.StartsWith("altChunkId"));
 
             // Verify the AlternativeFormatImportPart was added
-            var importPart = _document.MainDocumentPart.AlternativeFormatImportParts
+            var importPart = _document.MainDocumentPart?.AlternativeFormatImportParts
                 .FirstOrDefault(p => p.ContentType == "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml");
             Assert.NotNull(importPart);
         }
@@ -340,14 +340,14 @@ namespace JsonToWord.Services.Tests
                 {
                     ParagraphStyleId = new ParagraphStyleId { Val = "CustomStyle1" }
                 };
-                mainPart.Document.Body.AppendChild(paragraph);
+                mainPart.Document.Body?.AppendChild(paragraph);
 
                 document.Save();
             }
 
             // Access the private method using reflection
-            MethodInfo prefixStylesMethod = typeof(FileService).GetMethod("PrefixStyleIds",
-                BindingFlags.NonPublic | BindingFlags.Instance);
+            MethodInfo? prefixStylesMethod = typeof(FileService).GetMethod("PrefixStyleIds",
+                        BindingFlags.NonPublic | BindingFlags.Instance) ?? throw new InvalidOperationException("Method not found: PrefixStyleIds");
 
             // Open the document for testing
             using (var doc = WordprocessingDocument.Open(testDocWithStylesPath, true))
@@ -362,26 +362,26 @@ namespace JsonToWord.Services.Tests
             // Examine the modified document
             using (var modifiedDoc = WordprocessingDocument.Open(testDocWithStylesPath, false))
             {
-                var stylesPart = modifiedDoc.MainDocumentPart.StyleDefinitionsPart;
-                var styles = stylesPart.Styles;
+                var stylesPart = modifiedDoc.MainDocumentPart?.StyleDefinitionsPart;
+                var styles = stylesPart?.Styles;
 
                 // Default styles should remain unchanged
-                var normalStyle = styles.Elements<Style>().FirstOrDefault(s => s.StyleId == "Normal");
+                var normalStyle = styles?.Elements<Style>().FirstOrDefault(s => s.StyleId == "Normal");
                 Assert.NotNull(normalStyle);
 
                 // Custom styles should be prefixed
-                var customStyle1 = styles.Elements<Style>().FirstOrDefault(s => s.StyleId != "Normal" && s.StyleId.ToString().EndsWith("CustomStyle1"));
+                var customStyle1 = styles?.Elements<Style>().FirstOrDefault(s => s.StyleId != "Normal" && s.StyleId?.Value?.EndsWith("CustomStyle1") == true);
                 Assert.NotNull(customStyle1);
-                Assert.StartsWith("s", customStyle1.StyleId);
+                Assert.StartsWith("s", customStyle1?.StyleId);
 
                 // References should be updated too
-                var customStyle2 = styles.Elements<Style>().FirstOrDefault(s => s.StyleId != "Normal" && s.StyleId.ToString().EndsWith("CustomStyle2"));
+                var customStyle2 = styles?.Elements<Style>().FirstOrDefault(s => s.StyleId != "Normal" && s.StyleId?.Value?.EndsWith("CustomStyle2") == true);
                 Assert.NotNull(customStyle2);
-                Assert.Equal(customStyle1.StyleId, customStyle2.BasedOn.Val);
+                Assert.Equal(customStyle1?.StyleId, customStyle2?.BasedOn?.Val);
 
                 // Paragraph references should be updated
-                var paragraph = modifiedDoc.MainDocumentPart.Document.Body.Elements<Paragraph>().First();
-                Assert.Equal(customStyle1.StyleId, paragraph.ParagraphProperties.ParagraphStyleId.Val);
+                var paragraph = modifiedDoc.MainDocumentPart?.Document.Body?.Elements<Paragraph>().First();
+                Assert.Equal(customStyle1?.StyleId, paragraph?.ParagraphProperties?.ParagraphStyleId?.Val);
             }
         }
 
@@ -389,54 +389,54 @@ namespace JsonToWord.Services.Tests
         public void GetFileContentType_ReturnsCorrectContentType()
         {
             // Access the private method using reflection
-            MethodInfo getContentTypeMethod = typeof(FileService).GetMethod("GetFileContentType",
+            MethodInfo? getContentTypeMethod = typeof(FileService).GetMethod("GetFileContentType",
                 BindingFlags.NonPublic | BindingFlags.Instance);
 
             // Act & Assert - Test different file types
             Assert.Equal("application/msword",
-                getContentTypeMethod.Invoke(_fileService, new[] { "test.doc" }));
+                getContentTypeMethod?.Invoke(_fileService, new[] { "test.doc" }));
 
             Assert.Equal("application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                getContentTypeMethod.Invoke(_fileService, new[] { "test.docx" }));
+                getContentTypeMethod?.Invoke(_fileService, new[] { "test.docx" }));
 
             Assert.Equal("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                getContentTypeMethod.Invoke(_fileService, new[] { "test.xlsx" }));
+                getContentTypeMethod?.Invoke(_fileService, new[] { "test.xlsx" }));
 
             Assert.Equal("application/vnd.ms-powerpoint",
-                getContentTypeMethod.Invoke(_fileService, new[] { "test.ppt" }));
+                getContentTypeMethod?.Invoke(_fileService, new[] { "test.ppt" }));
 
             Assert.Equal("application/vnd.openxmlformats-officedocument.presentationml.presentation",
-                getContentTypeMethod.Invoke(_fileService, new[] { "test.pptx" }));
+                getContentTypeMethod?.Invoke(_fileService, new[] { "test.pptx" }));
 
             Assert.Equal("application/octet-stream",
-                getContentTypeMethod.Invoke(_fileService, new[] { "test.unknown" }));
+                getContentTypeMethod?.Invoke(_fileService, new[] { "test.unknown" }));
         }
 
         [Fact]
         public void GetProdId_ReturnsCorrectProdId()
         {
             // Access the private method using reflection
-            MethodInfo getProdIdMethod = typeof(FileService).GetMethod("GetProdId",
+            MethodInfo? getProdIdMethod = typeof(FileService).GetMethod("GetProdId",
                 BindingFlags.NonPublic | BindingFlags.Instance);
 
             // Act & Assert - Test different file extensions
             Assert.Equal("Word.Document",
-                getProdIdMethod.Invoke(_fileService, new[] { ".docx" }));
+                getProdIdMethod?.Invoke(_fileService, new[] { ".docx" }));
 
             Assert.Equal("Word.Template",
-                getProdIdMethod.Invoke(_fileService, new[] { ".dotx" }));
+                getProdIdMethod?.Invoke(_fileService, new[] { ".dotx" }));
 
             Assert.Equal("Excel.Sheet",
-                getProdIdMethod.Invoke(_fileService, new[] { ".xlsx" }));
+                getProdIdMethod?.Invoke(_fileService, new[] { ".xlsx" }));
 
             Assert.Equal("PowerPoint.Show",
-                getProdIdMethod.Invoke(_fileService, new[] { ".pptx" }));
+                getProdIdMethod?.Invoke(_fileService, new[] { ".pptx" }));
 
             Assert.Equal("PowerPoint.Template",
-                getProdIdMethod.Invoke(_fileService, new[] { ".potx" }));
+                getProdIdMethod?.Invoke(_fileService, new[] { ".potx" }));
 
             Assert.Equal("Package",
-                getProdIdMethod.Invoke(_fileService, new[] { ".unknown" }));
+                getProdIdMethod?.Invoke(_fileService, new[] { ".unknown" }));
         }
 
         [Fact]
@@ -452,14 +452,14 @@ namespace JsonToWord.Services.Tests
             };
 
             // Access the private method using reflection
-            MethodInfo copyAttachmentMethod = typeof(FileService).GetMethod("CopyAttachment",
+            MethodInfo? copyAttachmentMethod = typeof(FileService).GetMethod("CopyAttachment",
                 BindingFlags.NonPublic | BindingFlags.Instance);
 
             // Act
-            var destination1 = (string)copyAttachmentMethod.Invoke(_fileService, new object[] { wordAttachment });
+            var destination1 = (string?)copyAttachmentMethod?.Invoke(_fileService, new object[] { wordAttachment });
 
             // Now create a second copy with the same name - should get a unique filename
-            var destination2 = (string)copyAttachmentMethod.Invoke(_fileService, new object[] { wordAttachment });
+            var destination2 = (string?)copyAttachmentMethod?.Invoke(_fileService, new object[] { wordAttachment });
 
             // Assert
             Assert.NotEqual(destination1, destination2);
@@ -476,11 +476,11 @@ namespace JsonToWord.Services.Tests
             _fileService.nonOfficeAttachmentEventHandler += () => eventFired = true;
 
             // Access the private method using reflection
-            MethodInfo triggerMethod = typeof(FileService).GetMethod("TriggerNonOfficeFile",
+            MethodInfo? triggerMethod = typeof(FileService).GetMethod("TriggerNonOfficeFile",
                 BindingFlags.NonPublic | BindingFlags.Instance);
 
             // Act
-            triggerMethod.Invoke(_fileService, null);
+            triggerMethod?.Invoke(_fileService, null);
 
             // Assert
             Assert.True(eventFired);
@@ -524,7 +524,7 @@ namespace JsonToWord.Services.Tests
 
                 // Add a simple paragraph
                 var paragraph = new Paragraph(new Run(new Text("Test document content")));
-                mainPart.Document.Body.AppendChild(paragraph);
+                mainPart.Document.Body?.AppendChild(paragraph);
 
                 document.Save();
             }
@@ -547,7 +547,13 @@ namespace JsonToWord.Services.Tests
         private void CreateMinimalImage(string path)
         {
             // Create a minimal valid PNG file for testing
-            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            // Ensure the directory path is not null
+            var directoryPath = Path.GetDirectoryName(path);
+            if (directoryPath != null)
+            {
+                Directory.CreateDirectory(directoryPath);
+            }
+
 
             // PNG header and minimal IHDR chunk for a 1x1 pixel
             byte[] pngData = {

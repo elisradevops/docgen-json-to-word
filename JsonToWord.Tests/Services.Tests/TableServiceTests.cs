@@ -426,13 +426,13 @@ namespace JsonToWord.Services.Tests
             // Assert
             _mockHtmlService.Verify(m => m.ConvertHtmlToOpenXmlElements(html, _document), Times.Once);
             _mockLogger.Verify(
-                x => x.Log(
-                    It.Is<LogLevel>(l => l == LogLevel.Error),
-                    It.IsAny<EventId>(),
-                    It.Is<It.IsAnyType>((v, t) => v.ToString().Contains("Error while creating table cell")),
-                    It.IsAny<Exception>(),
-                    It.Is<Func<It.IsAnyType, Exception, string>>((v, t) => true)),
-                Times.Once);
+            x => x.Log(
+                It.Is<LogLevel>(l => l == LogLevel.Error),
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Error while creating table cell")),
+                It.IsAny<Exception>(),
+                It.Is<Func<It.IsAnyType, Exception?, string>>((v, t) => true)),
+            Times.Once);
         }
 
         [Fact]
@@ -466,7 +466,7 @@ namespace JsonToWord.Services.Tests
         {
             // Arrange
             var mockSdtBlock = new Mock<SdtBlock>();
-            SdtContentBlock capturedSdtContentBlock = null;
+            SdtContentBlock? capturedSdtContentBlock = null;
 
             // Mock the FindContentControl method to return our mock SdtBlock
             _mockContentControlService.Setup(m => m.FindContentControl(_document, "TestControl"))
@@ -526,15 +526,15 @@ namespace JsonToWord.Services.Tests
             Assert.NotNull(capturedSdtContentBlock);
 
             // Find the table in the captured SdtContentBlock
-            var table = capturedSdtContentBlock.Elements<Table>().FirstOrDefault();
+            var table = capturedSdtContentBlock?.Elements<Table>().FirstOrDefault();
             Assert.NotNull(table);
 
             // Examine the cells
-            var cells = table.Descendants<TableCell>().ToList();
+            var cells = table?.Descendants<TableCell>().ToList();
             Assert.NotEmpty(cells);
 
             // Check that every cell has a paragraph as its last child
-            foreach (var cell in cells)
+            foreach (var cell in cells!)
             {
                 var lastChild = cell.LastChild;
                 Assert.IsType<Paragraph>(lastChild);
@@ -546,7 +546,7 @@ namespace JsonToWord.Services.Tests
         {
             // Arrange
             var mockSdtBlock = new Mock<SdtBlock>();
-            SdtContentBlock capturedSdtContentBlock = null;
+            SdtContentBlock? capturedSdtContentBlock = null;
 
             // Mock the FindContentControl method to return our mock SdtBlock
             _mockContentControlService.Setup(m => m.FindContentControl(_document, "TestControl"))
@@ -581,14 +581,14 @@ namespace JsonToWord.Services.Tests
             Assert.NotNull(capturedSdtContentBlock);
 
             // Find the table in the captured SdtContentBlock
-            var table = capturedSdtContentBlock.Elements<Table>().FirstOrDefault();
+            var table = capturedSdtContentBlock?.Elements<Table>().FirstOrDefault();
             Assert.NotNull(table);
 
             // Examine the cells
-            var cells = table.Descendants<TableCell>().ToList();
+            var cells = table?.Descendants<TableCell>().ToList();
             Assert.NotEmpty(cells);
 
-            foreach (var cell in cells)
+            foreach (var cell in cells!)
             {
                 // Verify error recovery still results in paragraph as last child
                 Assert.IsType<Paragraph>(cell.LastChild);
@@ -600,13 +600,13 @@ namespace JsonToWord.Services.Tests
 
             // Verify error was logged
             _mockLogger.Verify(
-                x => x.Log(
-                    It.Is<LogLevel>(l => l == LogLevel.Error),
-                    It.IsAny<EventId>(),
-                    It.Is<It.IsAnyType>((v, t) => v.ToString().Contains("Error while creating table cell")),
-                    It.IsAny<Exception>(),
-                    It.Is<Func<It.IsAnyType, Exception, string>>((v, t) => true)),
-                Times.Once);
+            x => x.Log(
+                It.Is<LogLevel>(l => l == LogLevel.Error),
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Error while creating table cell")),
+                It.IsAny<Exception>(),
+                It.Is<Func<It.IsAnyType, Exception?, string>>((v, t) => true)),
+            Times.Once);
         }
 
         public void Dispose()
