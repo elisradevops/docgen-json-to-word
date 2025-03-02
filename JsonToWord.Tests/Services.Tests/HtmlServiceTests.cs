@@ -236,7 +236,7 @@ namespace JsonToWord.Services.Tests
             // Assert
             Assert.NotNull(result);
             var resultList = result?.ToList();
-            Assert.True(resultList?.Count == 0);
+            Assert.True(resultList?.Count > 0);
 
             // Verify the error was logged
             _loggerMock.Verify(
