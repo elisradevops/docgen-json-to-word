@@ -81,15 +81,15 @@ namespace JsonToWord.Services.Tests
             Assert.NotNull(addedContentBlock);
 
             // Verify content contains paragraph with drawing and caption
-            var paragraphs = addedContentBlock.Elements<Paragraph>().ToList();
-            Assert.Equal(2, paragraphs.Count);
+            var paragraphs = addedContentBlock?.Elements<Paragraph>().ToList();
+            Assert.Equal(2, paragraphs?.Count);
 
             // First paragraph should contain drawing
-            var drawing = paragraphs[0].Descendants<Drawing>().FirstOrDefault();
+            var drawing = paragraphs?[0].Descendants<Drawing>().FirstOrDefault();
             Assert.NotNull(drawing);
 
             // Second paragraph should be caption
-            var captionParagraph = paragraphs[1];
+            var captionParagraph = paragraphs?[1];
             Assert.NotNull(captionParagraph);
         }
 
@@ -106,17 +106,17 @@ namespace JsonToWord.Services.Tests
             Assert.NotNull(inline);
 
             // Verify drawing properties
-            var docProperties = inline.Descendants<DW.DocProperties>().FirstOrDefault();
+            var docProperties = inline?.Descendants<DW.DocProperties>().FirstOrDefault();
             Assert.NotNull(docProperties);
-            Assert.Equal(1U, docProperties.Id.Value);  // First image ID = 1
+            Assert.Equal(1U, docProperties?.Id?.Value);  // First image ID = 1
 
             // Verify blip reference
-            var blip = inline.Descendants<DocumentFormat.OpenXml.Drawing.Blip>().FirstOrDefault();
+            var blip = inline?.Descendants<DocumentFormat.OpenXml.Drawing.Blip>().FirstOrDefault();
             Assert.NotNull(blip);
-            Assert.NotNull(blip.Embed);
+            Assert.NotNull(blip?.Embed);
 
             // Verify image part was added
-            var imageParts = _document.MainDocumentPart.ImageParts.ToList();
+            var imageParts = _document.MainDocumentPart?.ImageParts.ToList();
             Assert.Single(imageParts);
         }
 
@@ -135,8 +135,8 @@ namespace JsonToWord.Services.Tests
             Assert.NotNull(flattenedExtent);
 
             // Flattened drawing should have half the dimensions
-            Assert.True(flattenedExtent.Cx.Value < normalExtent.Cx.Value);
-            Assert.True(flattenedExtent.Cy.Value < normalExtent.Cy.Value);
+            Assert.True(flattenedExtent?.Cx?.Value < normalExtent?.Cx?.Value);
+            Assert.True(flattenedExtent?.Cy?.Value < normalExtent?.Cy?.Value);
         }
 
         [Fact]
@@ -157,8 +157,8 @@ namespace JsonToWord.Services.Tests
             Assert.NotNull(docProps3);
 
             // Verify IDs are incrementing
-            Assert.True(docProps2.Id.Value > docProps1.Id.Value);
-            Assert.True(docProps3.Id.Value > docProps2.Id.Value);
+            Assert.True(docProps2?.Id?.Value > docProps1?.Id?.Value);
+            Assert.True(docProps3?.Id?.Value > docProps2?.Id?.Value);
         }
 
         [Fact]
@@ -174,7 +174,7 @@ namespace JsonToWord.Services.Tests
                     )
                 )
             );
-            _document.MainDocumentPart.Document.Body.AppendChild(paragraph);
+            _document.MainDocumentPart?.Document.Body?.AppendChild(paragraph);
 
             // Initialize _currentId by first inserting an image through Insert() method
             var initialAttachment = new WordAttachment
@@ -202,7 +202,7 @@ namespace JsonToWord.Services.Tests
             Assert.NotNull(docProps);
 
             // ID should be greater than 5 and also greater than the ID used in the first image
-            Assert.True(docProps.Id.Value > 5U);
+            Assert.True(docProps?.Id?.Value > 5U);
         }
 
         [Fact]
@@ -230,7 +230,7 @@ namespace JsonToWord.Services.Tests
         {
             // Arrange
             _mockContentControlService.Setup(m => m.FindContentControl(_document, "NonExistentControl"))
-                .Returns((SdtBlock)null);
+            .Returns((SdtBlock?)null!);
 
             var wordAttachment = new WordAttachment
             {

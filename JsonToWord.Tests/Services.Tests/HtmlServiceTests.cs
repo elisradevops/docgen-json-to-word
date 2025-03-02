@@ -237,16 +237,16 @@ namespace JsonToWord.Services.Tests
             Assert.NotNull(result);
             var resultList = result?.ToList();
             Assert.True(resultList?.Count > 0);
-            
+
             // Verify the error was logged
             _loggerMock.Verify(
-                x => x.Log(
-                    LogLevel.Error,
-                    It.IsAny<EventId>(),
-                    It.Is<It.IsAnyType>((o, t) => o.ToString().Contains("DocGen ran into an issue parsing the html")),
-                    It.IsAny<Exception>(),
-                    It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
-                Times.Once);
+            x => x.Log(
+                LogLevel.Error,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((o, t) => o != null && o.ToString()!.Contains("DocGen ran into an issue parsing the html")),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
         }
     }
 }
