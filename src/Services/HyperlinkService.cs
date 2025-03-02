@@ -4,7 +4,7 @@ using DocumentFormat.OpenXml.Wordprocessing;
 
 namespace JsonToWord.Services
 {
-    internal class HyperlinkService
+    public class HyperlinkService
     {
         internal static Hyperlink CreateHyperlink(string id)
         {

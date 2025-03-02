@@ -85,8 +85,6 @@ public class FileService : IFileService
         }
         catch (Exception ex)
         {
-            string logPath = @"c:\logs\prod\JsonToWord.log";
-            System.IO.File.AppendAllText(logPath, string.Format("\n{0} - {1}", DateTime.Now, ex));
             _logger.LogError($"Error occurred: {ex.Message}", ex);
             throw;
         }

@@ -46,7 +46,7 @@
 
   <ItemGroup>
     <Reference Include="HtmlToOpenXml.Custom">
-      <HintPath>lib\HtmlToOpenXml.Custom.dll</HintPath>
+      <HintPath>..\lib\HtmlToOpenXml.Custom.dll</HintPath>
     </Reference>
   </ItemGroup>
 
