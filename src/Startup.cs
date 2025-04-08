@@ -23,10 +23,12 @@ namespace JsonToWord
             services.AddSwaggerGen();
             services.AddTransient<IAWSS3Service, AWSS3Service>();
             services.AddTransient<IWordService, WordService>();
+            services.AddTransient<IExcelService, ExcelService>();
             services.AddTransient<IParagraphService, ParagraphService>();
             services.AddTransient<IPictureService, PictureService>();
             services.AddTransient<ITextService, TextService>();
             services.AddSingleton<ITableService, TableService>();
+            services.AddSingleton<ITestReporterService, TestReporterService>();
             services.AddSingleton<IFileService, FileService>();
             services.AddSingleton<IUtilsService, UtilsService>();
             services.AddSingleton<IRunService, RunService>();
