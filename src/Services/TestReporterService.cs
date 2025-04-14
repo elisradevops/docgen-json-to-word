@@ -2,12 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
-using JsonToWord.Models;
 using JsonToWord.Models.TestReporterModels;
 using JsonToWord.Services.Interfaces;
 using Microsoft.Extensions.Logging;
@@ -16,13 +14,16 @@ namespace JsonToWord.Services
 {
     public class TestReporterService : ITestReporterService
     {
+        #region Fields
         private readonly ILogger<TestReporterService> _logger;
         private WorksheetPart _currentWorksheetPart;
-
+        #endregion
+        #region Constructor
         public TestReporterService(ILogger<TestReporterService> logger) {
             _logger = logger;
         }
-
+        #endregion
+        #region Interface Implementations
         public void Insert(SpreadsheetDocument document, string worksheetName, TestReporterModel testReporterModel)
         {
             if (document == null)
@@ -86,8 +87,8 @@ namespace JsonToWord.Services
                 throw;
             }
         }
-
-
+        #endregion
+        #region Private Methods
         private WorksheetPart GetOrCreateWorksheetPart(WorkbookPart workbookPart, string worksheetName)
         {
             // Check if the worksheet already exists
@@ -892,5 +893,6 @@ namespace JsonToWord.Services
             }
             return columnName;
         }
+        #endregion
     }
 }
