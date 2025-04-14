@@ -1,11 +1,10 @@
 ﻿using DocumentFormat.OpenXml.Packaging;
 using JsonToWord.Models;
 using JsonToWord.Models.TestReporterModels;
-using JsonToWord.Services;
 using JsonToWord.Services.Interfaces;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
 using System;
+using System.IO;
 
 namespace JsonToWord
 {
@@ -26,22 +25,54 @@ namespace JsonToWord
         public string CreateExcelDocument(ExcelModel excelModel)
         {
             _logger.LogInformation("Creating Excel Document");
-            using (var spreadSheet = SpreadsheetDocument.Create(excelModel.LocalPath, DocumentFormat.OpenXml.SpreadsheetDocumentType.Workbook))
+            string filePath = excelModel.LocalPath;
+
+            try
             {
-                _logger.LogInformation("Starting on doc path: " + excelModel.LocalPath);
-                foreach (var contentControl in excelModel.ContentControls)
+                using (var spreadSheet = SpreadsheetDocument.Create(excelModel.LocalPath, DocumentFormat.OpenXml.SpreadsheetDocumentType.Workbook))
                 {
-                    foreach (var excelObject in contentControl.WordObjects)
+                    _logger.LogInformation("Starting on doc path: " + excelModel.LocalPath);
+                    foreach (var contentControl in excelModel.ContentControls)
                     {
-                        if (excelObject is TestReporterModel testReporter)
+                        // If there is no data to write, throw an exception
+                        if (contentControl.WordObjects.Count == 0)
                         {
-                            _testReporterService.Insert(spreadSheet, testReporter.TestPlanName, testReporter);
+                            throw new Exception("No data to write!");
                         }
+                        foreach (var excelObject in contentControl.WordObjects)
+                        {
+                        
+                            if (excelObject is TestReporterModel testReporter)
+                            {
+                                _testReporterService.Insert(spreadSheet, testReporter.TestPlanName, testReporter);
+                            }
+                        }
+
+                        spreadSheet.WorkbookPart.Workbook.Save();
                     }
-                    spreadSheet.WorkbookPart.Workbook.Save();
                 }
+                return excelModel.LocalPath;
             }
-            return excelModel.LocalPath;
+            catch(Exception ex)
+            {
+                _logger.LogError("Error creating Excel document: " + ex.Message);
+                // Clean up the file if it exists
+                if (File.Exists(filePath))
+                {
+                    try
+                    {
+                        File.Delete(filePath);
+                        _logger.LogInformation($"Deleted incomplete Excel file: {filePath}");
+                    }
+                    catch (Exception deleteEx)
+                    {
+                        _logger.LogWarning(deleteEx, $"Failed to delete incomplete Excel file: {filePath}");
+                    }
+                }
+
+                // Re-throw the exception
+                throw;
+            }
 
         }
 
