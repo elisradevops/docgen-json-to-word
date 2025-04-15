@@ -402,7 +402,7 @@ namespace JsonToWord.Tests.Services
             var model = CreateSampleTestReporterModel();
 
             // Add associated requirements
-            model.TestSuites[0].TestCases[0].AssociatedRequirements = new System.Collections.Generic.List<AssociatedRequirementModel>
+            model.TestSuites[0].TestCases[0].AssociatedRequirements = new List<AssociatedRequirementModel>
             {
                 new AssociatedRequirementModel
                 {
