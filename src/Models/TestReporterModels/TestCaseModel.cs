@@ -21,5 +21,6 @@ namespace JsonToWord.Models.TestReporterModels
         public string? StateChangeDate { get; set; }
 
         public List<AssociatedRequirementModel>? AssociatedRequirements { get; set; }
+        public List<AssociatedBugModel>? AssociatedBugs { get; set; }
     }
 }

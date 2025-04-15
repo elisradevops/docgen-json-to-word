@@ -144,6 +144,7 @@ namespace JsonToWord.Services
         {
 
             int maxRequirementCount = GetMaxRequirementCount(testReporterModel);
+            int maxBugCount = GetMaxBugCount(testReporterModel);
 
             var allColumns = new List<(string Name, int Width, string Property)>
             {
@@ -169,6 +170,7 @@ namespace JsonToWord.Services
                 ("Automation Status", 18, "AutomationStatus"),
                 ("Priority", 10, "Priority"),
                 ("Associated Req. Count", 25, "AssociatedRequirementCount"),
+
             };
 
             // Add dynamic columns for each associated requirement
@@ -177,8 +179,16 @@ namespace JsonToWord.Services
                 allColumns.Add(($"Associated Req. {i + 1}", 30, $"AssociatedRequirement_{i}"));
             }
 
+            allColumns.Add(("Associated Bug Count", 30, "AssociatedBugCount"));
+
+            for (int i = 0; i < maxBugCount; i++)
+            {
+                allColumns.Add(($"Associated Bug {i + 1}", 30, $"AssociatedBug_{i}"));
+            }
+
+
             // Get list of columns that actually have data
-            List<string> columnsWithData = GetColumnsWithData(testReporterModel, maxRequirementCount);
+            List<string> columnsWithData = GetColumnsWithData(testReporterModel);
 
             // Filter columns based on which ones have data
             return allColumns.Where(col => columnsWithData.Contains(col.Property)).ToList();
@@ -194,6 +204,22 @@ namespace JsonToWord.Services
                     if (testCase.AssociatedRequirements != null)
                     {
                         maxCount = Math.Max(maxCount, testCase.AssociatedRequirements.Count);
+                    }
+                }
+            }
+            return maxCount;
+        }
+
+        private int GetMaxBugCount(TestReporterModel testReporterModel)
+        {
+            int maxCount = 0;
+            foreach (var suite in testReporterModel.TestSuites)
+            {
+                foreach (var testCase in suite.TestCases)
+                {
+                    if (testCase.AssociatedBugs != null)
+                    {
+                        maxCount = Math.Max(maxCount, testCase.AssociatedBugs.Count);
                     }
                 }
             }
@@ -251,7 +277,7 @@ namespace JsonToWord.Services
             }
         }
 
-        private List<string> GetColumnsWithData(TestReporterModel testReporterModel, int maxRequirementCount)
+        private List<string> GetColumnsWithData(TestReporterModel testReporterModel)
         {
             HashSet<string> columnsWithData = new HashSet<string>
             {
@@ -262,6 +288,7 @@ namespace JsonToWord.Services
 
             // Set for tracking which requirement columns have data
             HashSet<string> reqColumnsWithData = new HashSet<string>();
+            HashSet<string> bugColumnsWithData = new HashSet<string>();
 
             foreach (var suite in testReporterModel.TestSuites)
             {
@@ -324,11 +351,30 @@ namespace JsonToWord.Services
                             }
                         }
                     }
+
+
+                    // Check for each associated bug and track which indexes have data
+                    if (testCase.AssociatedBugs != null)
+                    {
+                        if (testCase.AssociatedBugs.Count > 0)
+                        {
+                            columnsWithData.Add("AssociatedBugCount");
+                        }
+                        for (int i = 0; i < testCase.AssociatedBugs.Count; i++)
+                        {
+                            var bug = testCase.AssociatedBugs[i];
+                            if (bug != null && !string.IsNullOrEmpty(bug.BugTitle))
+                            {
+                                bugColumnsWithData.Add($"AssociatedBug_{i}");
+                            }
+                        }
+                    }
                 }
             }
 
             // Add all requirement columns that have data
             columnsWithData.UnionWith(reqColumnsWithData);
+            columnsWithData.UnionWith(bugColumnsWithData);
 
             return columnsWithData.ToList();
         }
@@ -612,14 +658,45 @@ namespace JsonToWord.Services
             }
         }
 
+
+        private void AddTestCaseCell(Row row, string property, string cellRef, TestCaseModel testCase,
+                            uint dataStyleIndex, uint dateStyleIndex, uint numberStyleIndex)
+        {
+            // Handle step-independent properties only
+            AddTestCasePropertyCell(row, property, cellRef, testCase, null,
+                                   dataStyleIndex, dateStyleIndex, numberStyleIndex);
+        }
+
         private void AddTestCaseCellWithSteps(Row row, string property, string cellRef,
-                                    TestCaseModel testCase, TestStepModel step,
-                                    uint dataStyleIndex, uint dateStyleIndex, uint numberStyleIndex)
+                                        TestCaseModel testCase, TestStepModel step,
+                                        uint dataStyleIndex, uint dateStyleIndex, uint numberStyleIndex)
+        {
+            // If it's a step-specific property, handle it directly
+            if (property == "StepNo")
+                row.Append(CreateTextCell(cellRef, step.StepNo, dataStyleIndex));
+            else if (property == "StepAction")
+                row.Append(CreateTextCell(cellRef, StripHtmlAndTruncate(step.StepAction), dataStyleIndex));
+            else if (property == "StepExpected")
+                row.Append(CreateTextCell(cellRef, StripHtmlAndTruncate(step.StepExpected), dataStyleIndex));
+            else if (property == "StepRunStatus")
+                row.Append(CreateTextCell(cellRef, step.StepRunStatus, dataStyleIndex));
+            else if (property == "StepErrorMessage")
+                row.Append(CreateTextCell(cellRef, step.StepErrorMessage, dataStyleIndex));
+            else
+                // For all test case properties, use the common method
+                AddTestCasePropertyCell(row, property, cellRef, testCase, step,
+                                       dataStyleIndex, dateStyleIndex, numberStyleIndex);
+        }
+
+        private void AddTestCasePropertyCell(Row row, string property, string cellRef,
+                                           TestCaseModel testCase, TestStepModel step,
+                                           uint dataStyleIndex, uint dateStyleIndex, uint numberStyleIndex)
         {
             if (property == "TestCaseId")
             {
                 if (!string.IsNullOrEmpty(testCase.TestCaseUrl))
-                    row.Append(CreateHyperlinkCell(cellRef, testCase.TestCaseId.ToString(), testCase.TestCaseUrl, numberStyleIndex, $"Open test case {testCase.TestCaseId} in Azure Devops"));
+                    row.Append(CreateHyperlinkCell(cellRef, testCase.TestCaseId.ToString(), testCase.TestCaseUrl,
+                             numberStyleIndex, $"Open test case {testCase.TestCaseId} in Azure Devops"));
                 else
                     row.Append(CreateNumberCell(cellRef, testCase.TestCaseId.ToString(), numberStyleIndex));
             }
@@ -630,29 +707,18 @@ namespace JsonToWord.Services
             else if (property == "TestCaseResult")
             {
                 if (testCase.TestCaseResult != null && !string.IsNullOrEmpty(testCase.TestCaseResult.Url))
-                {
                     row.Append(CreateHyperlinkCell(cellRef, testCase.TestCaseResult.ResultMessage,
-                             testCase.TestCaseResult.Url, dataStyleIndex, $"Open last run result for test case {testCase.TestCaseId} in Azure Devops"));
-                }
-                else
-                {
+                             testCase.TestCaseResult.Url, dataStyleIndex,
+                             $"Open last run result for test case {testCase.TestCaseId} in Azure Devops"));
+                else if (testCase.TestCaseResult != null)
                     row.Append(CreateTextCell(cellRef, testCase.TestCaseResult.ResultMessage, dataStyleIndex));
-                }
+                else
+                    row.Append(CreateTextCell(cellRef, "", dataStyleIndex));
             }
             else if (property == "FailureType")
                 row.Append(CreateTextCell(cellRef, testCase.FailureType, dataStyleIndex));
             else if (property == "TestCaseComment")
                 row.Append(CreateTextCell(cellRef, testCase.Comment, dataStyleIndex));
-            else if (property == "StepNo")
-                row.Append(CreateTextCell(cellRef, step.StepNo, dataStyleIndex));
-            else if (property == "StepAction")
-                row.Append(CreateTextCell(cellRef, StripHtmlAndTruncate(step.StepAction), dataStyleIndex));
-            else if (property == "StepExpected")
-                row.Append(CreateTextCell(cellRef, StripHtmlAndTruncate(step.StepExpected), dataStyleIndex));
-            else if (property == "StepRunStatus")
-                row.Append(CreateTextCell(cellRef, step.StepRunStatus, dataStyleIndex));
-            else if (property == "StepErrorMessage")
-                row.Append(CreateTextCell(cellRef, step.StepErrorMessage, dataStyleIndex));
             else if (property == "RunBy")
                 row.Append(CreateTextCell(cellRef, testCase.RunBy, dataStyleIndex));
             else if (property == "Configuration")
@@ -664,31 +730,30 @@ namespace JsonToWord.Services
             else if (property == "AssociatedRequirementCount")
                 row.Append(CreateTextCell(cellRef, testCase.AssociatedRequirements?.Count.ToString(), dateStyleIndex));
             else if (property.StartsWith("AssociatedRequirement_"))
-            {
-                // Extract the index from the property name
-                if (int.TryParse(property.Substring("AssociatedRequirement_".Length), out int reqIndex))
-                {
-                    if (testCase.AssociatedRequirements != null &&
-                        reqIndex < testCase.AssociatedRequirements.Count &&
-                        testCase.AssociatedRequirements[reqIndex] != null)
-                    {
-                        var req = testCase.AssociatedRequirements[reqIndex];
+                HandleRequirementCell(row, property, cellRef, testCase, dataStyleIndex);
+            else if (property == "AssociatedBugCount")
+                row.Append(CreateTextCell(cellRef, testCase.AssociatedBugs?.Count.ToString(), dateStyleIndex));
+            else if (property.StartsWith("AssociatedBug_"))
+                HandleBugCell(row, property, cellRef, testCase, dataStyleIndex);
+            else
+                row.Append(CreateTextCell(cellRef, "", dataStyleIndex));
+        }
 
-                        if (!string.IsNullOrEmpty(req.Url))
-                        {
-                            row.Append(CreateHyperlinkCell(cellRef, $"{req.Id} {req.RequirementTitle}",
-                                    req.Url, dataStyleIndex,
-                                    $"Open Requirement {req.Id} in Azure DevOps"));
-                        }
-                        else
-                        {
-                            row.Append(CreateTextCell(cellRef, $"{req.Id} {req.RequirementTitle}", dataStyleIndex));
-                        }
-                    }
+        private void HandleRequirementCell(Row row, string property, string cellRef, TestCaseModel testCase, uint dataStyleIndex)
+        {
+            if (int.TryParse(property.Substring("AssociatedRequirement_".Length), out int reqIndex))
+            {
+                if (testCase.AssociatedRequirements != null &&
+                    reqIndex < testCase.AssociatedRequirements.Count &&
+                    testCase.AssociatedRequirements[reqIndex] != null)
+                {
+                    var req = testCase.AssociatedRequirements[reqIndex];
+
+                    if (!string.IsNullOrEmpty(req.Url))
+                        row.Append(CreateHyperlinkCell(cellRef, $"{req.Id} {req.RequirementTitle}",
+                                req.Url, dataStyleIndex, $"Open Requirement {req.Id} in Azure DevOps"));
                     else
-                    {
-                        row.Append(CreateTextCell(cellRef, "", dataStyleIndex));
-                    }
+                        row.Append(CreateTextCell(cellRef, $"{req.Id} {req.RequirementTitle}", dataStyleIndex));
                 }
                 else
                 {
@@ -696,8 +761,38 @@ namespace JsonToWord.Services
                 }
             }
             else
+            {
                 row.Append(CreateTextCell(cellRef, "", dataStyleIndex));
+            }
         }
+
+        private void HandleBugCell(Row row, string property, string cellRef, TestCaseModel testCase, uint dataStyleIndex)
+        {
+            if (int.TryParse(property.Substring("AssociatedBug_".Length), out int bugIdx))
+            {
+                if (testCase.AssociatedBugs != null &&
+                    bugIdx < testCase.AssociatedBugs.Count &&
+                    testCase.AssociatedBugs[bugIdx] != null)
+                {
+                    var bug = testCase.AssociatedBugs[bugIdx];
+
+                    if (!string.IsNullOrEmpty(bug.Url))
+                        row.Append(CreateHyperlinkCell(cellRef, $"{bug.Id} {bug.BugTitle}",
+                                bug.Url, dataStyleIndex, $"Open Bug {bug.Id} in Azure DevOps"));
+                    else
+                        row.Append(CreateTextCell(cellRef, $"{bug.Id} {bug.BugTitle}", dataStyleIndex));
+                }
+                else
+                {
+                    row.Append(CreateTextCell(cellRef, "", dataStyleIndex));
+                }
+            }
+            else
+            {
+                row.Append(CreateTextCell(cellRef, "", dataStyleIndex));
+            }
+        }
+
 
         private Cell CreateHyperlinkCell(string cellReference, string displayText, string url, uint styleIndex, string tooltipMessage)
         {
@@ -769,85 +864,6 @@ namespace JsonToWord.Services
                 row.Append(CreateTextCell(cellRef, "", dataStyleIndex));
         }
 
-
-        private void AddTestCaseCell(Row row, string property, string cellRef, TestCaseModel testCase,
-                        uint dataStyleIndex, uint dateStyleIndex, uint numberStyleIndex)
-        {
-            if (property == "TestCaseId")
-            {
-                // Use the Url for the test case ID as a hyperlink
-                if (!string.IsNullOrEmpty(testCase.TestCaseUrl))
-                    row.Append(CreateHyperlinkCell(cellRef, testCase.TestCaseId.ToString(), testCase.TestCaseUrl, numberStyleIndex, $"Open test case {testCase.TestCaseId} in Azure Devops"));
-                else
-                    row.Append(CreateNumberCell(cellRef, testCase.TestCaseId.ToString(), numberStyleIndex));
-            }
-            else if (property == "TestCaseName")
-                row.Append(CreateTextCell(cellRef, testCase.TestCaseName, dataStyleIndex));
-           
-            else if (property == "ExecutionDate" && !string.IsNullOrEmpty(testCase.ExecutionDate))
-                row.Append(CreateDateCell(cellRef, DateTime.Parse(testCase.ExecutionDate), dateStyleIndex));
-            else if (property == "TestCaseResult")
-            {
-                if (testCase.TestCaseResult != null && !string.IsNullOrEmpty(testCase.TestCaseResult.Url))
-                {
-                    row.Append(CreateHyperlinkCell(cellRef, testCase.TestCaseResult.ResultMessage,
-                             testCase.TestCaseResult.Url, dataStyleIndex, $"Open last test case result for {testCase.TestCaseId} in Azure Devops"));
-                }
-                else
-                {
-                    row.Append(CreateTextCell(cellRef, testCase.TestCaseResult.ResultMessage, dataStyleIndex));
-                }
-
-            }
-            else if (property == "FailureType")
-                row.Append(CreateTextCell(cellRef, testCase.FailureType, dataStyleIndex));
-            else if (property == "TestCaseComment")
-                row.Append(CreateTextCell(cellRef, testCase.Comment, dataStyleIndex));
-            else if (property == "RunBy")
-                row.Append(CreateTextCell(cellRef, testCase.RunBy, dataStyleIndex));
-            else if (property == "Configuration")
-                row.Append(CreateTextCell(cellRef, testCase.Configuration, dataStyleIndex));
-            else if (property == "AutomationStatus")
-                row.Append(CreateTextCell(cellRef, testCase.AutomationStatus, dataStyleIndex));
-            else if (property == "Priority")
-                row.Append(CreateTextCell(cellRef, testCase.Priority?.ToString(), dataStyleIndex));
-            else if (property == "AssociatedRequirementCount")
-                row.Append(CreateTextCell(cellRef, testCase.AssociatedRequirements?.Count.ToString(), dateStyleIndex));
-            else if (property.StartsWith("AssociatedRequirement_"))
-            {
-                // Extract the index from the property name
-                if (int.TryParse(property.Substring("AssociatedRequirement_".Length), out int reqIndex))
-                {
-                    if (testCase.AssociatedRequirements != null &&
-                        reqIndex < testCase.AssociatedRequirements.Count &&
-                        testCase.AssociatedRequirements[reqIndex] != null)
-                    {
-                        var req = testCase.AssociatedRequirements[reqIndex];
-
-                        if (!string.IsNullOrEmpty(req.Url))
-                        {
-                            row.Append(CreateHyperlinkCell(cellRef, $"{req.Id} {req.RequirementTitle}",
-                                    req.Url, dataStyleIndex,
-                                    $"Open Requirement {req.Id} in Azure DevOps"));
-                        }
-                        else
-                        {
-                            row.Append(CreateTextCell(cellRef, $"{req.Id} {req.RequirementTitle}", dataStyleIndex));
-                        }
-                    }
-                    else
-                    {
-                        row.Append(CreateTextCell(cellRef, "", dataStyleIndex));
-                    }
-                }
-                else
-                {
-                    row.Append(CreateTextCell(cellRef, "", dataStyleIndex));
-                }
-            }
-            else
-                row.Append(CreateTextCell(cellRef, "", dataStyleIndex));
-        }
 
         private Cell CreateTextCell(string cellReference, string cellValue, uint styleIndex = 0)
         {
