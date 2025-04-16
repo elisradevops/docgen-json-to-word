@@ -65,7 +65,18 @@ namespace JsonToWord.Services
             html = RemoveWordHeading(html);
 
             html = FixBullets(html);
-            var baseImageUrl = new Uri(System.IO.Path.GetFullPath(Environment.CurrentDirectory));
+            Uri baseImageUrl;
+            try
+            {
+                baseImageUrl = new Uri(System.IO.Path.GetFullPath(Environment.CurrentDirectory));
+            }
+            catch (Exception)
+            {
+                // Fallback to app directory in Docker
+                baseImageUrl = new Uri("file:///app/");
+            }
+
+            // Rest of your existing method
             var converter = new HtmlConverter(document.MainDocumentPart, new HtmlToOpenXml.Custom.IO.DefaultWebRequest()
             {
                 BaseImageUrl = baseImageUrl

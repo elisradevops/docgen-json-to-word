@@ -44,6 +44,11 @@ namespace JsonToWord
         public string Create(WordModel _wordModel)
         {
             var documentPath = _documentService.CreateDocument(_wordModel.LocalPath);
+            //If the Attachment folder already exists, delete it
+            if (Directory.Exists("attachments"))
+            {
+                Directory.Delete("attachments", true);
+            }
 
             using (var document = WordprocessingDocument.Open(documentPath, true))
             {
@@ -51,33 +56,40 @@ namespace JsonToWord
 
                 foreach (var contentControl in _wordModel.ContentControls)
                 {
-                    _contentControlService.ClearContentControl(document, contentControl.Title, contentControl.ForceClean);
-
-                    foreach (var wordObject in contentControl.WordObjects)
+                    try
                     {
-                        switch (wordObject.Type)
+                        _contentControlService.ClearContentControl(document, contentControl.Title, contentControl.ForceClean);
+
+                        foreach (var wordObject in contentControl.WordObjects)
                         {
-                            case WordObjectType.File:
-                                _fileService.Insert(document, contentControl.Title, (WordAttachment)wordObject);
-                                break;
-                            case WordObjectType.Html:
-                                _htmlService.Insert(document, contentControl.Title, (WordHtml)wordObject);
-                                break;
-                            case WordObjectType.Picture:
-                                _pictureService.Insert(document, contentControl.Title, (WordAttachment)wordObject);
-                                break;
-                            case WordObjectType.Paragraph:
-                                _textService.Write(document, contentControl.Title, (WordParagraph)wordObject);
-                                break;
-                            case WordObjectType.Table:
-                                _tableService.Insert(document, contentControl.Title, (WordTable)wordObject);
-                                break;
-                            default:
-                                throw new ArgumentOutOfRangeException();
+                            switch (wordObject.Type)
+                            {
+                                case WordObjectType.File:
+                                    _fileService.Insert(document, contentControl.Title, (WordAttachment)wordObject);
+                                    break;
+                                case WordObjectType.Html:
+                                    _htmlService.Insert(document, contentControl.Title, (WordHtml)wordObject);
+                                    break;
+                                case WordObjectType.Picture:
+                                    _pictureService.Insert(document, contentControl.Title, (WordAttachment)wordObject);
+                                    break;
+                                case WordObjectType.Paragraph:
+                                    _textService.Write(document, contentControl.Title, (WordParagraph)wordObject);
+                                    break;
+                                case WordObjectType.Table:
+                                    _tableService.Insert(document, contentControl.Title, (WordTable)wordObject);
+                                    break;
+                                default:
+                                    throw new ArgumentOutOfRangeException();
+                            }
                         }
+                        document.MainDocumentPart.Document.Save();
+                        _contentControlService.RemoveContentControl(document, contentControl.Title);
                     }
-                    document.MainDocumentPart.Document.Save();
-                    _contentControlService.RemoveContentControl(document, contentControl.Title);
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning("Error while processing content control: " + contentControl.Title + " - " + ex.Message);
+                    }
                 }
             }
 
@@ -130,6 +142,7 @@ namespace JsonToWord
             {
                 throw new Exception("Attachment folder is not found");
             }
+
             var zipFileName = Path.ChangeExtension(documentPath, ".zip");
             CreateZipWithAttachments(zipFileName, documentPath, "attachments");
 
