@@ -44,6 +44,11 @@ namespace JsonToWord
         public string Create(WordModel _wordModel)
         {
             var documentPath = _documentService.CreateDocument(_wordModel.LocalPath);
+            //If the Attachment folder already exists, delete it
+            if (Directory.Exists("attachments"))
+            {
+                Directory.Delete("attachments", true);
+            }
 
             using (var document = WordprocessingDocument.Open(documentPath, true))
             {
@@ -130,6 +135,7 @@ namespace JsonToWord
             {
                 throw new Exception("Attachment folder is not found");
             }
+
             var zipFileName = Path.ChangeExtension(documentPath, ".zip");
             CreateZipWithAttachments(zipFileName, documentPath, "attachments");
 
