@@ -6,6 +6,7 @@
         public string Font { get; set; }
         public bool InsertLineBreak { get; set; }
         public bool InsertSpace { get; set; }
+        public bool InsertPageBreak { get; set; }
         public bool Bold { get; set; }
         public bool Italic { get; set; }
         public bool Underline { get; set; }
