@@ -18,6 +18,8 @@ namespace JsonToWord.Services
         {
             var run = new Run();
             var runProperties = new RunProperties();
+            
+   
 
             SetHyperlink(wordRun, runProperties);
             SetBold(wordRun, runProperties);
@@ -30,6 +32,8 @@ namespace JsonToWord.Services
 
             SetText(wordRun, run);
             SetBreak(wordRun, run);
+            // Add page break before headers if exist then write the rest of the data
+            SetPageBreak(wordRun, run);
 
             return run;
         }
@@ -56,6 +60,12 @@ namespace JsonToWord.Services
         {
             if (wordRun.InsertLineBreak)
                 run.AppendChild(new Break());
+        }
+
+        private static void SetPageBreak(WordRun wordRun, Run run)
+        {
+            if (wordRun.InsertPageBreak)
+                run.AppendChild(new Break() { Type = BreakValues.Page });
         }
 
         private static void SetText(WordRun wordRun, Run run)
