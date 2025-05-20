@@ -16,11 +16,13 @@ namespace JsonToWord.Models.TestReporterModels
         public string? Configuration { get; set; }
         public string? AutomationStatus { get; set; }
         public string? ExecutionDate { get; set; }  
-        public string? AssingedTo { get; set; }
+        public string? AssignedTo { get; set; }
+        public string? SubSystem { get; set; }
         public string? State { get; set; }  
         public string? StateChangeDate { get; set; }
 
         public List<AssociatedRequirementModel>? AssociatedRequirements { get; set; }
         public List<AssociatedBugModel>? AssociatedBugs { get; set; }
+        public List<AssociatedCRModel>? AssociatedCRs { get; set; }
     }
 }

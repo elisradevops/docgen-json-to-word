@@ -145,6 +145,7 @@ namespace JsonToWord.Services
 
             int maxRequirementCount = GetMaxRequirementCount(testReporterModel);
             int maxBugCount = GetMaxBugCount(testReporterModel);
+            int maxCRCount = GetMaxCRCount(testReporterModel);
 
             var allColumns = new List<(string Name, int Width, string Property)>
             {
@@ -168,6 +169,8 @@ namespace JsonToWord.Services
                 ("Run By", 20, "RunBy"),
                 ("Configuration", 15, "Configuration"),
                 ("Automation Status", 18, "AutomationStatus"),
+                ("Assigned To", 15, "AssignedTo"),
+                ("Sub System", 15, "SubSystem"),
                 ("Priority", 10, "Priority"),
                 ("Associated Req. Count", 25, "AssociatedRequirementCount"),
 
@@ -186,6 +189,12 @@ namespace JsonToWord.Services
                 allColumns.Add(($"Associated Bug {i + 1}", 30, $"AssociatedBug_{i}"));
             }
 
+            allColumns.Add(("Associated CR Count", 30, "AssociatedCRCount"));
+
+            for (int i = 0; i < maxCRCount; i++)
+            {
+                allColumns.Add(($"Associated CR {i + 1}", 30, $"AssociatedCR_{i}"));
+            }
 
             // Get list of columns that actually have data
             List<string> columnsWithData = GetColumnsWithData(testReporterModel);
@@ -225,6 +234,26 @@ namespace JsonToWord.Services
             }
             return maxCount;
         }
+
+        private int GetMaxCRCount(TestReporterModel testReporterModel)
+        {
+            int maxCount = 0;
+            foreach (var suite in testReporterModel.TestSuites)
+            {
+                foreach (var testCase in suite.TestCases)
+                {
+                    if (testCase.AssociatedCRs != null)
+                    {
+                        maxCount = Math.Max(maxCount, testCase.AssociatedCRs.Count);
+                    }
+
+                }
+            }
+            return maxCount;
+        }
+
+
+
 
         private Columns CreateColumns(List<(string Name, int Width, string Property)> columnDefinitions)
         {
@@ -332,13 +361,17 @@ namespace JsonToWord.Services
                         columnsWithData.Add("Configuration");
                     if (!string.IsNullOrEmpty(testCase.AutomationStatus))
                         columnsWithData.Add("AutomationStatus");
+                    if(!string.IsNullOrEmpty(testCase.AssignedTo))
+                        columnsWithData.Add("AssignedTo");
+                    if(!string.IsNullOrEmpty(testCase.SubSystem))
+                        columnsWithData.Add("SubSystem");
                     if (testCase.Priority.HasValue)
                         columnsWithData.Add("Priority");
 
                     // Check for each associated requirement and track which indexes have data
                     if (testCase.AssociatedRequirements != null)
                     {
-                        if(testCase.AssociatedRequirements.Count > 0)
+                        if (testCase.AssociatedRequirements.Count > 0)
                         {
                             columnsWithData.Add("AssociatedRequirementCount");
                         }
@@ -351,7 +384,6 @@ namespace JsonToWord.Services
                             }
                         }
                     }
-
 
                     // Check for each associated bug and track which indexes have data
                     if (testCase.AssociatedBugs != null)
@@ -366,6 +398,23 @@ namespace JsonToWord.Services
                             if (bug != null && !string.IsNullOrEmpty(bug.BugTitle))
                             {
                                 bugColumnsWithData.Add($"AssociatedBug_{i}");
+                            }
+                        }
+                    }
+
+                    // Check for each associated CR and track which indexes have data
+                    if (testCase.AssociatedCRs != null)
+                    {
+                        if (testCase.AssociatedCRs.Count > 0)
+                        {
+                            columnsWithData.Add("AssociatedCRCount");
+                        }
+                        for (int i = 0; i < testCase.AssociatedCRs.Count; i++)
+                        {
+                            var cr = testCase.AssociatedCRs[i];
+                            if (cr != null && !string.IsNullOrEmpty(cr.crTitle))
+                            {
+                                columnsWithData.Add($"AssociatedCR_{i}");
                             }
                         }
                     }
@@ -725,6 +774,10 @@ namespace JsonToWord.Services
                 row.Append(CreateTextCell(cellRef, testCase.Configuration, dataStyleIndex));
             else if (property == "AutomationStatus")
                 row.Append(CreateTextCell(cellRef, testCase.AutomationStatus, dataStyleIndex));
+            else if(property == "AssignedTo")
+                row.Append(CreateTextCell(cellRef, testCase.AssignedTo, dataStyleIndex));
+            else if(property == "SubSystem")
+                row.Append(CreateTextCell(cellRef, testCase.SubSystem, dataStyleIndex));
             else if (property == "Priority")
                 row.Append(CreateTextCell(cellRef, testCase.Priority?.ToString(), dataStyleIndex));
             else if (property == "AssociatedRequirementCount")
@@ -735,6 +788,10 @@ namespace JsonToWord.Services
                 row.Append(CreateTextCell(cellRef, testCase.AssociatedBugs?.Count.ToString(), dateStyleIndex));
             else if (property.StartsWith("AssociatedBug_"))
                 HandleBugCell(row, property, cellRef, testCase, dataStyleIndex);
+            else if (property == "AssociatedCRCount")
+                row.Append(CreateTextCell(cellRef, testCase.AssociatedCRs?.Count.ToString(), dateStyleIndex));
+            else if(property.StartsWith("AssociatedCR_"))
+                HandleCRCell(row, property, cellRef, testCase, dataStyleIndex);
             else
                 row.Append(CreateTextCell(cellRef, "", dataStyleIndex));
         }
@@ -781,6 +838,32 @@ namespace JsonToWord.Services
                                 bug.Url, dataStyleIndex, $"Open Bug {bug.Id} in Azure DevOps"));
                     else
                         row.Append(CreateTextCell(cellRef, $"{bug.Id} {bug.BugTitle}", dataStyleIndex));
+                }
+                else
+                {
+                    row.Append(CreateTextCell(cellRef, "", dataStyleIndex));
+                }
+            }
+            else
+            {
+                row.Append(CreateTextCell(cellRef, "", dataStyleIndex));
+            }
+        }
+
+        private void HandleCRCell(Row row, string property, string cellRef, TestCaseModel testCase, uint dataStyleIndex)
+        {
+            if (int.TryParse(property.Substring("AssociatedCR_".Length), out int crIdx))
+            {
+                if (testCase.AssociatedCRs != null &&
+                    crIdx < testCase.AssociatedCRs.Count &&
+                    testCase.AssociatedCRs[crIdx] != null)
+                {
+                    var cr = testCase.AssociatedCRs[crIdx];
+                    if (!string.IsNullOrEmpty(cr.Url))
+                        row.Append(CreateHyperlinkCell(cellRef, $"{cr.Id} {cr.crTitle}",
+                                cr.Url, dataStyleIndex, $"Open Change Request {cr.Id} in Azure DevOps"));
+                    else
+                        row.Append(CreateTextCell(cellRef, $"{cr.Id} {cr.crTitle}", dataStyleIndex));
                 }
                 else
                 {
