@@ -6,7 +6,7 @@ namespace JsonToWord.Services.Interfaces
 {
     public interface ITestReporterService
     {
-        void Insert(SpreadsheetDocument document, string contentControlTitle, TestReporterModel testReporterModel);
+        void Insert(SpreadsheetDocument document, string contentControlTitle, TestReporterModel testReporterModel, bool groupBySuite);
 
     }
 }

@@ -44,7 +44,7 @@ namespace JsonToWord.Tests.Services
             var testReporterModel = CreateSampleTestReporterModel();
 
             // Act & Assert
-            Assert.Throws<ArgumentNullException>(() => _testReporterService.Insert(document, "Sheet1", testReporterModel));
+            Assert.Throws<ArgumentNullException>(() => _testReporterService.Insert(document, "Sheet1", testReporterModel, true));
         }
 
         [Fact]
@@ -55,7 +55,7 @@ namespace JsonToWord.Tests.Services
             var testReporterModel = CreateSampleTestReporterModel();
 
             // Act & Assert
-            Assert.Throws<ArgumentException>(() => _testReporterService.Insert(document, "", testReporterModel));
+            Assert.Throws<ArgumentException>(() => _testReporterService.Insert(document, "", testReporterModel, true));
         }
 
         [Fact]
@@ -66,7 +66,7 @@ namespace JsonToWord.Tests.Services
             TestReporterModel testReporterModel = null;
 
             // Act & Assert
-            Assert.Throws<ArgumentNullException>(() => _testReporterService.Insert(document, "Sheet1", testReporterModel));
+            Assert.Throws<ArgumentNullException>(() => _testReporterService.Insert(document, "Sheet1", testReporterModel, true));
         }
 
         [Fact]
@@ -78,7 +78,7 @@ namespace JsonToWord.Tests.Services
             var testReporterModel = CreateSampleTestReporterModel();
 
             // Act
-            _testReporterService.Insert(document, worksheetName, testReporterModel);
+            _testReporterService.Insert(document, worksheetName, testReporterModel, true);
             document.Dispose();
 
             // Assert
@@ -102,7 +102,7 @@ namespace JsonToWord.Tests.Services
             var testReporterModel = CreateSampleTestReporterModel();
 
             // Act
-            _testReporterService.Insert(document, worksheetName, testReporterModel);
+            _testReporterService.Insert(document, worksheetName, testReporterModel, true);
             document.Dispose();
 
             // Assert
@@ -133,7 +133,7 @@ namespace JsonToWord.Tests.Services
             var testReporterModel = CreateSampleTestReporterModel(suiteName);
 
             // Act
-            _testReporterService.Insert(document, worksheetName, testReporterModel);
+            _testReporterService.Insert(document, worksheetName, testReporterModel, true);
             document.Dispose();
 
             // Assert
@@ -163,7 +163,7 @@ namespace JsonToWord.Tests.Services
             var testReporterModel = CreateTestReporterModelWithSteps();
 
             // Act
-            _testReporterService.Insert(document, worksheetName, testReporterModel);
+            _testReporterService.Insert(document, worksheetName, testReporterModel, true);
             document.Dispose();
 
             // Assert
@@ -209,7 +209,7 @@ namespace JsonToWord.Tests.Services
             var testReporterModel = CreateTestReporterModelWithHyperlink();
 
             // Act
-            _testReporterService.Insert(document, worksheetName, testReporterModel);
+            _testReporterService.Insert(document, worksheetName, testReporterModel, true);
             document.Dispose();
 
             // Assert
@@ -247,7 +247,7 @@ namespace JsonToWord.Tests.Services
             var testReporterModel = CreateSampleTestReporterModel();
 
             // Act
-            _testReporterService.Insert(document, worksheetName, testReporterModel);
+            _testReporterService.Insert(document, worksheetName, testReporterModel, true);
             document.Dispose();
 
             // Assert
@@ -276,7 +276,7 @@ namespace JsonToWord.Tests.Services
             var testReporterModel = CreateTestReporterModelWithRequirements();
 
             // Act
-            _testReporterService.Insert(document, worksheetName, testReporterModel);
+            _testReporterService.Insert(document, worksheetName, testReporterModel, true);
             document.Dispose();
 
             // Assert

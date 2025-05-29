@@ -24,61 +24,70 @@ namespace JsonToWord.Services
         }
         #endregion
         #region Interface Implementations
-        public void Insert(SpreadsheetDocument document, string worksheetName, TestReporterModel testReporterModel)
+        public void Insert(SpreadsheetDocument document, string worksheetName, TestReporterModel testReporterModel, bool groupBySuite)
         {
             if (document == null)
                 throw new ArgumentNullException(nameof(document));
-
             if (string.IsNullOrEmpty(worksheetName))
                 throw new ArgumentException("Worksheet name cannot be empty", nameof(worksheetName));
-
             if (testReporterModel == null)
                 throw new ArgumentNullException(nameof(testReporterModel));
-
+        
             try
             {
                 // Get or add workbook part
                 WorkbookPart workbookPart = document.WorkbookPart ?? document.AddWorkbookPart();
                 if (workbookPart.Workbook == null)
+                {
                     workbookPart.Workbook = new Workbook();
-
+                }
+        
                 // Add a WorksheetPart to the WorkbookPart if it doesn't exist
                 WorksheetPart worksheetPart = GetOrCreateWorksheetPart(workbookPart, worksheetName);
-                _currentWorksheetPart = worksheetPart; // Store the current worksheet part (moved after creation)
-                if (worksheetPart.Worksheet == null)
-                    worksheetPart.Worksheet = new Worksheet();
-
+                _currentWorksheetPart = worksheetPart;
+                
+                // Clear any existing worksheet data
+                worksheetPart.Worksheet = new Worksheet();
+                SheetData sheetData = new SheetData();
+                worksheetPart.Worksheet.Append(sheetData);
+        
                 // Set the spreadsheet view options
                 SheetViews sheetViews = new SheetViews(
                     new SheetView { WorkbookViewId = 0U, RightToLeft = false }
                 );
-                worksheetPart.Worksheet.Append(sheetViews);
-
+                worksheetPart.Worksheet.InsertBefore(sheetViews, sheetData);
+        
                 // Define column definitions and widths
-                var columnDefinitions = DefineColumns(testReporterModel);
+                var columnDefinitions = DefineColumns(testReporterModel, groupBySuite);
                 Columns columns = CreateColumns(columnDefinitions);
-                worksheetPart.Worksheet.Append(columns);
-
-                // Create SheetData for content
-                SheetData sheetData = new SheetData();
-                worksheetPart.Worksheet.Append(sheetData);
-
-                // Prepare for merging cells
-                MergeCells mergeCells = new MergeCells();
-                worksheetPart.Worksheet.InsertAfter(mergeCells, worksheetPart.Worksheet.Elements<SheetData>().First());
-
-                // Add Stylesheet if it doesn't exist already
-                EnsureStylesheet(workbookPart);
-
+                worksheetPart.Worksheet.InsertBefore(columns, sheetData);
+        
                 // Create header row with column names
                 CreateHeaderRow(sheetData, columnDefinitions);
-
+        
+                // Create MergeCells collection but don't append it yet
+                MergeCells mergeCells = new MergeCells();
+        
                 // Add data rows
                 uint rowIndex = 2; // Start after header row
-                AddDataRows(sheetData, mergeCells, testReporterModel.TestSuites, columnDefinitions, ref rowIndex, worksheetPart);
-
-                // Assign the worksheet to the worksheetPart and save
+                AddDataRows(sheetData, mergeCells, testReporterModel.TestSuites, columnDefinitions, ref rowIndex, worksheetPart, groupBySuite);
+        
+                // Only add MergeCells if there are any merge ranges
+                if (mergeCells.Any())
+                {
+                    worksheetPart.Worksheet.InsertAfter(mergeCells, sheetData);
+                }
+        
+                // Add Stylesheet if it doesn't exist already
+                EnsureStylesheet(workbookPart);
+        
+                // Save the worksheet
                 worksheetPart.Worksheet.Save();
+
+                // Save the worksheet
+                worksheetPart.Worksheet.Save();
+
+                // Save the workbook
                 workbookPart.Workbook.Save();
             }
             catch (Exception ex)
@@ -91,42 +100,62 @@ namespace JsonToWord.Services
         #region Private Methods
         private WorksheetPart GetOrCreateWorksheetPart(WorkbookPart workbookPart, string worksheetName)
         {
-            // Check if the worksheet already exists
-            Sheets? sheets = workbookPart.Workbook.Sheets;
-            if (sheets == null)
+            // Remove any invalid characters from the worksheet name
+            string safeWorksheetName = GetSafeWorksheetName(worksheetName);
+
+            // Try to find existing worksheet
+            Sheet sheet = workbookPart.Workbook.Descendants<Sheet>()
+                .FirstOrDefault(s => string.Equals(s.Name, safeWorksheetName, StringComparison.OrdinalIgnoreCase));
+
+            if (sheet != null)
             {
-                sheets = new Sheets();
-                workbookPart.Workbook.Append(sheets);
+                // Return existing worksheet part
+                return (WorksheetPart)workbookPart.GetPartById(sheet.Id);
             }
-
-            // Look for existing worksheet
-            Sheet? existingSheet = sheets.Elements<Sheet>()
-                .FirstOrDefault(s => s.Name == worksheetName);
-
-            if (existingSheet != null)
+            else
             {
-                // Return the existing worksheet part - Renamed variable to avoid conflict
-                WorksheetPart existingWorksheetPart = (WorksheetPart)workbookPart.GetPartById(existingSheet.Id!);
-                // Make sure Worksheet is initialized
-                if (existingWorksheetPart.Worksheet == null)
-                    existingWorksheetPart.Worksheet = new Worksheet();
-                return existingWorksheetPart;
+                // Create new worksheet part
+                WorksheetPart newWorksheetPart = workbookPart.AddNewPart<WorksheetPart>();
+                newWorksheetPart.Worksheet = new Worksheet(new SheetData());
+
+                // Add to workbook
+                uint sheetId = (uint)(workbookPart.Workbook.Sheets?.Count() + 1 ?? 1);
+                Sheet newSheet = new Sheet()
+                {
+                    Id = workbookPart.GetIdOfPart(newWorksheetPart),
+                    SheetId = sheetId,
+                    Name = safeWorksheetName
+                };
+
+                if (workbookPart.Workbook.Sheets == null)
+                {
+                    workbookPart.Workbook.AppendChild(new Sheets());
+                }
+
+                workbookPart.Workbook.Sheets.Append(newSheet);
+                return newWorksheetPart;
             }
+        }
 
-            // Create new worksheet part and register it
-            WorksheetPart worksheetPart = workbookPart.AddNewPart<WorksheetPart>();
-            // Initialize the Worksheet
-            worksheetPart.Worksheet = new Worksheet();
+        private string GetSafeWorksheetName(string name)
+        {
+            // Excel worksheet name rules:
+            // - Max 31 characters
+            // - Cannot contain: \ / ? * [ or ]
+            // - Cannot be blank
+            // - Cannot start or end with an apostrophe
+            if (string.IsNullOrWhiteSpace(name))
+                return "Sheet1";
 
-            Sheet sheet = new Sheet
-            {
-                Id = workbookPart.GetIdOfPart(worksheetPart),
-                SheetId = GetUniqueSheetId(sheets),
-                Name = worksheetName
-            };
-            sheets.Append(sheet);
+            // Remove invalid characters
+            string invalidChars = @"\/*?[]'";
+            string safeName = new string(name
+                .Where(c => !invalidChars.Contains(c))
+                .ToArray())
+                .Trim();
 
-            return worksheetPart;
+            // Trim to max length
+            return safeName.Length > 31 ? safeName.Substring(0, 31) : safeName;
         }
 
         private uint GetUniqueSheetId(Sheets sheets)
@@ -140,7 +169,7 @@ namespace JsonToWord.Services
             return maxSheetId + 1;
         }
 
-        private List<(string Name, int Width, string Property)> DefineColumns(TestReporterModel testReporterModel)
+        private List<(string Name, int Width, string Property)> DefineColumns(TestReporterModel testReporterModel, bool groupBySuite)
         {
 
             int maxRequirementCount = GetMaxRequirementCount(testReporterModel);
@@ -175,6 +204,11 @@ namespace JsonToWord.Services
                 ("Associated Req. Count", 25, "AssociatedRequirementCount"),
 
             };
+
+            if(!groupBySuite)
+            {
+                allColumns.Insert(0, ("Suite Name", 20, "SuiteName"));
+            }
 
             // Add dynamic columns for each associated requirement
             for (int i = 0; i < maxRequirementCount; i++)
@@ -606,107 +640,194 @@ namespace JsonToWord.Services
             }
         }
 
-        private void AddDataRows(SheetData sheetData, MergeCells mergeCells, 
-                       List<TestSuiteModel> testSuites, 
-                       List<(string Name, int Width, string Property)> columnDefinitions,
-                       ref uint rowIndex, WorksheetPart worksheetPart)
+        private void AddDataRows(SheetData sheetData, MergeCells mergeCells,
+                                 List<TestSuiteModel> testSuites,
+                                 List<(string Name, int Width, string Property)> columnDefinitions,
+                                 ref uint rowIndex, WorksheetPart worksheetPart, bool groupBySuite)
         {
-            bool useAlternateColor = false;
-            uint suiteTitleStyleIndex = 2;
-            uint dataStyleIndex1 = 6;
-            uint dataStyleIndex2 = 7;
-            uint dateStyleIndex1 = 8;
-            uint dateStyleIndex2 = 9;
-            uint numberStyleIndex1 = 10;
-            uint numberStyleIndex2 = 11;
-            _currentWorksheetPart = worksheetPart;
+            if (sheetData == null) 
+                throw new ArgumentNullException(nameof(sheetData));
+            if (mergeCells == null)
+                throw new ArgumentNullException(nameof(mergeCells));
+            if (testSuites == null)
+                throw new ArgumentNullException(nameof(testSuites));
+            if (columnDefinitions == null || !columnDefinitions.Any())
+                throw new ArgumentException("Column definitions cannot be null or empty", nameof(columnDefinitions));
+            if (worksheetPart == null)
+                throw new ArgumentNullException(nameof(worksheetPart));
+            try{
+                 _logger.LogInformation("Starting to add data rows. Group by suite: {GroupBySuite}, Initial row index: {RowIndex}", 
+                groupBySuite, rowIndex);
+                bool useAlternateColor = false;
+                uint suiteTitleStyleIndex = 2;
+                uint dataStyleIndex1 = 6;
+                uint dataStyleIndex2 = 7;
+                uint dateStyleIndex1 = 8;
+                uint dateStyleIndex2 = 9;
+                uint numberStyleIndex1 = 10;
+                uint numberStyleIndex2 = 11;
+                _currentWorksheetPart = worksheetPart;
 
-            foreach (var testSuite in testSuites)
-            {
-                // Add suite title row
-                Row suiteRow = new Row { RowIndex = rowIndex++ };
-                sheetData.Append(suiteRow);
-                
-                // Create suite title cell
-                Cell suiteCell = new Cell
+                foreach (var testSuite in testSuites)
                 {
-                    CellReference = $"{GetColumnLetter(1)}{suiteRow.RowIndex}",
-                    CellValue = new CellValue($"Suite: {testSuite.SuiteName}"),
-                    DataType = CellValues.String,
-                    StyleIndex = suiteTitleStyleIndex
-                };
-                suiteRow.Append(suiteCell);
-
-                // Merge cells for suite title across all columns
-                mergeCells.Append(new MergeCell
-                {
-                    Reference = new StringValue(
-                        $"{GetColumnLetter(1)}{suiteRow.RowIndex}:{GetColumnLetter(columnDefinitions.Count)}{suiteRow.RowIndex}"
-                    )
-                });
-
-                // Add test cases
-                foreach (var testCase in testSuite.TestCases)
-                {
-                    // Alternate background color for each test case
-                    useAlternateColor = !useAlternateColor;
-                    uint currentDataStyleIndex = useAlternateColor ? dataStyleIndex1 : dataStyleIndex2;
-                    uint currentDateStyleIndex = useAlternateColor ? dateStyleIndex1 : dateStyleIndex2;
-                    uint currentNumberStyleIndex = useAlternateColor ? numberStyleIndex1 : numberStyleIndex2;
-
-                    // Process test steps if any
-                    bool isFirstStep = true;
-                    if (testCase.TestSteps != null && testCase.TestSteps.Any())
+                    if (groupBySuite)  // Only add suite title row if groupBySuite is true
                     {
-                        foreach (var step in testCase.TestSteps)
+                        // Add suite title row
+                        Row suiteRow = new Row { RowIndex = rowIndex++ };
+                        sheetData.Append(suiteRow);
+
+                        // Create suite title cell
+                        Cell suiteCell = new Cell
                         {
-                            Row row = new Row { RowIndex = rowIndex++, OutlineLevel = 1 };
+                            CellReference = $"{GetColumnLetter(1)}{suiteRow.RowIndex}",
+                            CellValue = new CellValue($"Suite: {testSuite.SuiteName}"),
+                            DataType = CellValues.String,
+                            StyleIndex = suiteTitleStyleIndex
+                        };
+                        suiteRow.Append(suiteCell);
+
+                        // Merge cells for suite title across all columns
+                        mergeCells.Append(new MergeCell
+                        {
+                            Reference = new StringValue(
+                                $"{GetColumnLetter(1)}{suiteRow.RowIndex}:{GetColumnLetter(columnDefinitions.Count)}{suiteRow.RowIndex}"
+                            )
+                        });
+                    }
+
+                    // Add test cases
+                    foreach (var testCase in testSuite.TestCases)
+                    {
+                        // Alternate background color for each test case
+                        useAlternateColor = !useAlternateColor;
+                        uint currentDataStyleIndex = useAlternateColor ? dataStyleIndex1 : dataStyleIndex2;
+                        uint currentDateStyleIndex = useAlternateColor ? dateStyleIndex1 : dateStyleIndex2;
+                        uint currentNumberStyleIndex = useAlternateColor ? numberStyleIndex1 : numberStyleIndex2;
+
+                        // Process test steps if any
+                        bool isFirstStep = true;
+                        if (testCase.TestSteps != null && testCase.TestSteps.Any())
+                        {
+                            foreach (var step in testCase.TestSteps)
+                            {
+                                if (step == null)
+                                {
+                                    _logger.LogWarning("Skipping null test step in test case {TestCaseId}", testCase.TestCaseId);
+                                    continue;
+                                }
+                                try
+                                {
+                                    Row row = new Row
+                                    {
+                                        RowIndex = rowIndex++,
+                                        OutlineLevel = (ByteValue)(groupBySuite ? 1 : 0)  // Only outline if grouping by suite
+                                    };
+                                    sheetData.Append(row);
+
+                                    // Create cells for each column
+                                    for (int i = 0; i < columnDefinitions.Count; i++)
+                                    {
+                                        string colLetter = GetColumnLetter(i + 1);
+                                        string cellRef = $"{colLetter}{row.RowIndex}";
+                                        string property = columnDefinitions[i].Property;
+
+                                        try
+                                        {
+                                            if (property == "SuiteName" && !groupBySuite)
+                                            {
+                                                SafeAddCell(row, cellRef, testSuite.SuiteName, currentDataStyleIndex);
+                                            }
+                                            else if (isFirstStep)
+                                            {
+                                                AddTestCaseCellWithSteps(row, property, cellRef, testCase, step,
+                                                                     currentDataStyleIndex, currentDateStyleIndex, currentNumberStyleIndex);
+                                            }
+                                            else
+                                            {
+                                                AddStepOnlyCell(row, property, cellRef, step, currentDataStyleIndex);
+                                            }
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            _logger.LogError(ex, "Error processing cell {CellRef} for property {Property}",
+                                                cellRef, property);
+                                            // Add an error indicator to the cell
+                                            SafeAddCell(row, cellRef, "Error", currentDataStyleIndex);
+                                        }
+                                    }
+
+                                    isFirstStep = false;
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.LogError(ex, "Error processing test step for test case {TestCaseId}",
+                                        testCase.TestCaseId);
+                                    // Skip to next step
+                                }
+
+                            }
+                        }
+                        else
+                        {
+                            // No steps, create a single row for the test case
+                            Row row = new Row { RowIndex = rowIndex++ };
                             sheetData.Append(row);
 
-                            // Create cells for each column
+                            // Add cells for each column
                             for (int i = 0; i < columnDefinitions.Count; i++)
                             {
                                 string colLetter = GetColumnLetter(i + 1);
                                 string cellRef = $"{colLetter}{row.RowIndex}";
                                 string property = columnDefinitions[i].Property;
-                                
-                                // Add appropriate cell based on property and whether it's the first step
-                                if (isFirstStep)
+
+                                if (property == "SuiteName" && !groupBySuite)
                                 {
-                                    AddTestCaseCellWithSteps(row, property, cellRef, testCase, step, 
-                                                            currentDataStyleIndex, currentDateStyleIndex, currentNumberStyleIndex);
+                                    // Add suite name column for ungrouped data
+                                    row.Append(CreateTextCell(cellRef, testSuite.SuiteName, currentDataStyleIndex));
                                 }
                                 else
                                 {
-                                    // For subsequent steps, only show step data
-                                    AddStepOnlyCell(row, property, cellRef, step, currentDataStyleIndex);
+                                    AddTestCaseCell(row, property, cellRef, testCase,
+                                                    currentDataStyleIndex, currentDateStyleIndex, currentNumberStyleIndex);
                                 }
                             }
-                            
-                            isFirstStep = false;
-                        }
-                    }
-                    else
-                    {
-                        // No steps, create a single row for the test case
-                        Row row = new Row { RowIndex = rowIndex++ };
-                        sheetData.Append(row);
-                        
-                        // Add cells for each column
-                        for (int i = 0; i < columnDefinitions.Count; i++)
-                        {
-                            string colLetter = GetColumnLetter(i + 1);
-                            string cellRef = $"{colLetter}{row.RowIndex}";
-                            string property = columnDefinitions[i].Property;
-                            
-                            AddTestCaseCell(row, property, cellRef, testCase, 
-                                        currentDataStyleIndex, currentDateStyleIndex, currentNumberStyleIndex);
                         }
                     }
                 }
+
             }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while adding data rows");
+                throw; // Re-throw to allow caller to handle
+            }
+           }
+
+
+        private void SafeAddCell(Row row, string cellRef, string value, uint styleIndex)
+        {
+            SafeAddCell(row, cellRef, value, styleIndex, CellValues.String);
         }
 
+        private void SafeAddCell(Row row, string cellRef, string value, uint styleIndex, CellValues dataType)
+        {
+            try
+            {
+                var cell = new Cell
+                {
+                    CellReference = cellRef,
+                    CellValue = new CellValue(value ?? string.Empty),
+                    DataType = dataType,
+                    StyleIndex = styleIndex
+                };
+                row.Append(cell);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error adding cell at reference {CellRef}", cellRef);
+                throw;
+            }
+        }
 
         private void AddTestCaseCell(Row row, string property, string cellRef, TestCaseModel testCase,
                             uint dataStyleIndex, uint dateStyleIndex, uint numberStyleIndex)
