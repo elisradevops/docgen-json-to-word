@@ -44,7 +44,7 @@ namespace JsonToWord
                         
                             if (excelObject is TestReporterModel testReporter)
                             {
-                                _testReporterService.Insert(spreadSheet, testReporter.TestPlanName, testReporter);
+                                _testReporterService.Insert(spreadSheet, testReporter.TestPlanName, testReporter, contentControl.AllowGrouping);
                             }
                         }
 
