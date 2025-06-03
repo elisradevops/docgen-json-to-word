@@ -130,16 +130,20 @@ namespace JsonToWord.Services
             for (int i = 0; i < rows.Count; i++)
             {
                 var tableRow = new TableRow { RsidTableRowProperties = "00812C40" };
+                
+                // Initialize table row properties if not already set
+                if (tableRow.TableRowProperties == null)
+                {
+                    tableRow.TableRowProperties = new TableRowProperties();
+                }
+                
+                // Prevent row from breaking across pages
+                tableRow.TableRowProperties.AppendChild(new CantSplit() { Val = OnOffOnlyValues.On });
 
                 if (wordTable.RepeatHeaderRow && isHeaderRow)
                 {
                     var tableHeader = new TableHeader();
-
-                    var tableRowProperties = new TableRowProperties();
-
-                    tableRowProperties.AppendChild(tableHeader);
-                    tableRow.TableRowProperties = tableRowProperties;
-
+                    tableRow.TableRowProperties.AppendChild(tableHeader);
                     isHeaderRow = false;
                 }
                 var cells = rows[i].Cells; 
