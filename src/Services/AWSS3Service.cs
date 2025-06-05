@@ -1,4 +1,4 @@
-﻿using Amazon.S3;
+using Amazon.S3;
 using Amazon.S3.Transfer;
 using JsonToWord.Models.S3;
 using JsonToWord.Services.Interfaces;
@@ -113,6 +113,12 @@ namespace JsonToWord.Services
                     Key = filename,
                     BucketName = FullBucketPath
                 };
+                
+                // Add metadata including CreatedBy
+                if (!string.IsNullOrEmpty(uploadProperties.CreatedBy))
+                {
+                    transferUtilityRequest.Metadata.Add("x-amz-meta-createdby", uploadProperties.CreatedBy);
+                }
                 RegionEndpoint region = RegionEndpoint.GetBySystemName(uploadProperties.Region);
                 var amazonConfig = new AmazonS3Config
                 {
