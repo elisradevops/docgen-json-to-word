@@ -10,5 +10,6 @@
         public string AwsSecretAccessKey { get; set; }
         public string Region { get; set; }
         public string ServiceUrl { get; set; }
+        public string CreatedBy { get; set; } = string.Empty;
     }
 }
