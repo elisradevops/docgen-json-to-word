@@ -197,11 +197,6 @@ namespace JsonToWord.Services
                 // TestCase fields - include additional properties
                 ("Run By", 20, "RunBy"),
                 ("Configuration", 15, "Configuration"),
-                ("Automation Status", 18, "AutomationStatus"),
-                ("Assigned To", 15, "AssignedTo"),
-                ("Sub System", 15, "SubSystem"),
-                ("Priority", 10, "Priority"),
-                ("Associated Req. Count", 25, "AssociatedRequirementCount"),
 
             };
 
@@ -210,20 +205,56 @@ namespace JsonToWord.Services
                 allColumns.Insert(0, ("Suite Name", 20, "SuiteName"));
             }
 
+            // Add dynamic custom fields before associated requirements
+            if (testReporterModel.TestSuites != null && testReporterModel.TestSuites.Any())
+            {
+                // Find the first test case that has CustomFields to use as a template for column definitions
+                TestCaseModel firstTestCaseWithCustomFields = null;
+                foreach (var suite in testReporterModel.TestSuites)
+                {
+                    firstTestCaseWithCustomFields = suite.TestCases
+                        .FirstOrDefault(tc => tc.CustomFields != null && tc.CustomFields.Count > 0);
+                    
+                    if (firstTestCaseWithCustomFields != null)
+                        break;
+                }
+
+                // If we found any test case with custom fields, add those fields as columns
+                if (firstTestCaseWithCustomFields != null && firstTestCaseWithCustomFields.CustomFields != null)
+                {
+                    foreach (var field in firstTestCaseWithCustomFields.CustomFields)
+                    {
+                        // Format the display name with proper spacing and capitalization
+                        string displayName = string.Concat(
+                            field.Key.Select((c, i) => i > 0 && char.IsUpper(c) ? " " + c.ToString() : c.ToString()))
+                            .Replace("_", " ");
+                        displayName = char.ToUpper(displayName[0]) + displayName.Substring(1);
+                        
+                        // Convert the field name to a proper column name (camelCase to PascalCase for property name)
+                        string columnName = char.ToUpper(field.Key[0]) + field.Key.Substring(1);
+                        
+                        // Add to columns list with a reasonable default width
+                        allColumns.Add((displayName, 25, columnName));
+                    }
+                }
+            }
+
+            allColumns.Add(("Associated Req. Count", 25, "AssociatedRequirementCount"));
+
             // Add dynamic columns for each associated requirement
             for (int i = 0; i < maxRequirementCount; i++)
             {
                 allColumns.Add(($"Associated Req. {i + 1}", 30, $"AssociatedRequirement_{i}"));
             }
 
-            allColumns.Add(("Associated Bug Count", 30, "AssociatedBugCount"));
+            allColumns.Add(("Associated Bug Count", 25, "AssociatedBugCount"));
 
             for (int i = 0; i < maxBugCount; i++)
             {
                 allColumns.Add(($"Associated Bug {i + 1}", 30, $"AssociatedBug_{i}"));
             }
 
-            allColumns.Add(("Associated CR Count", 30, "AssociatedCRCount"));
+            allColumns.Add(("Associated CR Count", 25, "AssociatedCRCount"));
 
             for (int i = 0; i < maxCRCount; i++)
             {
@@ -393,14 +424,6 @@ namespace JsonToWord.Services
                         columnsWithData.Add("RunBy");
                     if (!string.IsNullOrEmpty(testCase.Configuration))
                         columnsWithData.Add("Configuration");
-                    if (!string.IsNullOrEmpty(testCase.AutomationStatus))
-                        columnsWithData.Add("AutomationStatus");
-                    if(!string.IsNullOrEmpty(testCase.AssignedTo))
-                        columnsWithData.Add("AssignedTo");
-                    if(!string.IsNullOrEmpty(testCase.SubSystem))
-                        columnsWithData.Add("SubSystem");
-                    if (testCase.Priority.HasValue)
-                        columnsWithData.Add("Priority");
 
                     // Check for each associated requirement and track which indexes have data
                     if (testCase.AssociatedRequirements != null)
@@ -452,6 +475,20 @@ namespace JsonToWord.Services
                             }
                         }
                     }
+
+                    // Dynamically check all custom fields
+                    if (testCase.CustomFields != null)
+                    {
+                        foreach (var field in testCase.CustomFields)
+                        {
+                            if (field.Value != null && !string.IsNullOrEmpty(GetValueString(field.Value)))
+                            {
+                                // Convert the field name to a proper column name (camelCase to PascalCase)
+                                string columnName = char.ToUpper(field.Key[0]) + field.Key.Substring(1);
+                                columnsWithData.Add(columnName);
+                            }
+                        }
+                    }
                 }
             }
 
@@ -462,6 +499,31 @@ namespace JsonToWord.Services
             return columnsWithData.ToList();
         }
 
+
+        private string GetCustomFieldValue(Dictionary<string, object> customFields, string fieldName)
+        {
+            if (customFields != null && customFields.TryGetValue(fieldName, out var fieldValue) && fieldValue != null)
+            {
+                return GetValueString(fieldValue);
+            }
+            return string.Empty;
+        }
+
+        private string GetValueString(object value)
+        {
+            // Handle JsonElement type that comes from JSON deserialization
+            if (value is System.Text.Json.JsonElement jsonElement)
+            {
+                if (jsonElement.ValueKind == System.Text.Json.JsonValueKind.String)
+                {
+                    return jsonElement.GetString();
+                }
+                return jsonElement.ToString();
+            }
+            
+            // Handle any other object type
+            return value?.ToString() ?? string.Empty;
+        }
 
         private void EnsureStylesheet(WorkbookPart workbookPart)
         {
@@ -893,14 +955,6 @@ namespace JsonToWord.Services
                 row.Append(CreateTextCell(cellRef, testCase.RunBy, dataStyleIndex));
             else if (property == "Configuration")
                 row.Append(CreateTextCell(cellRef, testCase.Configuration, dataStyleIndex));
-            else if (property == "AutomationStatus")
-                row.Append(CreateTextCell(cellRef, testCase.AutomationStatus, dataStyleIndex));
-            else if(property == "AssignedTo")
-                row.Append(CreateTextCell(cellRef, testCase.AssignedTo, dataStyleIndex));
-            else if(property == "SubSystem")
-                row.Append(CreateTextCell(cellRef, testCase.SubSystem, dataStyleIndex));
-            else if (property == "Priority")
-                row.Append(CreateTextCell(cellRef, testCase.Priority?.ToString(), dataStyleIndex));
             else if (property == "AssociatedRequirementCount")
                 row.Append(CreateTextCell(cellRef, testCase.AssociatedRequirements?.Count.ToString(), dateStyleIndex));
             else if (property.StartsWith("AssociatedRequirement_"))
@@ -914,7 +968,29 @@ namespace JsonToWord.Services
             else if(property.StartsWith("AssociatedCR_"))
                 HandleCRCell(row, property, cellRef, testCase, dataStyleIndex);
             else
-                row.Append(CreateTextCell(cellRef, "", dataStyleIndex));
+            {
+                // Check if this is a custom field (dynamic property)
+                // Convert to camelCase for dictionary lookup
+                string fieldName = char.ToLower(property[0]) + property.Substring(1);
+                string value = GetCustomFieldValue(testCase.CustomFields, fieldName);
+                
+                if (!string.IsNullOrEmpty(value))
+                {
+                    // Check if the field might be a date
+                    if (fieldName.Contains("date") && DateTime.TryParse(value, out DateTime dateValue))
+                    {
+                        row.Append(CreateDateCell(cellRef, dateValue, dateStyleIndex));
+                    }
+                    else
+                    {
+                        row.Append(CreateTextCell(cellRef, value, dataStyleIndex));
+                    }
+                }
+                else
+                {
+                    row.Append(CreateTextCell(cellRef, "", dataStyleIndex));
+                }
+            }
         }
 
         private void HandleRequirementCell(Row row, string property, string cellRef, TestCaseModel testCase, uint dataStyleIndex)
