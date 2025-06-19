@@ -37,7 +37,7 @@ namespace JsonToWord
                         // If there is no data to write, throw an exception
                         if (contentControl.WordObjects.Count == 0)
                         {
-                            throw new Exception("No data to write!");
+                            throw new Exception("No data aquired for current request. Please refine your selection");
                         }
                         foreach (var excelObject in contentControl.WordObjects)
                         {
