@@ -1,420 +1,224 @@
-﻿using DocumentFormat.OpenXml;
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
+using JsonToWord.Models.Excel;
 using JsonToWord.Models.TestReporterModels;
 using JsonToWord.Services;
+using JsonToWord.Services.Interfaces.ExcelServices;
 using Microsoft.Extensions.Logging;
 using Moq;
+using Xunit;
 
-namespace JsonToWord.Tests.Services
+namespace JsonToWord.Services.Tests
 {
     public class TestReporterServiceTest : IDisposable
     {
-        private readonly Mock<ILogger<TestReporterService>> _loggerMock;
+        private readonly Mock<ILogger<TestReporterService>> _mockLogger;
+        private readonly Mock<IColumnService> _mockColumnService;
+        private readonly Mock<ISpreadsheetService> _mockSpreadsheetService;
+        private readonly Mock<IReportDataService> _mockReportDataService;
+        private readonly Mock<IStylesheetService> _mockStylesheetService;
         private readonly TestReporterService _testReporterService;
-        private readonly string _tempFilePath;
+
+        private readonly MemoryStream _memoryStream;
+        private readonly SpreadsheetDocument _spreadsheetDocument;
 
         public TestReporterServiceTest()
         {
-            _loggerMock = new Mock<ILogger<TestReporterService>>();
-            _testReporterService = new TestReporterService(_loggerMock.Object);
-            _tempFilePath = Path.Combine(Path.GetTempPath(), $"TestReport_{Guid.NewGuid()}.xlsx");
+            _mockLogger = new Mock<ILogger<TestReporterService>>();
+            _mockColumnService = new Mock<IColumnService>();
+            _mockSpreadsheetService = new Mock<ISpreadsheetService>();
+            _mockReportDataService = new Mock<IReportDataService>();
+            _mockStylesheetService = new Mock<IStylesheetService>();
+
+            _testReporterService = new TestReporterService(
+                _mockLogger.Object,
+                _mockColumnService.Object,
+                _mockSpreadsheetService.Object,
+                _mockReportDataService.Object,
+                _mockStylesheetService.Object);
+
+            _memoryStream = new MemoryStream();
+            _spreadsheetDocument = SpreadsheetDocument.Create(_memoryStream, SpreadsheetDocumentType.Workbook);
         }
 
         public void Dispose()
         {
-            if (File.Exists(_tempFilePath))
-            {
-                try
-                {
-                    File.Delete(_tempFilePath);
-                }
-                catch (Exception)
-                {
-                    // Ignore exceptions during cleanup
-                }
-            }
+            _spreadsheetDocument.Dispose();
+            _memoryStream.Dispose();
+            GC.SuppressFinalize(this);
         }
 
         [Fact]
         public void Insert_WithNullDocument_ThrowsArgumentNullException()
         {
             // Arrange
-            SpreadsheetDocument document = null;
-            var testReporterModel = CreateSampleTestReporterModel();
+            var model = new TestReporterModel();
 
             // Act & Assert
-            Assert.Throws<ArgumentNullException>(() => _testReporterService.Insert(document, "Sheet1", testReporterModel, true));
+            Assert.Throws<ArgumentNullException>(() => _testReporterService.Insert(null, "Sheet1", model, false));
         }
 
         [Fact]
         public void Insert_WithEmptyWorksheetName_ThrowsArgumentException()
         {
             // Arrange
-            using var document = SpreadsheetDocument.Create(_tempFilePath, SpreadsheetDocumentType.Workbook);
-            var testReporterModel = CreateSampleTestReporterModel();
+            var model = new TestReporterModel();
 
             // Act & Assert
-            Assert.Throws<ArgumentException>(() => _testReporterService.Insert(document, "", testReporterModel, true));
+            Assert.Throws<ArgumentException>(() => _testReporterService.Insert(_spreadsheetDocument, "", model, false));
+        }
+
+        [Fact]
+        public void Insert_WithNullWorksheetName_ThrowsArgumentException()
+        {
+            // Arrange
+            var model = new TestReporterModel();
+
+            // Act & Assert
+            Assert.Throws<ArgumentException>(() => _testReporterService.Insert(_spreadsheetDocument, null, model, false));
         }
 
         [Fact]
         public void Insert_WithNullTestReporterModel_ThrowsArgumentNullException()
         {
+            // Act & Assert
+            Assert.Throws<ArgumentNullException>(() => _testReporterService.Insert(_spreadsheetDocument, "Sheet1", null, false));
+        }
+
+        [Fact]
+        public void Insert_WhenServiceThrowsException_LogsErrorAndRethrows()
+        {
             // Arrange
-            using var document = SpreadsheetDocument.Create(_tempFilePath, SpreadsheetDocumentType.Workbook);
-            TestReporterModel testReporterModel = null;
+            var model = new TestReporterModel();
+            var exception = new Exception("Test exception");
+            var worksheetName = "Sheet1";
+
+            _mockSpreadsheetService.Setup(s => s.GetOrCreateWorksheetPart(It.IsAny<WorkbookPart>(), It.IsAny<string>()))
+                .Throws(exception);
 
             // Act & Assert
-            Assert.Throws<ArgumentNullException>(() => _testReporterService.Insert(document, "Sheet1", testReporterModel, true));
+            var ex = Assert.Throws<Exception>(() => _testReporterService.Insert(_spreadsheetDocument, worksheetName, model, false));
+            Assert.Equal(exception, ex);
+
+            _mockLogger.Verify(
+                x => x.Log(
+                    LogLevel.Error,
+                    It.IsAny<EventId>(),
+                    It.Is<It.IsAnyType>((v, t) => v.ToString().Contains($"Error inserting grouped table into worksheet '{worksheetName}'")),
+                    exception,
+                    It.IsAny<Func<It.IsAnyType, Exception, string>>()),
+                Times.Once);
         }
 
-        [Fact]
-        public void Insert_CreatesWorksheetWithCorrectName()
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public void Insert_WithValidInputs_CallsServicesAndSavesSuccessfully(bool groupBySuite)
         {
             // Arrange
-            const string worksheetName = "Test Worksheet";
-            using var document = SpreadsheetDocument.Create(_tempFilePath, SpreadsheetDocumentType.Workbook);
-            var testReporterModel = CreateSampleTestReporterModel();
-
-            // Act
-            _testReporterService.Insert(document, worksheetName, testReporterModel, true);
-            document.Dispose();
-
-            // Assert
-            using var openedDoc = SpreadsheetDocument.Open(_tempFilePath, false);
-            var workbookPart = openedDoc.WorkbookPart;
-            Assert.NotNull(workbookPart);
-
-            var sheets = workbookPart.Workbook.Sheets;
-            Assert.NotNull(sheets);
-
-            var sheet = sheets.Elements<Sheet>().FirstOrDefault(s => s.Name == worksheetName);
-            Assert.NotNull(sheet);
-        }
-
-        [Fact]
-        public void Insert_CreatesHeaderRowWithCorrectColumns()
-        {
-            // Arrange
-            const string worksheetName = "Test Worksheet";
-            using var document = SpreadsheetDocument.Create(_tempFilePath, SpreadsheetDocumentType.Workbook);
-            var testReporterModel = CreateSampleTestReporterModel();
-
-            // Act
-            _testReporterService.Insert(document, worksheetName, testReporterModel, true);
-            document.Dispose();
-
-            // Assert
-            using var openedDoc = SpreadsheetDocument.Open(_tempFilePath, false);
-            var workbookPart = openedDoc.WorkbookPart;
-            var sheet = workbookPart.Workbook.Sheets.Elements<Sheet>().FirstOrDefault(s => s.Name == worksheetName);
-            var worksheetPart = (WorksheetPart)workbookPart.GetPartById(sheet.Id);
-            var sheetData = worksheetPart.Worksheet.Elements<SheetData>().First();
-
-            // Get the header row (first row)
-            var headerRow = sheetData.Elements<Row>().FirstOrDefault(r => r.RowIndex == 1);
-            Assert.NotNull(headerRow);
-
-            // Check that we have expected headers
-            var headerCells = headerRow.Elements<Cell>().ToList();
-            Assert.Contains(headerCells, c => GetCellValue(c, workbookPart) == "Test Case ID");
-            Assert.Contains(headerCells, c => GetCellValue(c, workbookPart) == "Test Case Title");
-            Assert.Contains(headerCells, c => GetCellValue(c, workbookPart) == "Execution Date");
-        }
-
-        [Fact]
-        public void Insert_CreatesTestSuiteTitleRow()
-        {
-            // Arrange
-            const string worksheetName = "Test Worksheet";
-            const string suiteName = "Sample Test Suite";
-            using var document = SpreadsheetDocument.Create(_tempFilePath, SpreadsheetDocumentType.Workbook);
-            var testReporterModel = CreateSampleTestReporterModel(suiteName);
-
-            // Act
-            _testReporterService.Insert(document, worksheetName, testReporterModel, true);
-            document.Dispose();
-
-            // Assert
-            using var openedDoc = SpreadsheetDocument.Open(_tempFilePath, false);
-            var workbookPart = openedDoc.WorkbookPart;
-            var sheet = workbookPart.Workbook.Sheets.Elements<Sheet>().FirstOrDefault(s => s.Name == worksheetName);
-            var worksheetPart = (WorksheetPart)workbookPart.GetPartById(sheet.Id);
-            var sheetData = worksheetPart.Worksheet.Elements<SheetData>().First();
-
-            // The suite title should be on the second row
-            var suiteRow = sheetData.Elements<Row>().FirstOrDefault(r => r.RowIndex == 2);
-            Assert.NotNull(suiteRow);
-
-            // Check that the suite title contains the suite name
-            var firstCell = suiteRow.Elements<Cell>().FirstOrDefault();
-            Assert.NotNull(firstCell);
-            var cellValue = GetCellValue(firstCell, workbookPart);
-            Assert.Contains(suiteName, cellValue);
-        }
-
-        [Fact]
-        public void Insert_TestCaseWithSteps_CreatesMultipleRows()
-        {
-            // Arrange
-            const string worksheetName = "Test Worksheet";
-            using var document = SpreadsheetDocument.Create(_tempFilePath, SpreadsheetDocumentType.Workbook);
-            var testReporterModel = CreateTestReporterModelWithSteps();
-
-            // Act
-            _testReporterService.Insert(document, worksheetName, testReporterModel, true);
-            document.Dispose();
-
-            // Assert
-            using var openedDoc = SpreadsheetDocument.Open(_tempFilePath, false);
-            var workbookPart = openedDoc.WorkbookPart;
-            var sheet = workbookPart.Workbook.Sheets.Elements<Sheet>().FirstOrDefault(s => s.Name == worksheetName);
-            var worksheetPart = (WorksheetPart)workbookPart.GetPartById(sheet.Id);
-            var sheetData = worksheetPart.Worksheet.Elements<SheetData>().First();
-
-            // Count the rows - should be 1 (header) + 1 (suite) + 2 (two steps) = 4
-            var rows = sheetData.Elements<Row>().ToList();
-            Assert.Equal(4, rows.Count);
-
-            // Check that the step data is present in rows
-            var stepRows = rows.Where(r => r.RowIndex > 2).ToList();
-            Assert.Equal(2, stepRows.Count);
-
-            // Check that the step actions from our test data are present
-            bool foundStep1 = false;
-            bool foundStep2 = false;
-
-            foreach (var row in stepRows)
+            const string worksheetName = "Test Report";
+            var model = new TestReporterModel
             {
-                var cells = row.Elements<Cell>().ToList();
-                foreach (var cell in cells)
-                {
-                    var value = GetCellValue(cell, workbookPart);
-                    if (value == "Step 1 Action") foundStep1 = true;
-                    if (value == "Step 2 Action") foundStep2 = true;
-                }
-            }
-
-            Assert.True(foundStep1, "Step 1 action not found in cells");
-            Assert.True(foundStep2, "Step 2 action not found in cells");
-        }
-
-        [Fact]
-        public void Insert_WithHyperlink_CreatesHyperlinkInWorksheet()
-        {
-            // Arrange
-            const string worksheetName = "Test Worksheet";
-            using var document = SpreadsheetDocument.Create(_tempFilePath, SpreadsheetDocumentType.Workbook);
-            var testReporterModel = CreateTestReporterModelWithHyperlink();
-
-            // Act
-            _testReporterService.Insert(document, worksheetName, testReporterModel, true);
-            document.Dispose();
-
-            // Assert
-            using var openedDoc = SpreadsheetDocument.Open(_tempFilePath, false);
-            var workbookPart = openedDoc.WorkbookPart;
-            var sheet = workbookPart.Workbook.Sheets.Elements<Sheet>().FirstOrDefault(s => s.Name == worksheetName);
-            var worksheetPart = (WorksheetPart)workbookPart.GetPartById(sheet.Id);
-
-            // Check for hyperlinks
-            var hyperlinks = worksheetPart.Worksheet.Elements<Hyperlinks>().FirstOrDefault();
-            Assert.NotNull(hyperlinks);
-            Assert.True(hyperlinks.Count() > 0, "No hyperlinks found in worksheet");
-
-            // Verify at least one hyperlink has the URL we expect
-            bool foundHyperlink = false;
-            foreach (var hyperlink in hyperlinks.Elements<Hyperlink>())
-            {
-                var relationship = worksheetPart.HyperlinkRelationships.FirstOrDefault(r => r.Id == hyperlink.Id);
-                if (relationship != null && relationship.Uri.ToString().Contains("example.com"))
-                {
-                    foundHyperlink = true;
-                    break;
-                }
-            }
-
-            Assert.True(foundHyperlink, "Expected hyperlink not found");
-        }
-
-        [Fact]
-        public void Insert_AddsStylesheetToWorkbook()
-        {
-            // Arrange
-            const string worksheetName = "Test Worksheet";
-            using var document = SpreadsheetDocument.Create(_tempFilePath, SpreadsheetDocumentType.Workbook);
-            var testReporterModel = CreateSampleTestReporterModel();
-
-            // Act
-            _testReporterService.Insert(document, worksheetName, testReporterModel, true);
-            document.Dispose();
-
-            // Assert
-            using var openedDoc = SpreadsheetDocument.Open(_tempFilePath, false);
-            var workbookPart = openedDoc.WorkbookPart;
-
-            // Check that a stylesheet part was created
-            var stylesPart = workbookPart.GetPartsOfType<WorkbookStylesPart>().FirstOrDefault();
-            Assert.NotNull(stylesPart);
-
-            // Check that the stylesheet contains expected elements
-            var stylesheet = stylesPart.Stylesheet;
-            Assert.NotNull(stylesheet);
-            Assert.NotNull(stylesheet.Fonts);
-            Assert.NotNull(stylesheet.Fills);
-            Assert.NotNull(stylesheet.Borders);
-            Assert.NotNull(stylesheet.CellFormats);
-        }
-
-        [Fact]
-        public void Insert_WithAssociatedRequirements_CreatesRequirementColumns()
-        {
-            // Arrange
-            const string worksheetName = "Test Worksheet";
-            using var document = SpreadsheetDocument.Create(_tempFilePath, SpreadsheetDocumentType.Workbook);
-            var testReporterModel = CreateTestReporterModelWithRequirements();
-
-            // Act
-            _testReporterService.Insert(document, worksheetName, testReporterModel, true);
-            document.Dispose();
-
-            // Assert
-            using var openedDoc = SpreadsheetDocument.Open(_tempFilePath, false);
-            var workbookPart = openedDoc.WorkbookPart;
-            var sheet = workbookPart.Workbook.Sheets.Elements<Sheet>().FirstOrDefault(s => s.Name == worksheetName);
-            var worksheetPart = (WorksheetPart)workbookPart.GetPartById(sheet.Id);
-            var sheetData = worksheetPart.Worksheet.Elements<SheetData>().First();
-
-            // Get the header row
-            var headerRow = sheetData.Elements<Row>().FirstOrDefault(r => r.RowIndex == 1);
-            Assert.NotNull(headerRow);
-
-            // Check for requirement columns in headers
-            var headerCells = headerRow.Elements<Cell>().ToList();
-            bool foundReqCountHeader = false;
-            bool foundReqHeader = false;
-
-            foreach (var cell in headerCells)
-            {
-                var value = GetCellValue(cell, workbookPart);
-                if (value == "Associated Req. Count") foundReqCountHeader = true;
-                if (value.StartsWith("Associated Req.")) foundReqHeader = true;
-            }
-
-            Assert.True(foundReqCountHeader, "Associated Requirement Count column not found");
-            Assert.True(foundReqHeader, "Associated Requirement column not found");
-        }
-
-        #region Helper Methods
-
-        private string GetCellValue(Cell cell, WorkbookPart workbookPart)
-        {
-            // Handle null cases
-            if (cell == null || cell.CellValue == null) return string.Empty;
-
-            string value = cell.CellValue.InnerText;
-
-            // If this is a shared string, look it up
-            if (cell.DataType != null && cell.DataType == CellValues.SharedString)
-            {
-                var stringTable = workbookPart.GetPartsOfType<SharedStringTablePart>().FirstOrDefault();
-                if (stringTable != null)
-                {
-                    int index = int.Parse(value);
-                    if (index < stringTable.SharedStringTable.Elements<SharedStringItem>().Count())
-                    {
-                        value = stringTable.SharedStringTable.Elements<SharedStringItem>().ElementAt(index).InnerText;
-                    }
-                }
-            }
-
-            return value;
-        }
-
-        private TestReporterModel CreateSampleTestReporterModel(string suiteName = "Sample Test Suite")
-        {
-            return new TestReporterModel
-            {
-                TestPlanName = "Test Plan",
-                TestSuites = new System.Collections.Generic.List<TestSuiteModel>
+                TestSuites = new List<TestSuiteModel>
                 {
                     new TestSuiteModel
                     {
-                        SuiteName = suiteName,
-                        TestCases = new System.Collections.Generic.List<TestCaseModel>
+                        SuiteName = "Suite 1",
+                        TestCases = new List<TestCaseModel>
                         {
+                            // Test Case with multiple requirements and bugs
                             new TestCaseModel
                             {
-                                TestCaseId = 12345,
-                                TestCaseName = "Sample Test Case",
-                                ExecutionDate = DateTime.Now.ToString("yyyy-MM-dd"),
-                                TestCaseResult = new TestCaseResultModel
+                                TestCaseId = 1,
+                                TestCaseName = "TC 1: Complex associations",
+                                AssociatedRequirements = new List<AssociatedItemModel>
                                 {
-                                    ResultMessage = "Passed"
+                                    new AssociatedItemModel { Id = "R1", Title = "Requirement 1" },
+                                    new AssociatedItemModel { Id = "R2", Title = "Requirement 2" }
                                 },
-                                RunBy = "Test User"
+                                AssociatedBugs = new List<AssociatedItemModel>
+                                {
+                                    new AssociatedItemModel { Id = "B1", Title = "Bug 1" }
+                                },
+                                AssociatedCRs = new List<AssociatedItemModel>() // Empty list
+                            },
+                            // Test Case with one of each associated item
+                            new TestCaseModel
+                            {
+                                TestCaseId = 2,
+                                TestCaseName = "TC 2: One of each",
+                                AssociatedRequirements = new List<AssociatedItemModel>
+                                {
+                                    new AssociatedItemModel { Id = "R3", Title = "Requirement 3" }
+                                },
+                                AssociatedBugs = new List<AssociatedItemModel>
+                                {
+                                    new AssociatedItemModel { Id = "B2", Title = "Bug 2" }
+                                },
+                                AssociatedCRs = new List<AssociatedItemModel>
+                                {
+                                    new AssociatedItemModel { Id = "CR1", Title = "Change Request 1" }
+                                }
+                            },
+                            // Test Case with no associated items
+                            new TestCaseModel
+                            {
+                                TestCaseId = 3,
+                                TestCaseName = "TC 3: No associations"
+                            }
+                        }
+                    },
+                    new TestSuiteModel
+                    {
+                        SuiteName = "Suite 2",
+                        TestCases = new List<TestCaseModel>
+                        {
+                            // Test Case with only CRs
+                            new TestCaseModel
+                            {
+                                TestCaseId = 4,
+                                TestCaseName = "TC 4: Only CRs",
+                                AssociatedCRs = new List<AssociatedItemModel>
+                                {
+                                    new AssociatedItemModel { Id = "CR2", Title = "Change Request 2" },
+                                    new AssociatedItemModel { Id = "CR3", Title = "Change Request 3" }
+                                }
                             }
                         }
                     }
                 }
             };
+
+            var workbookPart = _spreadsheetDocument.AddWorkbookPart();
+            workbookPart.Workbook = new Workbook();
+            var worksheetPart = workbookPart.AddNewPart<WorksheetPart>();
+            worksheetPart.Worksheet = new Worksheet(new SheetData());
+
+            var columnDefinitions = new List<ColumnDefinition> { new ColumnDefinition { Name = "ID", Width = 10, Group = "Test Cases" } };
+            var columnCountForeachGroup = new Dictionary<string, int> { { "Test Cases", 1 } };
+
+            _mockSpreadsheetService.Setup(s => s.GetOrCreateWorksheetPart(It.IsAny<WorkbookPart>(), worksheetName)).Returns(worksheetPart);
+            _mockColumnService.Setup(c => c.DefineColumns(model, groupBySuite)).Returns(columnDefinitions);
+            _mockColumnService.Setup(c => c.CreateColumns(columnDefinitions)).Returns(new Columns());
+            _mockColumnService.Setup(c => c.GetColumnCountForeachGroup(columnDefinitions)).Returns(columnCountForeachGroup);
+
+            // Act
+            _testReporterService.Insert(_spreadsheetDocument, worksheetName, model, groupBySuite);
+
+            // Assert
+            _mockSpreadsheetService.Verify(s => s.GetOrCreateWorksheetPart(It.IsAny<WorkbookPart>(), worksheetName), Times.Once);
+            _mockColumnService.Verify(c => c.DefineColumns(model, groupBySuite), Times.Once);
+            _mockColumnService.Verify(c => c.CreateColumns(columnDefinitions), Times.Once);
+            _mockColumnService.Verify(c => c.GetColumnCountForeachGroup(columnDefinitions), Times.Once);
+            _mockSpreadsheetService.Verify(s => s.CreateHeaderRow(It.IsAny<SheetData>(), columnDefinitions, It.IsAny<MergeCells>(), columnCountForeachGroup, It.IsAny<Dictionary<string, int>>()), Times.Once);
+
+            _mockReportDataService.Verify(r => r.AddDataRows(It.IsAny<SheetData>(), It.IsAny<MergeCells>(), model.TestSuites, columnDefinitions, columnCountForeachGroup, ref It.Ref<uint>.IsAny, worksheetPart, groupBySuite), Times.Once);
+
+            _mockStylesheetService.Verify(s => s.EnsureStylesheet(It.IsAny<WorkbookPart>()), Times.Once);
         }
-
-        private TestReporterModel CreateTestReporterModelWithSteps()
-        {
-            var model = CreateSampleTestReporterModel();
-
-            // Add test steps to the first test case
-            model.TestSuites[0].TestCases[0].TestSteps = new System.Collections.Generic.List<TestStepModel>
-            {
-                new TestStepModel
-                {
-                    StepNo = "1",
-                    StepAction = "Step 1 Action",
-                    StepExpected = "Step 1 Expected Result",
-                    StepRunStatus = "Passed"
-                },
-                new TestStepModel
-                {
-                    StepNo = "2",
-                    StepAction = "Step 2 Action",
-                    StepExpected = "Step 2 Expected Result",
-                    StepRunStatus = "Passed"
-                }
-            };
-
-            return model;
-        }
-
-        private TestReporterModel CreateTestReporterModelWithHyperlink()
-        {
-            var model = CreateSampleTestReporterModel();
-
-            // Add URL to test case
-            model.TestSuites[0].TestCases[0].TestCaseUrl = "https://example.com/testcase/12345";
-
-            return model;
-        }
-
-        private TestReporterModel CreateTestReporterModelWithRequirements()
-        {
-            var model = CreateSampleTestReporterModel();
-
-            // Add associated requirements
-            model.TestSuites[0].TestCases[0].AssociatedRequirements = new List<AssociatedRequirementModel>
-            {
-                new AssociatedRequirementModel
-                {
-                    Id = "REQ-001",
-                    RequirementTitle = "Sample Requirement",
-                    Url = "https://example.com/requirement/REQ-001"
-                }
-            };
-
-            return model;
-        }
-
-        #endregion
     }
 }

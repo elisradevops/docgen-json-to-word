@@ -5,6 +5,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using JsonToWord.Services;
 using JsonToWord.Services.Interfaces;
+using JsonToWord.Services.Interfaces.ExcelServices;
+using JsonToWord.Services.ExcelServices;
 
 namespace JsonToWord
 {
@@ -35,6 +37,12 @@ namespace JsonToWord
             services.AddSingleton<IHtmlService, HtmlService>();
             services.AddSingleton<IDocumentValidatorService, DocumentValidatorService>();
             services.AddSingleton<IContentControlService, ContentControlService>();
+            services.AddSingleton<IExcelHelperService, ExcelHelperService>();
+            services.AddTransient<IColumnService, ColumnService>();
+            services.AddTransient<IReportDataService, ReportDataService>();
+            services.AddTransient<ISpreadsheetService, SpreadsheetService>();
+            services.AddTransient<IStylesheetService, StylesheetService>();
+            services.AddTransient<IColumnService, ColumnService>();
         }
 
         // Remove ILoggingBuilder from the method signature
