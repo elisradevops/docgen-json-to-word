@@ -69,34 +69,29 @@ namespace JsonToWord.Services.ExcelServices
             // Add dynamic custom fields before associated requirements
             if (testReporterModel.TestSuites != null && testReporterModel.TestSuites.Any())
             {
-                // Find the first test case that has CustomFields to use as a template for column definitions
-                TestCaseModel firstTestCaseWithCustomFields = null;
-                foreach (var suite in testReporterModel.TestSuites)
+                // Collect all unique custom field keys from all test cases
+                var testCaseCustomFields = testReporterModel.TestSuites
+                    .SelectMany(suite => suite.TestCases)
+                    .Where(tc => tc.CustomFields != null)
+                    .SelectMany(tc => tc.CustomFields)
+                    .Where(field => field.Value != null)
+                    .Select(field => field.Key)
+                    .ToHashSet();
+
+                // Add a column for each custom field
+                foreach (var fieldKey in testCaseCustomFields)
                 {
-                    firstTestCaseWithCustomFields = suite.TestCases
-                        .FirstOrDefault(tc => tc.CustomFields != null && tc.CustomFields.Count > 0);
+                    // Format the display name with proper spacing and capitalization
+                    string displayName = string.Concat(
+                        fieldKey.Select((c, i) => i > 0 && char.IsUpper(c) ? " " + c.ToString() : c.ToString()))
+                        .Replace("_", " ");
+                    displayName = char.ToUpper(displayName[0]) + displayName.Substring(1);
 
-                    if (firstTestCaseWithCustomFields != null)
-                        break;
-                }
+                    // Convert the field name to a proper column name (camelCase to PascalCase for property name)
+                    string columnName = char.ToUpper(fieldKey[0]) + fieldKey.Substring(1);
 
-                // If we found any test case with custom fields, add those fields as columns
-                if (firstTestCaseWithCustomFields != null && firstTestCaseWithCustomFields.CustomFields != null)
-                {
-                    foreach (var field in firstTestCaseWithCustomFields.CustomFields)
-                    {
-                        // Format the display name with proper spacing and capitalization
-                        string displayName = string.Concat(
-                            field.Key.Select((c, i) => i > 0 && char.IsUpper(c) ? " " + c.ToString() : c.ToString()))
-                            .Replace("_", " ");
-                        displayName = char.ToUpper(displayName[0]) + displayName.Substring(1);
-
-                        // Convert the field name to a proper column name (camelCase to PascalCase for property name)
-                        string columnName = char.ToUpper(field.Key[0]) + field.Key.Substring(1);
-
-                        // Add to columns list with a reasonable default width
-                        allColumns.Add(new ColumnDefinition { Name = displayName, Width = 25, Property = columnName, Group = "Test Cases" });
-                    }
+                    // Add to columns list with a reasonable default width
+                    allColumns.Add(new ColumnDefinition { Name = displayName, Width = 25, Property = columnName, Group = "Test Cases" });
                 }
             }
 
