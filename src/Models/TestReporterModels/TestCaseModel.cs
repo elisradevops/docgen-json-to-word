@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Newtonsoft.Json;
 
 namespace JsonToWord.Models.TestReporterModels
@@ -17,10 +17,9 @@ namespace JsonToWord.Models.TestReporterModels
         public string? ExecutionDate { get; set; }  
         public string? State { get; set; }  
         public string? StateChangeDate { get; set; }
-
-        public List<AssociatedRequirementModel>? AssociatedRequirements { get; set; }
-        public List<AssociatedBugModel>? AssociatedBugs { get; set; }
-        public List<AssociatedCRModel>? AssociatedCRs { get; set; }
+        public List<AssociatedItemModel>? AssociatedRequirements { get; set; }
+        public List<AssociatedItemModel>? AssociatedBugs { get; set; }
+        public List<AssociatedItemModel>? AssociatedCRs { get; set; }
 
         [JsonExtensionData]
         public Dictionary<string, object> CustomFields { get; set; }
