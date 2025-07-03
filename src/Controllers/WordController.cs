@@ -103,24 +103,29 @@ namespace JsonToWord.Controllers
 
                 wordModel.UploadProperties.LocalFilePath = documentPath;
 
-                AWSUploadResult<string> Response = await _aWSS3Service.UploadFileToMinioBucketAsync(wordModel.UploadProperties);
-
-                _aWSS3Service.CleanUp(documentPath);
-
-                foreach (var item in attachmentPaths)
+                if (wordModel.UploadProperties.EnableDirectDownload)
                 {
-                    _aWSS3Service.CleanUp(item);
-                }
-
-                if (Response.Status)
-                {
-                    return Ok(Response.Data);
+                    var downloadableFile = _wordService.CreateDownloadableFile(documentPath);
+                    return Ok(downloadableFile);
                 }
                 else
                 {
-                    return StatusCode(Response.StatusCode);
-                }
+                    AWSUploadResult<string> Response = await _aWSS3Service.UploadFileToMinioBucketAsync(wordModel.UploadProperties);
+                    _aWSS3Service.CleanUp(documentPath);
 
+                    foreach (var item in attachmentPaths)
+                    {
+                        _aWSS3Service.CleanUp(item);
+                    }
+                    if (Response.Status)
+                    {
+                        return Ok(Response.Data);
+                    }
+                    else
+                    {
+                        return StatusCode(Response.StatusCode);
+                    }
+                }
             }
             catch (Exception e)
             {

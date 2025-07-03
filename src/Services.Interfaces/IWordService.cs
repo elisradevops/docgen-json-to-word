@@ -5,5 +5,6 @@ namespace JsonToWord.Services.Interfaces
     public interface IWordService
     {
         string Create(WordModel _wordModel);
+        DownloadableObjectModel CreateDownloadableFile(string docPath);
     }
 }

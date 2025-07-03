@@ -11,5 +11,6 @@
         public string Region { get; set; }
         public string ServiceUrl { get; set; }
         public string CreatedBy { get; set; } = string.Empty;
+        public bool EnableDirectDownload { get; set; } = false;
     }
 }

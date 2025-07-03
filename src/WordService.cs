@@ -100,6 +100,35 @@ namespace JsonToWord
             //log.Info("Ran Macro");
         }
 
+        public DownloadableObjectModel CreateDownloadableFile(string docPath)
+        {
+            // Read the document file from disk
+            byte[] bytes = File.ReadAllBytes(docPath);
+            
+            // Get the filename without path
+            string fileName = Path.GetFileName(docPath);
+            
+            // Base64 encode the document
+            string base64 = Convert.ToBase64String(bytes);
+            
+            // Determine the application type based on file extension
+            string applicationType = Path.GetExtension(docPath).ToLower() switch
+            {
+                ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                ".xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                ".pptx" => "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                ".pdf" => "application/pdf",
+                _ => "application/octet-stream"
+            };
+
+            return new DownloadableObjectModel
+            {
+                FileName = fileName,
+                Base64 = base64,
+                ApplicationType = applicationType
+            };
+        }
+
         public void Dispose()
         {
             OnUnsubscribeEvents();
