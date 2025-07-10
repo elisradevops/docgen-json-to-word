@@ -53,15 +53,54 @@ namespace JsonToWord
             using (var document = WordprocessingDocument.Open(documentPath, true))
             {
                 _logger.LogInformation("Starting on doc path: " + documentPath);
-
+                
+                // PASS 1: Build the content control heading status map
+                _logger.LogInformation("PASS 1: Analyzing all content controls to determine heading status");
+                
                 foreach (var contentControl in _wordModel.ContentControls)
                 {
                     try
                     {
+                        if (string.IsNullOrEmpty(contentControl.Title))
+                        {
+                            _logger.LogWarning("Content control with empty title found, skipping mapping");
+                            continue;
+                        }
+                        
+                        // Find the content control
+                        var sdtBlock = _contentControlService.FindContentControl(document, contentControl.Title);
+                        
+                        // Determine if it's under a standard heading and map the result
+                        bool isUnderStandardHeading = _contentControlService.IsUnderStandardHeading(sdtBlock);
+                        _contentControlService.MapContentControlHeading(contentControl.Title, isUnderStandardHeading);
+                        
+                        _logger.LogInformation($"Mapped content control {contentControl.Title}: Under standard heading = {isUnderStandardHeading}");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, $"Error analyzing content control {contentControl.Title}");
+                    }
+                }
+                
+                _logger.LogInformation("PASS 2: Processing content controls with mapped heading status");
+                
+                // PASS 2: Process content controls using the mapped heading status
+                foreach (var contentControl in _wordModel.ContentControls)
+                {
+                    try
+                    {
+                        if (string.IsNullOrEmpty(contentControl.Title))
+                        {
+                            _logger.LogWarning("Content control with empty title found, skipping processing");
+                            continue;
+                        }
+                        
                         _contentControlService.ClearContentControl(document, contentControl.Title, contentControl.ForceClean);
                         
+                        // Get the content control and retrieve its heading status from the map
                         var sdtBlockCC = _contentControlService.FindContentControl(document, contentControl.Title);
-                        var isUnderStandardHeading = _contentControlService.IsUnderStandardHeading(sdtBlockCC);
+                        var isUnderStandardHeading = _contentControlService.GetContentControlHeadingStatus(contentControl.Title);
+                        
                         foreach (var wordObject in contentControl.WordObjects)
                         {
                             switch (wordObject.Type)
@@ -90,9 +129,15 @@ namespace JsonToWord
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning("Error while processing content control: " + contentControl.Title + " - " + ex.Message);
+                        _logger.LogError(ex, "Error processing content control: " + contentControl.Title);
                     }
                 }
+                
+                // Clear the content control heading map after processing
+                _contentControlService.ClearContentControlHeadingMap();
+                
+                // Save document
+                document.MainDocumentPart.Document.Save();
             }
 
             var generatedDocPath = _isZipNeeded ? ZipDocument(documentPath) : documentPath;
