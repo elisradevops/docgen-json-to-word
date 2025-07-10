@@ -7,15 +7,16 @@ namespace JsonToWord.Services
 {
     public class ParagraphService: IParagraphService
     {
-        public Paragraph CreateParagraph(WordParagraph wordParagraph)
+        public Paragraph CreateParagraph(WordParagraph wordParagraph, bool isUnderStandardHeading)
         {
             var paragraph = new Paragraph();
 
             if (wordParagraph.HeadingLevel == 0)
                 return paragraph;
 
+            var headingLevel = isUnderStandardHeading ? wordParagraph.HeadingLevel : wordParagraph.HeadingLevel-1;
             var paragraphProperties = new ParagraphProperties();
-            var paragraphStyleId = new ParagraphStyleId { Val = $"Heading{wordParagraph.HeadingLevel}" };
+            var paragraphStyleId = new ParagraphStyleId { Val = $"Heading{headingLevel}" };
 
             paragraphProperties.ParagraphStyleId = paragraphStyleId;
             paragraph.ParagraphProperties = paragraphProperties;

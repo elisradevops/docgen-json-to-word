@@ -85,5 +85,80 @@ namespace JsonToWord.Services
                 sdtBlock.RemoveChild(childElement);
             }
         }
+
+        /// <summary>
+        /// Determines if a content control is located under a standard heading or a custom heading.
+        /// </summary>
+        /// <param name="sdtBlock">The content control element to check.</param>
+        /// <returns>
+        /// True if the content control is under a standard heading (e.g., Heading1, Heading2) or no heading.
+        /// False if the content control is under a custom heading (e.g., Appendix).
+        /// </returns>
+        public bool IsUnderStandardHeading(SdtBlock sdtBlock)
+        {
+            try
+            {
+                // Get the document and styles part
+                var document = sdtBlock.Ancestors<Document>().FirstOrDefault();
+                if (document == null) return true;
+
+                var mainPart = document.MainDocumentPart;
+                if (mainPart?.StyleDefinitionsPart?.Styles == null) return true;
+
+                // Find the parent element that contains both the content control and headings
+                // This is typically the Body element
+                var body = sdtBlock.Ancestors<Body>().FirstOrDefault();
+                if (body == null) return true;
+
+                // Get all elements in the document body
+                var allElements = body.Descendants().ToList();
+                
+                // Find the index of our content control
+                int contentControlIndex = allElements.IndexOf(sdtBlock);
+                if (contentControlIndex < 0) return true; // Not found, assume it's ok
+
+                // Look backward from the content control to find the nearest paragraph
+                for (int i = contentControlIndex - 1; i >= 0; i--)
+                {
+                    if (allElements[i] is Paragraph p && p.ParagraphProperties?.ParagraphStyleId != null)
+                    {
+                        var styleId = p.ParagraphProperties.ParagraphStyleId.Val;
+                        var style = mainPart.StyleDefinitionsPart.Styles
+                            .Elements<Style>()
+                            .FirstOrDefault(s => s.StyleId == styleId);
+
+                        if (style != null)
+                        {
+                            // Check if this is a heading style
+                            bool isHeadingStyle = styleId.ToString().StartsWith("Heading") || 
+                                (style.BasedOn != null && style.BasedOn.Val.ToString().StartsWith("Heading"));
+                            
+                            if (isHeadingStyle)
+                            {
+                                // Check if this is a custom heading style
+                                bool isCustomHeading = style.CustomStyle?.Value == true;
+                                
+                                // Return false only if it's a custom heading
+                                if (isCustomHeading)
+                                {
+                                    return false;
+                                }
+                                
+                                // If we found a standard heading, we can stop looking
+                                return true;
+                            }
+                        }
+                    }
+                }
+
+                // If we didn't find any heading, return true (default case)
+                return true;
+            }
+            catch (Exception)
+            {
+                // In case of any errors, default to true to allow the document processing to continue
+                return true;
+            }
+        }
     }
 }

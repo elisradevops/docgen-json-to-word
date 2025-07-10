@@ -66,7 +66,7 @@ namespace JsonToWord.Services.Tests
             _mockUtilsService.Setup(m => m.GetPageWidthDxa(It.IsAny<MainDocumentPart>()))
                 .Returns(12240); // Standard page width
             
-            _mockParagraphService.Setup(m => m.CreateParagraph(It.IsAny<WordParagraph>()))
+            _mockParagraphService.Setup(m => m.CreateParagraph(It.IsAny<WordParagraph>(), It.IsAny<bool>()))
                 .Returns(new Paragraph());
             
             _mockRunService.Setup(m => m.CreateRun(It.IsAny<WordRun>()))
