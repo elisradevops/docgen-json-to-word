@@ -307,7 +307,7 @@ namespace JsonToWord.Services
 
             foreach (var wordParagraph in wordParagraphs)
             {
-                var paragraph = _paragraphService.CreateParagraph(wordParagraph);
+                var paragraph = _paragraphService.CreateParagraph(wordParagraph, false);
 
                 if (wordParagraph.Runs != null && wordParagraph.Runs.Any())
                 {

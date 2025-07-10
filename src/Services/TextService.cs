@@ -19,9 +19,9 @@ namespace JsonToWord.Services
             _runService = runService;
             _contentControlService = contentControlService;
         }
-        public void Write(WordprocessingDocument document, string contentControlTitle, WordParagraph wordParagraph)
+        public void Write(WordprocessingDocument document, string contentControlTitle, WordParagraph wordParagraph, bool isUnderStandardHeading)
         {
-            var paragraph = _paragraphService.CreateParagraph(wordParagraph);
+            var paragraph = _paragraphService.CreateParagraph(wordParagraph, isUnderStandardHeading);
 
             if (wordParagraph.Runs != null)
             {

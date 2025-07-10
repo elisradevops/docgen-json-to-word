@@ -59,7 +59,9 @@ namespace JsonToWord
                     try
                     {
                         _contentControlService.ClearContentControl(document, contentControl.Title, contentControl.ForceClean);
-
+                        
+                        var sdtBlockCC = _contentControlService.FindContentControl(document, contentControl.Title);
+                        var isUnderStandardHeading = _contentControlService.IsUnderStandardHeading(sdtBlockCC);
                         foreach (var wordObject in contentControl.WordObjects)
                         {
                             switch (wordObject.Type)
@@ -74,7 +76,7 @@ namespace JsonToWord
                                     _pictureService.Insert(document, contentControl.Title, (WordAttachment)wordObject);
                                     break;
                                 case WordObjectType.Paragraph:
-                                    _textService.Write(document, contentControl.Title, (WordParagraph)wordObject);
+                                    _textService.Write(document, contentControl.Title, (WordParagraph)wordObject, isUnderStandardHeading);
                                     break;
                                 case WordObjectType.Table:
                                     _tableService.Insert(document, contentControl.Title, (WordTable)wordObject);
