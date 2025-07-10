@@ -19,6 +19,15 @@ namespace JsonToWord.Services
             var paragraphStyleId = new ParagraphStyleId { Val = $"Heading{headingLevel}" };
 
             paragraphProperties.ParagraphStyleId = paragraphStyleId;
+            
+            // For headings under custom headings (like "Appendix"), prevent page breaks
+            // This is especially important for Heading1 which often has a page break before it by default
+            if (!isUnderStandardHeading)
+            {
+                // Add PageBreakBefore property and set it to false to prevent automatic page breaks
+                paragraphProperties.AppendChild(new PageBreakBefore() { Val = false });
+            }
+            
             paragraph.ParagraphProperties = paragraphProperties;
 
             return paragraph;
