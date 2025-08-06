@@ -1,4 +1,5 @@
-﻿using DocumentFormat.OpenXml;
+﻿using System.Linq;
+using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Wordprocessing;
 using JsonToWord.Models;
 using JsonToWord.Services.Interfaces;
@@ -57,5 +58,62 @@ namespace JsonToWord.Services
             paragraph1.Append(proofError2);
             return paragraph1;
         }
+
+        /// <summary>
+        /// Applies tight spacing to a paragraph by reducing line spacing and paragraph spacing
+        /// </summary>
+        /// <param name="paragraph">The paragraph to apply tight spacing to</param>
+        public void ApplyTightSpacing(Paragraph paragraph)
+        {
+            // Get or create paragraph properties
+            if (paragraph.ParagraphProperties == null)
+            {
+                paragraph.ParagraphProperties = new ParagraphProperties();
+            }
+
+            // Check if paragraph contains images or drawings
+            bool hasImages = paragraph.Descendants<Drawing>().Any() || 
+                           paragraph.Descendants<DocumentFormat.OpenXml.Vml.ImageData>().Any();
+
+            SpacingBetweenLines spacingBetweenLines;
+            
+            if (hasImages)
+            {
+                // For paragraphs with images, use automatic spacing but reduce paragraph spacing
+                spacingBetweenLines = new SpacingBetweenLines()
+                {
+                    LineRule = LineSpacingRuleValues.Auto,  // Auto spacing for images
+                    Line = "240",        // Single line spacing (1.0)
+                    Before = "0",        // No space before paragraph
+                    After = "60"         // Minimal space after paragraph (3pt)
+                };
+                
+
+            }
+            else
+            {
+                // For text-only paragraphs, use tighter exact spacing
+                spacingBetweenLines = new SpacingBetweenLines()
+                {
+                    Line = "240",        // 240 twentieths of a point (12pt line height)
+                    LineRule = LineSpacingRuleValues.Exact,
+                    Before = "0",        // No space before paragraph
+                    After = "0"          // No space after paragraph
+                };
+            }
+
+            paragraph.ParagraphProperties.SpacingBetweenLines = spacingBetweenLines;
+
+            // Set paragraph margins to zero for tighter spacing
+            var indentation = new Indentation()
+            {
+                Left = "0",
+                Right = "0",
+                FirstLine = "0"
+            };
+
+            paragraph.ParagraphProperties.Indentation = indentation;
+        }
+
     }
 }

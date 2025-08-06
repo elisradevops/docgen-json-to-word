@@ -8,7 +8,7 @@ namespace JsonToWord.Services.Interfaces
 {
     public interface IHtmlService
     {
-        void Insert(WordprocessingDocument document, string contentControlTitle, WordHtml wordHtml);
+        void Insert(WordprocessingDocument document, string contentControlTitle, WordHtml wordHtml, FormattingSettings formattingSettings);
         IEnumerable<OpenXmlCompositeElement> ConvertHtmlToOpenXmlElements(WordHtml wordHtml, WordprocessingDocument document);
     }
 }

@@ -7,5 +7,6 @@ namespace JsonToWord.Services.Interfaces
     {
         Paragraph CreateParagraph(WordParagraph wordParagraph, bool isUnderStandardHeading);
         Paragraph CreateCaption(string captionText);
+        void ApplyTightSpacing(Paragraph paragraph);
     }
 }

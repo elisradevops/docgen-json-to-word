@@ -109,7 +109,7 @@ namespace JsonToWord
                                     _fileService.Insert(document, contentControl.Title, (WordAttachment)wordObject);
                                     break;
                                 case WordObjectType.Html:
-                                    _htmlService.Insert(document, contentControl.Title, (WordHtml)wordObject);
+                                    _htmlService.Insert(document, contentControl.Title, (WordHtml)wordObject, _wordModel.FormattingSettings);
                                     break;
                                 case WordObjectType.Picture:
                                     _pictureService.Insert(document, contentControl.Title, (WordAttachment)wordObject);
@@ -118,7 +118,7 @@ namespace JsonToWord
                                     _textService.Write(document, contentControl.Title, (WordParagraph)wordObject, isUnderStandardHeading);
                                     break;
                                 case WordObjectType.Table:
-                                    _tableService.Insert(document, contentControl.Title, (WordTable)wordObject);
+                                    _tableService.Insert(document, contentControl.Title, (WordTable)wordObject, _wordModel.FormattingSettings);
                                     break;
                                 default:
                                     throw new ArgumentOutOfRangeException();

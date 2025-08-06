@@ -1,4 +1,4 @@
-﻿using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using JsonToWord.Models;
 
@@ -8,5 +8,7 @@ namespace JsonToWord.Services.Interfaces
     {
         void Insert(WordprocessingDocument document, string contentControlTitle, WordAttachment wordAttachment);
         Drawing CreateDrawing(MainDocumentPart mainDocumentPart, string filePath, bool isFlattened = false);
+        void ResizeDrawing(Drawing drawing);
+        void ResizeDrawing(Drawing drawing, long maxWidthEmu, long maxHeightEmu);
     }
 }

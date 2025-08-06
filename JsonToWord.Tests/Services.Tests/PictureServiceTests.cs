@@ -1,8 +1,9 @@
-﻿using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using JsonToWord.Models;
 using JsonToWord.Services.Interfaces;
+using Microsoft.Extensions.Logging;
 using Moq;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
@@ -14,6 +15,7 @@ namespace JsonToWord.Services.Tests
     {
         private readonly Mock<IContentControlService> _mockContentControlService;
         private readonly Mock<IParagraphService> _mockParagraphService;
+        private readonly Mock<ILogger<PictureService>> _mockLogger;
         private readonly PictureService _pictureService;
 
         private readonly string _docPath;
@@ -24,10 +26,12 @@ namespace JsonToWord.Services.Tests
         {
             _mockContentControlService = new Mock<IContentControlService>();
             _mockParagraphService = new Mock<IParagraphService>();
+            _mockLogger = new Mock<ILogger<PictureService>>();
 
             _pictureService = new PictureService(
                 _mockContentControlService.Object,
-                _mockParagraphService.Object
+                _mockParagraphService.Object,
+                _mockLogger.Object
             );
 
             // Create a temporary document for testing
