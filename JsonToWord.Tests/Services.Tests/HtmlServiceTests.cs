@@ -1,4 +1,4 @@
-﻿using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Validation;
 using DocumentFormat.OpenXml.Wordprocessing;
@@ -16,6 +16,8 @@ namespace JsonToWord.Services.Tests
         private readonly Mock<IContentControlService> _contentControlServiceMock;
         private readonly Mock<IDocumentValidatorService> _documentValidatorMock;
         private readonly Mock<ILogger<HtmlService>> _loggerMock;
+        private readonly Mock<IPictureService> _pictureServiceMock;
+        private readonly Mock<IParagraphService> _paragraphServiceMock;
         private WordprocessingDocument _document;
         private MemoryStream _stream;
 
@@ -24,11 +26,15 @@ namespace JsonToWord.Services.Tests
             _contentControlServiceMock = new Mock<IContentControlService>();
             _documentValidatorMock = new Mock<IDocumentValidatorService>();
             _loggerMock = new Mock<ILogger<HtmlService>>();
+            _pictureServiceMock = new Mock<IPictureService>();
+            _paragraphServiceMock = new Mock<IParagraphService>();
 
             _sut = new HtmlService(
                 _contentControlServiceMock.Object,
                 _documentValidatorMock.Object,
-                _loggerMock.Object);
+                _loggerMock.Object,
+                _pictureServiceMock.Object,
+                _paragraphServiceMock.Object);
 
             // Create a test document for use in tests
             _stream = new MemoryStream();

@@ -12,5 +12,6 @@ namespace JsonToWord.Models
         public List<WordContentControl> ContentControls { get; set; }
         public string LocalPath { get; set; }
         public List<JsonData> JsonDataList { get; set; }
+        public FormattingSettings FormattingSettings { get; set; }
     }
 }

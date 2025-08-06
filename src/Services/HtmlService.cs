@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -18,6 +18,8 @@ namespace JsonToWord.Services
         private readonly IContentControlService _contentControlService;
         private readonly IDocumentValidatorService _documentValidator;
         private readonly ILogger<HtmlService> _logger;
+        private readonly IPictureService _pictureService;
+        private readonly IParagraphService _paragraphService;
 
         // Common lists – these are not exhaustive, but cover many elements.
         private readonly HashSet<string> inlineElements = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
@@ -34,15 +36,32 @@ namespace JsonToWord.Services
             "li", "main", "nav", "noscript", "ol", "p", "pre", "section", "table", "ul", "video"
         };
 
-        public HtmlService(IContentControlService contentControlService,IDocumentValidatorService documentValidator, ILogger<HtmlService> logger)
+        public HtmlService(IContentControlService contentControlService,IDocumentValidatorService documentValidator, ILogger<HtmlService> logger, IPictureService pictureService, IParagraphService paragraphService)
         {
             _contentControlService = contentControlService;
             _logger = logger;
             _documentValidator = documentValidator;
+            _pictureService = pictureService;
+            _paragraphService = paragraphService;
         }
-        public void Insert(WordprocessingDocument document, string contentControlTitle, WordHtml wordHtml)
+        public void Insert(WordprocessingDocument document, string contentControlTitle, WordHtml wordHtml, FormattingSettings formattingSettings)
         {
             var elements = ConvertHtmlToOpenXmlElements(wordHtml, document);
+
+            // Always resize images from HTML content to fit properly in the document
+            foreach (var paragraph in elements.OfType<Paragraph>())
+            {
+                ResizeImagesInParagraph(paragraph);
+            }
+
+            // Apply tight spacing to HTML-generated paragraphs if TrimAdditionalSpacingInTables is enabled
+            if (formattingSettings?.TrimAdditionalSpacingInDescriptions == true)
+            {
+                foreach (var paragraph in elements.OfType<Paragraph>())
+                {
+                    _paragraphService.ApplyTightSpacing(paragraph);
+                }
+            }
 
             var sdtBlock = _contentControlService.FindContentControl(document, contentControlTitle);
 
@@ -272,5 +291,27 @@ namespace JsonToWord.Services
         }
 
         #endregion
+
+        /// <summary>
+        /// Resizes images in a paragraph to fit properly in the document
+        /// </summary>
+        /// <param name="paragraph">The paragraph containing images to resize</param>
+        private void ResizeImagesInParagraph(Paragraph paragraph)
+        {
+            // Find all Drawing elements (modern image format) and use PictureService to resize them
+            var drawings = paragraph.Descendants<Drawing>().ToList();
+            
+            foreach (var drawing in drawings)
+            {
+                _pictureService.ResizeDrawing(drawing);
+            }
+            
+            // Note: VML ImageData elements are legacy format and not commonly used in modern scenarios
+            // If needed, VML support can be added to PictureService in the future
+        }
+
+
+
+
     }
 }

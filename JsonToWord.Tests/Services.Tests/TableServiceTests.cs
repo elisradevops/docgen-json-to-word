@@ -1,4 +1,4 @@
-﻿using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using JsonToWord.Models;
@@ -93,7 +93,7 @@ namespace JsonToWord.Services.Tests
             };
 
             // Act
-            _tableService.Insert(_document, "TestControl", wordTable);
+            _tableService.Insert(_document, "TestControl", wordTable, null);
 
             // Assert
             _mockContentControlService.Verify(m => m.FindContentControl(_document, "TestControl"), Times.Once);
@@ -148,7 +148,7 @@ namespace JsonToWord.Services.Tests
             };
 
             // Act
-            _tableService.Insert(_document, "TestControl", wordTable);
+            _tableService.Insert(_document, "TestControl", wordTable, null);
 
             // Assert
             _mockContentControlService.Verify(m => m.FindContentControl(_document, "TestControl"), Times.Once);
@@ -178,7 +178,7 @@ namespace JsonToWord.Services.Tests
             };
 
             // Act
-            _tableService.Insert(_document, "TestControl", wordTable);
+            _tableService.Insert(_document, "TestControl", wordTable, null);
 
             // Assert
             _mockHtmlService.Verify(m => m.ConvertHtmlToOpenXmlElements(html, _document), Times.Once);
@@ -218,7 +218,7 @@ namespace JsonToWord.Services.Tests
             };
 
             // Act
-            _tableService.Insert(_document, "TestControl", wordTable);
+            _tableService.Insert(_document, "TestControl", wordTable, null);
 
             // Assert
             _mockPictureService.Verify(m => m.CreateDrawing(
@@ -261,7 +261,7 @@ namespace JsonToWord.Services.Tests
             };
 
             // Act
-            _tableService.Insert(_document, "TestControl", wordTable);
+            _tableService.Insert(_document, "TestControl", wordTable, null);
 
             // Assert
             _mockFileService.Verify(m => m.AttachFileToParagraph(
@@ -293,7 +293,7 @@ namespace JsonToWord.Services.Tests
             };
 
             // Act
-            _tableService.Insert(_document, "TestControl", wordTable);
+            _tableService.Insert(_document, "TestControl", wordTable, null);
 
             // Assert
             _mockContentControlService.Verify(m => m.FindContentControl(_document, "TestControl"), Times.Once);
@@ -321,7 +321,7 @@ namespace JsonToWord.Services.Tests
             };
 
             // Act
-            _tableService.Insert(_document, "TestControl", wordTable);
+            _tableService.Insert(_document, "TestControl", wordTable, null);
 
             // Assert
             _mockContentControlService.Verify(m => m.FindContentControl(_document, "TestControl"), Times.Once);
@@ -352,7 +352,7 @@ namespace JsonToWord.Services.Tests
             };
 
             // Act
-            _tableService.Insert(_document, "TestControl", wordTable);
+            _tableService.Insert(_document, "TestControl", wordTable, null);
 
             // Assert
             _mockUtilsService.Verify(m => m.ParseStringToDouble("50%"), Times.Once);
@@ -389,7 +389,7 @@ namespace JsonToWord.Services.Tests
             };
 
             // Act
-            _tableService.Insert(_document, "TestControl", wordTable);
+            _tableService.Insert(_document, "TestControl", wordTable, null);
 
             // Assert
             _mockUtilsService.Verify(m => m.ParseStringToDouble("5cm"), Times.Once);
@@ -421,7 +421,7 @@ namespace JsonToWord.Services.Tests
             };
 
             // Act
-            _tableService.Insert(_document, "TestControl", wordTable);
+            _tableService.Insert(_document, "TestControl", wordTable, null);
 
             // Assert
             _mockHtmlService.Verify(m => m.ConvertHtmlToOpenXmlElements(html, _document), Times.Once);
@@ -455,7 +455,7 @@ namespace JsonToWord.Services.Tests
             };
 
             // Act
-            _tableService.Insert(_document, "TestControl", wordTable);
+            _tableService.Insert(_document, "TestControl", wordTable, null);
 
             // Assert
             _mockContentControlService.Verify(m => m.FindContentControl(_document, "TestControl"), Times.Once);
@@ -520,7 +520,7 @@ namespace JsonToWord.Services.Tests
                 .Returns(new Drawing());
 
             // Act
-            _tableService.Insert(_document, "TestControl", wordTable);
+            _tableService.Insert(_document, "TestControl", wordTable, null);
 
             // Assert
             Assert.NotNull(capturedSdtContentBlock);
@@ -575,7 +575,7 @@ namespace JsonToWord.Services.Tests
             };
 
             // Act
-            _tableService.Insert(_document, "TestControl", wordTable);
+            _tableService.Insert(_document, "TestControl", wordTable, null);
 
             // Assert
             Assert.NotNull(capturedSdtContentBlock);

@@ -33,9 +33,9 @@ namespace JsonToWord.Services
             _htmlService = htmlService;
         }
 
-        public void Insert(WordprocessingDocument document, string contentControlTitle, WordTable wordTable)
+        public void Insert(WordprocessingDocument document, string contentControlTitle, WordTable wordTable, FormattingSettings formattingSettings)
         {
-            var table = CreateTable(document, wordTable);
+            var table = CreateTable(document, wordTable, formattingSettings);
         
             var sdtBlock = _contentControlService.FindContentControl(document, contentControlTitle);
         
@@ -97,10 +97,9 @@ namespace JsonToWord.Services
             }
         }
 
-        private Table CreateTable(WordprocessingDocument document, WordTable wordTable)
+        private Table CreateTable(WordprocessingDocument document, WordTable wordTable, FormattingSettings formattingSettings)
         {
             wordTable.RepeatHeaderRow = true;  
-
             var tableBorders = CreateTableBorders();
             var totalWidth = 5000;
             var tableWidth = new TableWidth { Width = totalWidth.ToString(), Type = TableWidthUnitValues.Pct };
@@ -184,7 +183,7 @@ namespace JsonToWord.Services
                         //Check if there is no data in the cell (HTML or an Attachment)
                         bool isEmpty = cells[j].Html == null && cells[j].Attachments?.Count == 0; 
 
-                        tableCell = AppendParagraphs(tableCell, cells[j].Paragraphs, document, isEmpty);
+                        tableCell = AppendParagraphs(tableCell, cells[j].Paragraphs, document, isEmpty, formattingSettings);
                         if (cells[j].Attachments?.Count > 0)
                         {
                             tableCell = AppendAttachments(tableCell, cells[j].Attachments, document);
@@ -192,13 +191,15 @@ namespace JsonToWord.Services
 
                         if (cells[j].Html != null)
                         {
-                            tableCell = AppendHtml(tableCell, cells[j].Html, document);
+                            tableCell = AppendHtml(tableCell, cells[j].Html, document, formattingSettings);
                         }
 
                         if (!tableCell.Descendants<Paragraph>().Any())
                         {
                             throw new Exception($"Table cell {i + 1}:{j + 1} must contain at least one paragraph");
                         }
+
+
 
                     }
                     catch (Exception e)
@@ -222,7 +223,7 @@ namespace JsonToWord.Services
             return table;
         }
 
-        private TableCell AppendHtml(TableCell tableCell, WordHtml html, WordprocessingDocument document)
+        private TableCell AppendHtml(TableCell tableCell, WordHtml html, WordprocessingDocument document, FormattingSettings formattingSettings = null)
         {
             if (html == null || string.IsNullOrEmpty(html.Html))
             {
@@ -235,12 +236,42 @@ namespace JsonToWord.Services
 
             if (elements.Any())
             {
+                // Always resize images from HTML content to fit within table cells
+                foreach (var paragraph in elements.OfType<Paragraph>())
+                {
+                    var drawings = paragraph.Descendants<Drawing>().ToList();
+                    
+                    foreach (var drawing in drawings)
+                    {
+                        // Use table cell dimensions (3 inches × 2 inches)
+                        const long tableCellMaxWidthEmu = 2743200;  // 3 inches in EMUs
+                        const long tableCellMaxHeightEmu = 1828800; // 2 inches in EMUs
+                        _pictureService.ResizeDrawing(drawing, tableCellMaxWidthEmu, tableCellMaxHeightEmu);
+                    }
+                }
+                
+                // Apply tight spacing to HTML-generated paragraphs if TrimAdditionalSpacingInTables is enabled
+                if (formattingSettings?.TrimAdditionalSpacingInTables == true)
+                {
+                    foreach (var paragraph in elements.OfType<Paragraph>())
+                    {
+                        _paragraphService.ApplyTightSpacing(paragraph);
+                    }
+                }
+                
                 tableCell.Append(elements);
             }
             //In a table cell, there must be at least one paragraph
             if (!elements.OfType<Paragraph>().Any())
             {
                 var paragraph = new Paragraph();
+                
+                // Apply tight spacing to the fallback paragraph if TrimAdditionalSpacingInTables is enabled
+                if (formattingSettings?.TrimAdditionalSpacingInTables == true)
+                {
+                    _paragraphService.ApplyTightSpacing(paragraph);
+                }
+                
                 tableCell.AppendChild(paragraph);
             }
 
@@ -293,7 +324,7 @@ namespace JsonToWord.Services
             return tableCell;
         }
 
-        private TableCell AppendParagraphs(TableCell tableCell, List<WordParagraph> wordParagraphs, WordprocessingDocument document, bool appendEmptyParagraph)
+        private TableCell AppendParagraphs(TableCell tableCell, List<WordParagraph> wordParagraphs, WordprocessingDocument document, bool appendEmptyParagraph, FormattingSettings formattingSettings = null)
         {
             if (wordParagraphs == null || !wordParagraphs.Any())
             {
@@ -308,6 +339,12 @@ namespace JsonToWord.Services
             foreach (var wordParagraph in wordParagraphs)
             {
                 var paragraph = _paragraphService.CreateParagraph(wordParagraph, false);
+                
+                // Apply tighter spacing if TrimAdditionalSpacingInTables is enabled
+                if (formattingSettings?.TrimAdditionalSpacingInTables == true)
+                {
+                    _paragraphService.ApplyTightSpacing(paragraph);
+                }
 
                 if (wordParagraph.Runs != null && wordParagraph.Runs.Any())
                 {
@@ -411,5 +448,6 @@ namespace JsonToWord.Services
                 }
             }
         }
+
     }
 }
