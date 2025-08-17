@@ -436,6 +436,46 @@
             Gets whether the given style is automatically promoted to child lists.
             </summary>
         </member>
+        <member name="M:HtmlToOpenXml.Custom.Expressions.ListExpression.HasExplicitListStyle(AngleSharp.Dom.IElement)">
+            <summary>
+            Checks if the list node has an explicit style attribute that defines list-style-type.
+            </summary>
+        </member>
+        <member name="M:HtmlToOpenXml.Custom.Expressions.ListExpression.GetOrCreateMultilevelListTemplate(HtmlToOpenXml.Custom.ParsingContext,System.String,System.String,System.Int32)">
+            <summary>
+            Creates or retrieves a multilevel list template that combines different styles at different levels.
+            </summary>
+        </member>
+        <member name="M:HtmlToOpenXml.Custom.Expressions.ListExpression.UpdateNumberingDefinitionLevel(HtmlToOpenXml.Custom.ParsingContext,System.Int32,System.Int32,System.String)">
+            <summary>
+            Updates a specific level in an existing numbering definition to use the correct formatting.
+            </summary>
+        </member>
+        <member name="M:HtmlToOpenXml.Custom.Expressions.ListExpression.HasListAncestor(AngleSharp.Html.Dom.IHtmlElement)">
+            <summary>
+            Checks if the current list element has a list ancestor (is nested within another list).
+            </summary>
+        </member>
+        <member name="M:HtmlToOpenXml.Custom.Expressions.ListExpression.CreateNewLevel(DocumentFormat.OpenXml.Wordprocessing.AbstractNum,System.Int32)">
+            <summary>
+            Creates a new level in the numbering definition based on level 0 template.
+            </summary>
+        </member>
+        <member name="M:HtmlToOpenXml.Custom.Expressions.ListExpression.CreateCustomMultilevelNumbering(HtmlToOpenXml.Custom.ParsingContext,HtmlToOpenXml.Custom.Expressions.ListExpression.ListContext,System.String)">
+            <summary>
+            Creates a custom multilevel numbering definition that combines different styles at different levels.
+            </summary>
+        </member>
+        <member name="M:HtmlToOpenXml.Custom.Expressions.ListExpression.GetNextAbstractNumId(DocumentFormat.OpenXml.Wordprocessing.Numbering)">
+            <summary>
+            Gets the next available abstract numbering ID.
+            </summary>
+        </member>
+        <member name="M:HtmlToOpenXml.Custom.Expressions.ListExpression.GetNumberingFormatForStyle(System.String)">
+            <summary>
+            Gets the OpenXML numbering format and text pattern for a given list style.
+            </summary>
+        </member>
         <member name="T:HtmlToOpenXml.Custom.Expressions.NumberingExpressionBase">
             <summary>
             Base implementation for numbering list.
