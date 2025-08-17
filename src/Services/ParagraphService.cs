@@ -1,4 +1,4 @@
-﻿using System.Linq;
+using System.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Wordprocessing;
 using JsonToWord.Models;
@@ -104,15 +104,8 @@ namespace JsonToWord.Services
 
             paragraph.ParagraphProperties.SpacingBetweenLines = spacingBetweenLines;
 
-            // Set paragraph margins to zero for tighter spacing
-            var indentation = new Indentation()
-            {
-                Left = "0",
-                Right = "0",
-                FirstLine = "0"
-            };
-
-            paragraph.ParagraphProperties.Indentation = indentation;
+            // Preserve existing indentation - only modify spacing, not indentation
+            // The tight spacing should not affect paragraph indentation levels
         }
 
     }
