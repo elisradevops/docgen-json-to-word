@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using DocumentFormat.OpenXml.Packaging;
 using JsonToWord.Models;
 using JsonToWord.Services;
@@ -19,12 +19,13 @@ namespace JsonToWord
         private readonly ITableService _tableService;
         private readonly ITextService _textService;
         private readonly IHtmlService _htmlService;
+        private readonly IVoidListService _voidListService;
         private readonly DocumentService _documentService;
         private bool _isZipNeeded = false;
         #endregion
         
         #region Constructor
-        public WordService(IContentControlService contentControlService, ITableService tableService, IPictureService pictureService, ITextService textService, IHtmlService htmlService ,IFileService fileService, ILogger<WordService> logger)
+        public WordService(IContentControlService contentControlService, ITableService tableService, IPictureService pictureService, ITextService textService, IHtmlService htmlService ,IFileService fileService, IVoidListService voidListService ,ILogger<WordService> logger)
         {
             _contentControlService = contentControlService;
             _fileService = fileService;
@@ -33,6 +34,7 @@ namespace JsonToWord
             _tableService = tableService;
             _textService = textService;
             _logger = logger;
+            _voidListService = voidListService;
             _documentService = new DocumentService();
             OnSubscribeEvents();
 
@@ -139,8 +141,18 @@ namespace JsonToWord
                 // Save document
                 document.MainDocumentPart.Document.Save();
             }
+            var voidListFile = string.Empty;
 
-            var generatedDocPath = _isZipNeeded ? ZipDocument(documentPath) : documentPath;
+            //Pass 3: Process Void List
+            if (_wordModel.FormattingSettings.ProcessVoidList)
+            {
+                _logger.LogInformation("PASS 3: Processing Void List");
+                voidListFile = _voidListService.CreateVoidList(documentPath) ?? string.Empty;
+                _isZipNeeded = !voidListFile.Equals(string.Empty);
+            }
+
+
+            var generatedDocPath = _isZipNeeded ? ZipDocument(documentPath, Directory.Exists("attachments") || (!voidListFile.Equals(string.Empty) && File.Exists(voidListFile)), voidListFile) : documentPath;
             _logger.LogInformation("Finished on doc path: " + generatedDocPath);
             return generatedDocPath;
             //documentService.RunMacro(documentPath, "updateTableOfContent",sw);
@@ -212,20 +224,20 @@ namespace JsonToWord
         #endregion
 
         #region Zip Related Methods
-        private string ZipDocument(string documentPath)
+        private string ZipDocument(string documentPath, bool hasAttachmentOrVoidList, string voidListFilePath)
         {
-            if (!Directory.Exists("attachments"))
+            if (!hasAttachmentOrVoidList)
             {
-                throw new Exception("Attachment folder is not found");
+                throw new Exception("Cannot find relevant files");
             }
 
             var zipFileName = Path.ChangeExtension(documentPath, ".zip");
-            CreateZipWithAttachments(zipFileName, documentPath, "attachments");
+            CreateZipWithAttachments(zipFileName, documentPath, "attachments", voidListFilePath);
 
             return zipFileName;
         }
 
-        private void CreateZipWithAttachments(string zipPath, string docxPath, string attachmentsFolder)
+        private void CreateZipWithAttachments(string zipPath, string docxPath, string attachmentsFolder, string voidListFilePath)
         {
             // Set a reasonable buffer size (e.g., 16 KB) to balance between memory usage and performance
             int bufferSize = 16 * 1024;
@@ -241,11 +253,20 @@ namespace JsonToWord
                 var validPath = docxPath.Replace(":", "_");
                 AddFileToZip(docxPath, Path.GetFileName(validPath), zipStream, bufferSize);
 
-                // Add all files in the attachments folder to the ZIP archive
-                foreach (string filePath in Directory.GetFiles(attachmentsFolder))
+                // Add the void list file if it exists
+                if (!string.IsNullOrEmpty(voidListFilePath) && File.Exists(voidListFilePath))
                 {
-                    // Add each file under the "attachments" folder in the ZIP archive
-                    AddFileToZip(filePath, "attachments/" + Path.GetFileName(filePath), zipStream, bufferSize);
+                    AddFileToZip(voidListFilePath, Path.GetFileName(voidListFilePath), zipStream, bufferSize);
+                }
+
+                // Add all files in the attachments folder to the ZIP archive if the folder exists
+                if (Directory.Exists(attachmentsFolder))
+                {
+                    foreach (string filePath in Directory.GetFiles(attachmentsFolder))
+                    {
+                        // Add each file under the "attachments" folder in the ZIP archive
+                        AddFileToZip(filePath, "attachments/" + Path.GetFileName(filePath), zipStream, bufferSize);
+                    }
                 }
             }
         }

@@ -4,5 +4,6 @@ namespace JsonToWord.Models
     {
         public bool TrimAdditionalSpacingInDescriptions { get; set; }
         public bool TrimAdditionalSpacingInTables { get; set; }
+        public bool ProcessVoidList { get; set; }
     }
 }
