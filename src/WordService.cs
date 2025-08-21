@@ -242,6 +242,9 @@ namespace JsonToWord
         {
             // Set a reasonable buffer size (e.g., 16 KB) to balance between memory usage and performance
             int bufferSize = 16 * 1024;
+            
+            // Extract datetime from docx filename (format: ...2025-08-21-16:39:15.docx)
+            DateTime? extractedDateTime = ExtractDateTimeFromFilename(docxPath);
 
             // Create the ZIP file
             using (FileStream fs = File.Create(zipPath, bufferSize, FileOptions.SequentialScan))
@@ -252,12 +255,12 @@ namespace JsonToWord
 
                 // Add the Word document to the ZIP archive
                 var validPath = docxPath.Replace(":", "_");
-                AddFileToZip(docxPath, Path.GetFileName(validPath), zipStream, bufferSize);
+                AddFileToZip(docxPath, Path.GetFileName(validPath), zipStream, bufferSize, extractedDateTime);
 
                 // Add the void list file if it exists
                 foreach (var voidListFile in voidListFilePath)
                 {
-                    AddFileToZip(voidListFile, Path.GetFileName(voidListFile), zipStream, bufferSize);
+                    AddFileToZip(voidListFile, Path.GetFileName(voidListFile), zipStream, bufferSize, extractedDateTime);
                 }
 
                 // Add all files in the attachments folder to the ZIP archive if the folder exists
@@ -266,19 +269,67 @@ namespace JsonToWord
                     foreach (string filePath in Directory.GetFiles(attachmentsFolder))
                     {
                         // Add each file under the "attachments" folder in the ZIP archive
-                        AddFileToZip(filePath, "attachments/" + Path.GetFileName(filePath), zipStream, bufferSize);
+                        AddFileToZip(filePath, "attachments/" + Path.GetFileName(filePath), zipStream, bufferSize, extractedDateTime);
                     }
                 }
             }
         }
 
+        // Extract datetime from filename pattern: ...2025-08-21-16:39:15.docx
+        private DateTime? ExtractDateTimeFromFilename(string filePath)
+        {
+            try
+            {
+                string fileName = Path.GetFileNameWithoutExtension(filePath);
+                
+                // Look for pattern: YYYY-MM-DD-HH:MM:SS at the end of filename
+                var match = System.Text.RegularExpressions.Regex.Match(fileName, @"(\d{4}-\d{2}-\d{2}-\d{2}:\d{2}:\d{2})$");
+                
+                if (match.Success)
+                {
+                    string dateTimeString = match.Groups[1].Value;
+                    // Convert format from YYYY-MM-DD-HH:MM:SS to YYYY-MM-DD HH:MM:SS
+                    // Find the third dash and replace it with a space
+                    int dashCount = 0;
+                    var chars = dateTimeString.ToCharArray();
+                    for (int i = 0; i < chars.Length; i++)
+                    {
+                        if (chars[i] == '-')
+                        {
+                            dashCount++;
+                            if (dashCount == 3)
+                            {
+                                chars[i] = ' ';
+                                break;
+                            }
+                        }
+                    }
+                    string formattedDateTime = new string(chars);
+                    
+                    if (DateTime.TryParseExact(formattedDateTime, "yyyy-MM-dd HH:mm:ss", null, System.Globalization.DateTimeStyles.None, out DateTime result))
+                    {
+                        _logger.LogInformation($"Extracted datetime from filename: {result}");
+                        return result;
+                    }
+                }
+                
+                _logger.LogWarning($"Could not extract datetime from filename: {fileName}");
+                return null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error extracting datetime from filename: {filePath}");
+                return null;
+            }
+        }
+
         // Optimized method to add a file to the ZIP archive with Windows Explorer compatibility
-        private void AddFileToZip(string filePath, string entryName, ZipOutputStream zipStream, int bufferSize)
+        private void AddFileToZip(string filePath, string entryName, ZipOutputStream zipStream, int bufferSize, DateTime? customDateTime = null)
         {
             // Create a new entry in the ZIP archive
             var entry = new ZipEntry(ZipEntry.CleanName(entryName)) // Use CleanName to ensure valid entry name
             {
-                DateTime = File.GetLastWriteTime(filePath),
+                DateTime = customDateTime ?? File.GetLastWriteTime(filePath),
                 CompressionMethod = CompressionMethod.Deflated, // Use Deflate compression method
                 IsUnicodeText = false, // Disable Unicode text to ensure Windows compatibility
                 Size = new FileInfo(filePath).Length
