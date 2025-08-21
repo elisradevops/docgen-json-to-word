@@ -201,9 +201,19 @@ namespace JsonToWord.Services
                     );
                     sheetData.Append(headerRow);
 
+                    // Sort entries by key (natural numeric order for VL codes)
+                    var sortedMatches = allMatches.OrderBy(entry => 
+                    {
+                        // Extract numeric part from VL-X format for proper sorting
+                        var keyPart = entry.Key.Replace("VL-", "");
+                        if (int.TryParse(keyPart, out int numericKey))
+                            return numericKey;
+                        return int.MaxValue; // Put non-numeric keys at the end
+                    }).ThenBy(entry => entry.Index).ToList();
+
                     // Add data rows
                     uint rowIndex = 2;
-                    foreach (var entry in allMatches)
+                    foreach (var entry in sortedMatches)
                     {
                         Row dataRow = new Row() { RowIndex = rowIndex };
                         dataRow.Append(
