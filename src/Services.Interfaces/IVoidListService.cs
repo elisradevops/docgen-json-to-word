@@ -1,7 +1,9 @@
-﻿namespace JsonToWord.Services.Interfaces
+﻿using System.Collections.Generic;
+
+namespace JsonToWord.Services.Interfaces
 {
     public interface IVoidListService
     {
-        string CreateVoidList(string docPath);
+        List<string> CreateVoidList(string docPath);
     }
 }
