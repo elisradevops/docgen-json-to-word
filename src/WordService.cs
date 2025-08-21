@@ -6,6 +6,8 @@ using System.IO;
 using JsonToWord.Services.Interfaces;
 using ICSharpCode.SharpZipLib.Zip;
 using Microsoft.Extensions.Logging;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace JsonToWord
 {
@@ -135,24 +137,23 @@ namespace JsonToWord
                     }
                 }
                 
-                // Clear the content control heading map after processing
                 _contentControlService.ClearContentControlHeadingMap();
                 
                 // Save document
                 document.MainDocumentPart.Document.Save();
             }
-            var voidListFile = string.Empty;
+            var voidListFiles = new List<string>();
 
             //Pass 3: Process Void List
             if (_wordModel.FormattingSettings.ProcessVoidList)
             {
                 _logger.LogInformation("PASS 3: Processing Void List");
-                voidListFile = _voidListService.CreateVoidList(documentPath) ?? string.Empty;
-                _isZipNeeded = !voidListFile.Equals(string.Empty);
+                voidListFiles = _voidListService.CreateVoidList(documentPath);
+                _isZipNeeded = voidListFiles.Any();
             }
 
 
-            var generatedDocPath = _isZipNeeded ? ZipDocument(documentPath, Directory.Exists("attachments") || (!voidListFile.Equals(string.Empty) && File.Exists(voidListFile)), voidListFile) : documentPath;
+            var generatedDocPath = _isZipNeeded ? ZipDocument(documentPath, Directory.Exists("attachments") || voidListFiles.Any(), voidListFiles) : documentPath;
             _logger.LogInformation("Finished on doc path: " + generatedDocPath);
             return generatedDocPath;
             //documentService.RunMacro(documentPath, "updateTableOfContent",sw);
@@ -224,7 +225,7 @@ namespace JsonToWord
         #endregion
 
         #region Zip Related Methods
-        private string ZipDocument(string documentPath, bool hasAttachmentOrVoidList, string voidListFilePath)
+        private string ZipDocument(string documentPath, bool hasAttachmentOrVoidList, List<string> voidListFilePath)
         {
             if (!hasAttachmentOrVoidList)
             {
@@ -237,7 +238,7 @@ namespace JsonToWord
             return zipFileName;
         }
 
-        private void CreateZipWithAttachments(string zipPath, string docxPath, string attachmentsFolder, string voidListFilePath)
+        private void CreateZipWithAttachments(string zipPath, string docxPath, string attachmentsFolder, List<string> voidListFilePath)
         {
             // Set a reasonable buffer size (e.g., 16 KB) to balance between memory usage and performance
             int bufferSize = 16 * 1024;
@@ -254,9 +255,9 @@ namespace JsonToWord
                 AddFileToZip(docxPath, Path.GetFileName(validPath), zipStream, bufferSize);
 
                 // Add the void list file if it exists
-                if (!string.IsNullOrEmpty(voidListFilePath) && File.Exists(voidListFilePath))
+                foreach (var voidListFile in voidListFilePath)
                 {
-                    AddFileToZip(voidListFilePath, Path.GetFileName(voidListFilePath), zipStream, bufferSize);
+                    AddFileToZip(voidListFile, Path.GetFileName(voidListFile), zipStream, bufferSize);
                 }
 
                 // Add all files in the attachments folder to the ZIP archive if the folder exists
