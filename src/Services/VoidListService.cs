@@ -27,7 +27,7 @@ namespace JsonToWord.Services
         private readonly ILogger<VoidListService> _logger;
         private readonly ISpreadsheetService _spreadsheetService;
         private static readonly Regex vlRegex = new Regex(@"#VL-[^#]+#", RegexOptions.IgnoreCase);
-        private static readonly Regex validVlRegex = new Regex(@"#VL-\d+[^#]*#", RegexOptions.IgnoreCase);
+        private static readonly Regex validVlRegex = new Regex(@"#VL-\d+(\s[^#]*)?#", RegexOptions.IgnoreCase);
 
         public VoidListService(ILogger<VoidListService> logger, ISpreadsheetService spreadsheetService)
         {
