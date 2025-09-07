@@ -22,12 +22,13 @@ namespace JsonToWord
         private readonly ITextService _textService;
         private readonly IHtmlService _htmlService;
         private readonly IVoidListService _voidListService;
-        private readonly DocumentService _documentService;
+        private readonly IDocumentService _documentService;
         private bool _isZipNeeded = false;
         #endregion
         
         #region Constructor
-        public WordService(IContentControlService contentControlService, ITableService tableService, IPictureService pictureService, ITextService textService, IHtmlService htmlService ,IFileService fileService, IVoidListService voidListService ,ILogger<WordService> logger)
+        public WordService(IContentControlService contentControlService, ITableService tableService, IPictureService pictureService, ITextService textService, IHtmlService htmlService ,IFileService fileService, IVoidListService voidListService,
+         IDocumentService documentService ,ILogger<WordService> logger)
         {
             _contentControlService = contentControlService;
             _fileService = fileService;
@@ -37,7 +38,7 @@ namespace JsonToWord
             _textService = textService;
             _logger = logger;
             _voidListService = voidListService;
-            _documentService = new DocumentService();
+            _documentService = documentService;
             OnSubscribeEvents();
 
         }
