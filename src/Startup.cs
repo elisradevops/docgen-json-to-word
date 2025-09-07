@@ -27,6 +27,7 @@ namespace JsonToWord
             services.AddTransient<IWordService, WordService>();
             services.AddTransient<IExcelService, ExcelService>();
             services.AddTransient<IParagraphService, ParagraphService>();
+            services.AddTransient<IDocumentService, DocumentService>();
             services.AddTransient<IPictureService, PictureService>();
             services.AddTransient<ITextService, TextService>();
             services.AddSingleton<ITableService, TableService>();

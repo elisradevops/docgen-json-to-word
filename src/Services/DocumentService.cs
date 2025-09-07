@@ -3,14 +3,32 @@ using System.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
+using Microsoft.Extensions.Logging;
+using JsonToWord.Services.Interfaces;
 
 namespace JsonToWord.Services
 {
-    public class DocumentService
+    public class DocumentService : IDocumentService
     {
+
+        private readonly ILogger<DocumentService> _logger;
+
+        public DocumentService(ILogger<DocumentService> logger){
+            _logger = logger;
+        }
+
         public string CreateDocument(string templatePath)
         {
-            var destinationFile = templatePath.Replace(".dot", ".doc");
+            
+            _logger.LogDebug("Creating document from template: {templatePath}", templatePath);
+            var ext = templatePath.Split('.').Last().ToLower();
+
+            if(!ext.StartsWith("doc") && !ext.StartsWith("dot"))
+            {
+                throw new System.Exception("Unsupported File Format, only .docx and .dotx are supported");
+            }
+
+            var destinationFile = templatePath.Replace($".{ext}", ".docx");
             byte[] templateBytes = File.ReadAllBytes(templatePath);
 
             using (var templateStream = new MemoryStream())
@@ -29,6 +47,7 @@ namespace JsonToWord.Services
                 File.WriteAllBytes(destinationFile, templateStream.ToArray());
             }
 
+            _logger.LogDebug("Document created successfully: {destinationFile}", destinationFile);
             return destinationFile;
         }
 
