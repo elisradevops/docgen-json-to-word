@@ -20,6 +20,7 @@ namespace JsonToWord.Services
         public string Value { get; set; } = string.Empty;
         public int Index { get; set; }
         public string DisplayKey { get; set; } = string.Empty;
+        public string Location { get; set; } = string.Empty;
     }
 
     public class VoidListService : IVoidListService
@@ -33,6 +34,42 @@ namespace JsonToWord.Services
         {
             _logger = logger;
             _spreadsheetService = spreadsheetService;
+        }
+
+        // Determine if the paragraph is a heading (Heading 1..9)
+        private static bool IsHeadingParagraph(Paragraph p)
+        {
+            // Consider outline level as heading as well (supports custom styles assigned an outline level)
+            if (p.ParagraphProperties?.OutlineLevel != null)
+                return true;
+
+            var styleId = p.ParagraphProperties?.ParagraphStyleId?.Val?.Value;
+            if (string.IsNullOrEmpty(styleId)) return false;
+            var normalized = styleId.Replace(" ", string.Empty);
+            return normalized.StartsWith("Heading", StringComparison.OrdinalIgnoreCase);
+        }
+
+        // Extracts plain text from a paragraph
+        private static string GetParagraphText(Paragraph p)
+        {
+            return p.InnerText?.Trim() ?? string.Empty;
+        }
+
+        // Extract only the test case id from a heading text.
+        // Expected formats include: "{name} - {id}" where id is numeric, possibly other numbers appear earlier
+        private static string ExtractTestCaseIdFromHeading(string heading)
+        {
+            if (string.IsNullOrWhiteSpace(heading)) return string.Empty;
+            // Prefer a number at the end of the string
+            var endMatch = Regex.Match(heading, @"(\d+)\s*$");
+            if (endMatch.Success) return endMatch.Groups[1].Value;
+            // Otherwise, look for a hyphen-delimited id anywhere
+            var hyphenMatch = Regex.Match(heading, @"-\s*(\d+)");
+            if (hyphenMatch.Success) return hyphenMatch.Groups[1].Value;
+            // Fallback: last number in the string
+            var allNums = Regex.Matches(heading, @"\d+");
+            if (allNums.Count > 0) return allNums[allNums.Count - 1].Value;
+            return string.Empty;
         }
 
         public List<string> CreateVoidList(string docPath)
@@ -56,8 +93,16 @@ namespace JsonToWord.Services
                         return filesToZip;
                     }
 
+                    string currentLocationId = string.Empty;
                     foreach (var p in mainPart.Document.Body.Descendants<Paragraph>().ToList())
                     {
+                        // Update current location when encountering a heading paragraph
+                        if (IsHeadingParagraph(p))
+                        {
+                            var headingText = GetParagraphText(p);
+                            currentLocationId = ExtractTestCaseIdFromHeading(headingText);
+                        }
+
                         var runsToProcess = p.Elements<Word.Run>().Where(r => vlRegex.IsMatch(r.InnerText)).ToList();
                         foreach (var run in runsToProcess)
                         {
@@ -105,7 +150,8 @@ namespace JsonToWord.Services
                                         Key = key, 
                                         Value = value, 
                                         Index = currentIndex,
-                                        DisplayKey = currentIndex > 1 ? $"{key}-{currentIndex}" : key
+                                        DisplayKey = currentIndex > 1 ? $"{key}-{currentIndex}" : key,
+                                        Location = currentLocationId
                                     });
                                     
                                     string newMatchValue = "#" + key;
@@ -120,7 +166,8 @@ namespace JsonToWord.Services
                                 else
                                 {
                                     // Invalid code - mark as red and add to validation errors
-                                    validationErrors.Add($"Invalid VL code found: {originalMatchValue} - Code must be in format #VL-[NUMBER]..#");
+                                    var locDisplay = string.IsNullOrWhiteSpace(currentLocationId) ? "Unknown" : currentLocationId;
+                                    validationErrors.Add($"Invalid VL code found: {originalMatchValue} at Work Item: {locDisplay}. Expected format: #VL-<number> [text]# (e.g., #VL-123 Description#).");
                                     
                                     var matchRun = new Word.Run(new Word.Text(originalMatchValue) { Space = SpaceProcessingModeValues.Preserve });
                                     Word.RunProperties rp = (run.RunProperties != null) ? (Word.RunProperties)run.RunProperties.CloneNode(true) : new Word.RunProperties();
@@ -158,7 +205,12 @@ namespace JsonToWord.Services
                 // Add duplicate validation errors
                 foreach (var duplicate in duplicateTracker.Where(d => d.Value > 1))
                 {
-                    validationErrors.Add($"Duplicate VL code found: {duplicate.Key} appears {duplicate.Value} times");
+                    var occurrenceGroups = allMatches
+                        .Where(e => e.Key.Equals(duplicate.Key, StringComparison.OrdinalIgnoreCase))
+                        .GroupBy(e => string.IsNullOrWhiteSpace(e.Location) ? "Unknown" : e.Location)
+                        .Select(g => g.Key == "Unknown" ? $"Unknown ({g.Count()})" : $"{g.Key} ({g.Count()})");
+                    string places = string.Join(", ", occurrenceGroups);
+                    validationErrors.Add($"Duplicate VL code found: {duplicate.Key} appears {duplicate.Value} times at Work Items: [{places}].");
                 }
                 
                 // Create validation report
