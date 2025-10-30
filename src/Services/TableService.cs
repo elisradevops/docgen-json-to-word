@@ -174,6 +174,18 @@ namespace JsonToWord.Services
                         tableCellProperties.AppendChild(cellShading);
                     }
                     
+                    // Apply vertical merge if present
+                    if (!string.IsNullOrEmpty(cells[j].vMerge))
+                    {
+                        var vm = new VerticalMerge
+                        {
+                            Val = cells[j].vMerge.Equals("restart", StringComparison.OrdinalIgnoreCase)
+                                ? MergedCellValues.Restart
+                                : MergedCellValues.Continue
+                        };
+                        tableCellProperties.AppendChild(vm);
+                    }
+                    
                    
                     var tableCell = new TableCell();
                     tableCell.TableCellProperties = tableCellProperties;
