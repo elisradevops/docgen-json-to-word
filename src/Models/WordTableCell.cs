@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 
 namespace JsonToWord.Models
 {
@@ -10,5 +10,6 @@ namespace JsonToWord.Models
         public string Width { get; set; }
         public List<WordAttachment> Attachments { get; set; }
         public WordHtml Html { get; set; }
+        public string vMerge { get; set; }
     }
 }
