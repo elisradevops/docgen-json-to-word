@@ -111,7 +111,6 @@ namespace JsonToWord.Services
 
             int pageWidthDxa = _utilsService.GetPageWidthDxa(document.MainDocumentPart);
 
-            var isHeaderRow = true;
             var table = new Table();
             table.AppendChild(tableProperties);
 
@@ -126,6 +125,19 @@ namespace JsonToWord.Services
             }
             table.AppendChild(tableGrid);
 
+            // Determine how many header rows to repeat: 1 by default, 2 if first row is a grouped header
+            int headerRowsToRepeat = 1;
+            if (rows.Count >= 2)
+            {
+                var firstRowCells = rows[0].Cells;
+                bool hasGridSpan = firstRowCells.Any(c => c.gridSpan.HasValue && c.gridSpan.Value > 1);
+                bool fewerCellsThanMax = firstRowCells.Count < maxColumns;
+                if (hasGridSpan || fewerCellsThanMax)
+                {
+                    headerRowsToRepeat = 2;
+                }
+            }
+
             for (int i = 0; i < rows.Count; i++)
             {
                 var tableRow = new TableRow { RsidTableRowProperties = "00812C40" };
@@ -139,11 +151,10 @@ namespace JsonToWord.Services
                 // Prevent row from breaking across pages
                 tableRow.TableRowProperties.AppendChild(new CantSplit() { Val = OnOffOnlyValues.On });
 
-                if (wordTable.RepeatHeaderRow && isHeaderRow)
+                if (wordTable.RepeatHeaderRow && i < headerRowsToRepeat)
                 {
                     var tableHeader = new TableHeader();
                     tableRow.TableRowProperties.AppendChild(tableHeader);
-                    isHeaderRow = false;
                 }
                 var cells = rows[i].Cells; 
 
@@ -154,27 +165,26 @@ namespace JsonToWord.Services
                     var tableCellWidth = GetTableCellWidth(cells[j].Width, pageWidthDxa);
 
                     var tableCellProperties = new TableCellProperties();
-                    tableCellProperties.AppendChild(tableCellWidth);
-                    tableCellProperties.AppendChild(tableCellBorders);
 
-                    if (rows[i].MergeToOneCell)
+                    // 1) Width
+                    tableCellProperties.Append(tableCellWidth);
+
+                    // 2) gridSpan (prefer per-cell, fallback to row-level)
+                    int? gridSpanVal = null;
+                    if (cells[j].gridSpan.HasValue && cells[j].gridSpan.Value > 1)
                     {
-                        var gridSpan = new GridSpan { Val = rows[i].NumberOfCellsToMerge };
-                        tableCellProperties.AppendChild(gridSpan);
+                        gridSpanVal = cells[j].gridSpan.Value;
+                    }
+                    else if (rows[i].MergeToOneCell && rows[i].NumberOfCellsToMerge > 1)
+                    {
+                        gridSpanVal = rows[i].NumberOfCellsToMerge;
+                    }
+                    if (gridSpanVal.HasValue)
+                    {
+                        tableCellProperties.Append(new GridSpan { Val = gridSpanVal.Value });
                     }
 
-                    if (cells[j].Shading != null)
-                    {
-                        var cellShading = new Shading
-                        {
-                            Val = ShadingPatternValues.Clear,
-                            Color = cells[j].Shading.Color,
-                            Fill = cells[j].Shading.Fill,
-                        };
-                        tableCellProperties.AppendChild(cellShading);
-                    }
-                    
-                    // Apply vertical merge if present
+                    // 3) vMerge
                     if (!string.IsNullOrEmpty(cells[j].vMerge))
                     {
                         var vm = new VerticalMerge
@@ -183,7 +193,22 @@ namespace JsonToWord.Services
                                 ? MergedCellValues.Restart
                                 : MergedCellValues.Continue
                         };
-                        tableCellProperties.AppendChild(vm);
+                        tableCellProperties.Append(vm);
+                    }
+
+                    // 4) Borders
+                    tableCellProperties.Append(tableCellBorders);
+
+                    // 5) Shading
+                    if (cells[j].Shading != null)
+                    {
+                        var cellShading = new Shading
+                        {
+                            Val = ShadingPatternValues.Clear,
+                            Color = cells[j].Shading.Color,
+                            Fill = cells[j].Shading.Fill,
+                        };
+                        tableCellProperties.Append(cellShading);
                     }
                     
                    
@@ -224,6 +249,23 @@ namespace JsonToWord.Services
                     if (!(tableCell.LastChild is Paragraph))
                     {
                         tableCell.AppendChild(new Paragraph());
+                    }
+
+                    if (i < headerRowsToRepeat)
+                    {
+                        foreach (var p in tableCell.Descendants<Paragraph>())
+                        {
+                            if (p.ParagraphProperties == null)
+                            {
+                                p.ParagraphProperties = new ParagraphProperties();
+                            }
+                            p.ParagraphProperties.Justification = new Justification() { Val = JustificationValues.Center };
+                        }
+                        if (tableCell.TableCellProperties == null)
+                        {
+                            tableCell.TableCellProperties = new TableCellProperties();
+                        }
+                        tableCell.TableCellProperties.Append(new TableCellVerticalAlignment() { Val = TableVerticalAlignmentValues.Center });
                     }
 
                     tableRow.AppendChild(tableCell);
