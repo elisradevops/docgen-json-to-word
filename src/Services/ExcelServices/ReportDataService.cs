@@ -1,4 +1,4 @@
-﻿using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using JsonToWord.Models.Excel;
@@ -422,6 +422,15 @@ namespace JsonToWord.Services.ExcelServices
                 row.Append(_spreadsheetService.CreateTextCell(cellRef, testCase.RunBy, dataStyleIndex));
             else if (property == "Configuration")
                 row.Append(_spreadsheetService.CreateTextCell(cellRef, testCase.Configuration, dataStyleIndex));
+            else if (property == "State")
+                row.Append(_spreadsheetService.CreateTextCell(cellRef, testCase.State, dataStyleIndex));
+            else if (property == "StateChangeDate")
+            {
+                if (!string.IsNullOrEmpty(testCase.StateChangeDate) && DateTime.TryParse(testCase.StateChangeDate, out DateTime scd))
+                    row.Append(_spreadsheetService.CreateDateCell(cellRef, scd, dateStyleIndex));
+                else
+                    row.Append(_spreadsheetService.CreateTextCell(cellRef, testCase.StateChangeDate, dataStyleIndex));
+            }
             else if (property == "AssociatedRequirementCount")
                 row.Append(_spreadsheetService.CreateTextCell(cellRef, testCase.AssociatedRequirements?.Count.ToString(), dateStyleIndex));
             else if (property.StartsWith("AssociatedRequirement_"))
