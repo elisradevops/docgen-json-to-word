@@ -1,4 +1,4 @@
-﻿using DocumentFormat.OpenXml.Spreadsheet;
+using DocumentFormat.OpenXml.Spreadsheet;
 using JsonToWord.Models.Excel;
 using JsonToWord.Models.TestReporterModels;
 using JsonToWord.Services.Interfaces.ExcelServices;
@@ -58,6 +58,8 @@ namespace JsonToWord.Services.ExcelServices
                 // TestCase fields - include additional properties
                 new ColumnDefinition { Name = "Run By", Width = 20, Property = "RunBy", Group= "Test Cases" },
                 new ColumnDefinition { Name = "Configuration", Width = 15, Property = "Configuration", Group= "Test Cases" },
+                new ColumnDefinition { Name = "State", Width = 15, Property = "State", Group= "Test Cases" },
+                new ColumnDefinition { Name = "State Change Date", Width = 18, Property = "StateChangeDate", Group= "Test Cases" },
 
             };
 
@@ -331,6 +333,10 @@ namespace JsonToWord.Services.ExcelServices
                         testCaseColumnsWithData.Add("RunBy");
                     if (!string.IsNullOrEmpty(testCase.Configuration))
                         testCaseColumnsWithData.Add("Configuration");
+                    if (!string.IsNullOrEmpty(testCase.State))
+                        testCaseColumnsWithData.Add("State");
+                    if (!string.IsNullOrEmpty(testCase.StateChangeDate))
+                        testCaseColumnsWithData.Add("StateChangeDate");
 
                     // Check for Requirements group columns data
                     if (testCase.AssociatedRequirements != null)
