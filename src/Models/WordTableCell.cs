@@ -11,5 +11,6 @@ namespace JsonToWord.Models
         public List<WordAttachment> Attachments { get; set; }
         public WordHtml Html { get; set; }
         public string vMerge { get; set; }
+        public int? gridSpan { get; set; }
     }
 }
