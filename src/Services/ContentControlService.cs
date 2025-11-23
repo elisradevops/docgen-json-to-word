@@ -27,8 +27,17 @@ namespace JsonToWord.Services
 
         public void ClearContentControl(WordprocessingDocument document, string contentControlTitle, bool force)
         {
-            var sdtBlock = document.MainDocumentPart.Document.Body.Descendants<SdtBlock>()
-                .FirstOrDefault(e => e.Descendants<SdtAlias>().FirstOrDefault()?.Val == contentControlTitle);
+            var body = document.MainDocumentPart.Document.Body;
+
+            // Find block-level content control by alias or tag
+            var sdtBlock = body.Descendants<SdtBlock>()
+                .FirstOrDefault(e =>
+                {
+                    var alias = e.SdtProperties?.GetFirstChild<SdtAlias>()?.Val?.Value;
+                    var tag = e.SdtProperties?.GetFirstChild<Tag>()?.Val?.Value;
+                    return string.Equals(alias, contentControlTitle, StringComparison.Ordinal) ||
+                           string.Equals(tag, contentControlTitle, StringComparison.Ordinal);
+                });
 
             if (sdtBlock == null)
                 throw new Exception("Did not find a content control with the title " + contentControlTitle);
@@ -39,12 +48,64 @@ namespace JsonToWord.Services
 
         public SdtBlock FindContentControl(WordprocessingDocument preprocessingDocument, string contentControlTitle)
         {
-            var sdtBlock = preprocessingDocument.MainDocumentPart.Document.Body.Descendants<SdtBlock>().FirstOrDefault(e => e.Descendants<SdtAlias>().FirstOrDefault()?.Val == contentControlTitle);
+            var body = preprocessingDocument.MainDocumentPart.Document.Body;
 
-            if (sdtBlock == null)
+            // 1) Prefer existing block-level content controls (current behavior)
+            var sdtBlock = body.Descendants<SdtBlock>()
+                .FirstOrDefault(e =>
+                {
+                    var alias = e.SdtProperties?.GetFirstChild<SdtAlias>()?.Val?.Value;
+                    var tag = e.SdtProperties?.GetFirstChild<Tag>()?.Val?.Value;
+                    return string.Equals(alias, contentControlTitle, StringComparison.Ordinal) ||
+                           string.Equals(tag, contentControlTitle, StringComparison.Ordinal);
+                });
+
+            if (sdtBlock != null)
+                return sdtBlock;
+
+            // 2) Fallback: support run-level content controls (SdtRun) by converting them to SdtBlock
+            var sdtRun = body.Descendants<SdtRun>()
+                .FirstOrDefault(e =>
+                {
+                    var alias = e.SdtProperties?.GetFirstChild<SdtAlias>()?.Val?.Value;
+                    var tag = e.SdtProperties?.GetFirstChild<Tag>()?.Val?.Value;
+                    return string.Equals(alias, contentControlTitle, StringComparison.Ordinal) ||
+                           string.Equals(tag, contentControlTitle, StringComparison.Ordinal);
+                });
+
+            if (sdtRun == null)
                 throw new Exception("Did not find a content control with the title " + contentControlTitle);
 
-            return sdtBlock;
+            // Convert run-level SDT into a block-level SDT that sits AFTER the original paragraph.
+            // We keep the paragraph itself (e.g., "Project Name" + line break) and remove only the run-level SDT.
+            var paragraph = sdtRun.Ancestors<Paragraph>().FirstOrDefault();
+            if (paragraph == null)
+                throw new Exception($"Run-level content control '{contentControlTitle}' is not contained in a paragraph");
+
+            var parent = paragraph.Parent;
+            if (parent == null)
+                throw new Exception($"Could not determine parent element for content control '{contentControlTitle}'");
+
+            // Remove the run-level SDT from the paragraph so its placeholder text disappears
+            sdtRun.Remove();
+
+            // Create a new block-level content control with the same properties as the run-level SDT
+            var newSdtBlock = new SdtBlock();
+            if (sdtRun.SdtProperties != null)
+            {
+                var clonedProps = (SdtProperties)sdtRun.SdtProperties.CloneNode(true);
+                newSdtBlock.AppendChild(clonedProps);
+            }
+
+            // Initialize with an empty content block (it will be cleared and filled later)
+            var contentBlock = new SdtContentBlock();
+            contentBlock.AppendChild(new Paragraph());
+            newSdtBlock.AppendChild(contentBlock);
+
+            // Insert the new block-level SDT immediately AFTER the original paragraph
+            parent.InsertAfter(newSdtBlock, paragraph);
+
+            return newSdtBlock;
         }
 
         public void RemoveContentControl(WordprocessingDocument document, string contentControlTitle)
@@ -52,6 +113,16 @@ namespace JsonToWord.Services
             var contentControl = FindContentControl(document, contentControlTitle);
             _logger.LogInformation("Removing content control: " + contentControlTitle);
             var errors = new List<string>();
+            // Special handling: for release-range-content-control we want the generated content
+            // to be merged into the previous paragraph (e.g., the "Project Name" title paragraph)
+            // instead of becoming a separate paragraph. This preserves the original paragraph
+            // style while still unwrapping the content control.
+            bool mergeIntoPreviousParagraph = string.Equals(contentControlTitle, "release-range-content-control", StringComparison.Ordinal);
+            Paragraph previousParagraph = null;
+            if (mergeIntoPreviousParagraph)
+            {
+                previousParagraph = contentControl.PreviousSibling<Paragraph>();
+            }
             foreach (var element in contentControl.Elements())
             {
                 if (element is SdtContentBlock)
@@ -60,7 +131,18 @@ namespace JsonToWord.Services
                     {
                         var errorMsgs = _documentValidator.ValidateInnerElementOfContentControl(contentControlTitle, innerElement);
                         errors.AddRange(errorMsgs);
-                        contentControl.Parent.InsertBefore(innerElement.CloneNode(true), contentControl);
+                        if (mergeIntoPreviousParagraph && previousParagraph != null && innerElement is Paragraph innerParagraph)
+                        {
+                            // Move all child runs/inline elements of the inner paragraph into the previous paragraph
+                            foreach (var child in innerParagraph.Elements())
+                            {
+                                previousParagraph.AppendChild(child.CloneNode(true));
+                            }
+                        }
+                        else
+                        {
+                            contentControl.Parent.InsertBefore(innerElement.CloneNode(true), contentControl);
+                        }
                     }
                 }
             }

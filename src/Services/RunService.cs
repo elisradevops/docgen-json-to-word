@@ -123,8 +123,19 @@ namespace JsonToWord.Services
             }
             else
             {
-                var runFonts = new RunFonts { Ascii = wordRun.Font, HighAnsi = wordRun.Font, ComplexScript = wordRun.Font };
-                runProperties.RunFonts = runFonts;
+                // Only set explicit run fonts when a font name is provided.
+                // If Font is null or empty, we skip RunFonts so that the run inherits
+                // its font from the paragraph style defined in the DOTX template.
+                if (!string.IsNullOrEmpty(wordRun.Font))
+                {
+                    var runFonts = new RunFonts
+                    {
+                        Ascii = wordRun.Font,
+                        HighAnsi = wordRun.Font,
+                        ComplexScript = wordRun.Font
+                    };
+                    runProperties.RunFonts = runFonts;
+                }
             }
         }
 
