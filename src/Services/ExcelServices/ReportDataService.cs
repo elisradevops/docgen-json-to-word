@@ -110,7 +110,9 @@ namespace JsonToWord.Services.ExcelServices
                         uint currentRowIndex = rowIndex;
                         
                         // Determine the number of rows needed for the test case part (steps or single row)
-                        int testCaseRows = testCase.TestSteps?.Count ?? 0;
+                        int testCaseStepRows = testCase.TestSteps?.Count ?? 0;
+                        int testCaseHistoryRows = testCase.HistoryEntries?.Count ?? 0;
+                        int testCaseRows = Math.Max(testCaseStepRows, testCaseHistoryRows);
 
                         // Determine the maximum number of rows needed for any associated item group
                         int maxAssociatedItems = Math.Max(testCase.AssociatedRequirements?.Count ?? 0,
@@ -120,85 +122,70 @@ namespace JsonToWord.Services.ExcelServices
                         int rowSpan = Math.Max(testCaseRows, maxAssociatedItems);
                         if (rowSpan == 0) rowSpan = 1; // Ensure at least one row is always processed
 
-                        // Process test steps if any
-                        bool isFirstStep = true;
-                        if (testCase.TestSteps != null && testCase.TestSteps.Any())
+                        // Emit rows (step rows + history rows). History entries align with row index (start at first data row).
+                        bool isFirstRow = true;
+                        for (int rowOffset = 0; rowOffset < rowSpan; rowOffset++)
                         {
-                            foreach (var step in testCase.TestSteps)
+                            TestStepModel step =
+                                testCase.TestSteps != null && rowOffset < testCase.TestSteps.Count
+                                    ? testCase.TestSteps[rowOffset]
+                                    : null;
+                            string historyEntry =
+                                testCase.HistoryEntries != null && rowOffset < testCase.HistoryEntries.Count
+                                    ? testCase.HistoryEntries[rowOffset]
+                                    : null;
+
+                            try
                             {
-                                if (step == null)
-                                {
-                                    _logger.LogWarning("Skipping null test step in test case {TestCaseId}", testCase.TestCaseId);
-                                    continue;
-                                }
-                                try
-                                {
-                                    Row row = GetOrCreateRow(sheetData, currentRowIndex++);
-                                    row.OutlineLevel = (ByteValue)(groupBySuite ? 1 : 0);  // Only outline if grouping by suite
+                                Row row = GetOrCreateRow(sheetData, currentRowIndex++);
+                                row.OutlineLevel = (ByteValue)(groupBySuite ? 1 : 0);  // Only outline if grouping by suite
 
-                                    // Create cells for test case columns
-                                    for (int i = 0; i < testCaseColumnDefinitions.Count; i++)
+                                // Create cells for test case columns
+                                for (int i = 0; i < testCaseColumnDefinitions.Count; i++)
+                                {
+                                    string colLetter = _spreadsheetService.GetColumnLetter(testCaseColStart + i + 1);
+                                    string cellRef = $"{colLetter}{row.RowIndex}";
+                                    string property = testCaseColumnDefinitions[i].Property;
+
+                                    try
                                     {
-                                        string colLetter = _spreadsheetService.GetColumnLetter(testCaseColStart + i + 1);
-                                        string cellRef = $"{colLetter}{row.RowIndex}";
-                                        string property = testCaseColumnDefinitions[i].Property;
-
-                                        try
+                                        if (property == "SuiteName" && !groupBySuite)
                                         {
-                                            if (property == "SuiteName" && !groupBySuite)
-                                            {
-                                                SafeAddCell(row, cellRef, testSuite.SuiteName, currentDataStyleIndex);
-                                            }
-                                            else if (isFirstStep)
-                                            {
-                                                AddTestCaseCellWithSteps(row, property, cellRef, testCase, step,
-                                                                     currentDataStyleIndex, currentDateStyleIndex, currentNumberStyleIndex);
-                                            }
-                                            else
-                                            {
-                                                AddStepOnlyCell(row, property, cellRef, step, currentDataStyleIndex);
-                                            }
+                                            SafeAddCell(row, cellRef, testSuite.SuiteName, currentDataStyleIndex);
                                         }
-                                        catch (Exception ex)
+                                        else if (isFirstRow)
                                         {
-                                            _logger.LogError(ex, "Error processing cell {CellRef} for property {Property}",
-                                                cellRef, property);
-                                            // Add an error indicator to the cell
-                                            SafeAddCell(row, cellRef, "Error", currentDataStyleIndex);
+                                            AddTestCaseCellWithSteps(
+                                                row,
+                                                property,
+                                                cellRef,
+                                                testCase,
+                                                step,
+                                                historyEntry,
+                                                currentDataStyleIndex,
+                                                currentDateStyleIndex,
+                                                currentNumberStyleIndex
+                                            );
+                                        }
+                                        else
+                                        {
+                                            AddStepOnlyCell(row, property, cellRef, step, historyEntry, currentDataStyleIndex);
                                         }
                                     }
-
-                                    isFirstStep = false;
+                                    catch (Exception ex)
+                                    {
+                                        _logger.LogError(ex, "Error processing cell {CellRef} for property {Property}",
+                                            cellRef, property);
+                                        // Add an error indicator to the cell
+                                        SafeAddCell(row, cellRef, "Error", currentDataStyleIndex);
+                                    }
                                 }
-                                catch (Exception ex)
-                                {
-                                    _logger.LogError(ex, "Error processing test step for test case {TestCaseId}",
-                                        testCase.TestCaseId);
-                                    // Skip to next step
-                                }
+                                isFirstRow = false;
                             }
-                        }
-                        else
-                        {
-                            // No steps, create a single row for the test case
-                            Row row = GetOrCreateRow(sheetData, currentRowIndex++);
-                            // Add cells for test case columns
-                            for (int i = 0; i < testCaseColumnDefinitions.Count; i++)
+                            catch (Exception ex)
                             {
-                                string colLetter = _spreadsheetService.GetColumnLetter(testCaseColStart + i + 1);
-                                string cellRef = $"{colLetter}{row.RowIndex}";
-                                string property = testCaseColumnDefinitions[i].Property;
-
-                                if (property == "SuiteName" && !groupBySuite)
-                                {
-                                    // Add suite name column for ungrouped data
-                                    row.Append(_spreadsheetService.CreateTextCell(cellRef, testSuite.SuiteName, currentDataStyleIndex));
-                                }
-                                else
-                                {
-                                    AddTestCaseCell(row, property, cellRef, testCase,
-                                                    currentDataStyleIndex, currentDateStyleIndex, currentNumberStyleIndex);
-                                }
+                                _logger.LogError(ex, "Error processing test row for test case {TestCaseId}",
+                                    testCase.TestCaseId);
                             }
                         }
 
@@ -223,7 +210,7 @@ namespace JsonToWord.Services.ExcelServices
                         // Merge the test case cells
                         if (rowSpan > 1)
                         {
-                            var stepProperties = new HashSet<string> { "StepNo", "StepAction", "StepExpected", "StepRunStatus", "StepErrorMessage" };
+                            var stepProperties = new HashSet<string> { "StepNo", "StepAction", "StepExpected", "StepRunStatus", "StepErrorMessage", "History" };
 
                             // Merge cells for test case columns that are not step-specific
                             for (int i = 0; i < testCaseColumnDefinitions.Count; i++)
@@ -328,20 +315,22 @@ namespace JsonToWord.Services.ExcelServices
         }
 
         private void AddTestCaseCellWithSteps(Row row, string property, string cellRef,
-                                TestCaseModel testCase, TestStepModel step,
+                                TestCaseModel testCase, TestStepModel step, string historyEntry,
                                 uint dataStyleIndex, uint dateStyleIndex, uint numberStyleIndex)
         {
             // If it's a step-specific property, handle it directly
             if (property == "StepNo")
-                row.Append(_spreadsheetService.CreateTextCell(cellRef, step.StepNo, dataStyleIndex));
+                row.Append(_spreadsheetService.CreateTextCell(cellRef, step?.StepNo ?? string.Empty, dataStyleIndex));
             else if (property == "StepAction")
-                row.Append(_spreadsheetService.CreateTextCell(cellRef, StripHtmlAndTruncate(step.StepAction), dataStyleIndex));
+                row.Append(_spreadsheetService.CreateTextCell(cellRef, StripHtmlAndTruncate(step?.StepAction), dataStyleIndex));
             else if (property == "StepExpected")
-                row.Append(_spreadsheetService.CreateTextCell(cellRef, StripHtmlAndTruncate(step.StepExpected), dataStyleIndex));
+                row.Append(_spreadsheetService.CreateTextCell(cellRef, StripHtmlAndTruncate(step?.StepExpected), dataStyleIndex));
             else if (property == "StepRunStatus")
-                row.Append(_spreadsheetService.CreateTextCell(cellRef, step.StepRunStatus, dataStyleIndex));
+                row.Append(_spreadsheetService.CreateTextCell(cellRef, step?.StepRunStatus ?? string.Empty, dataStyleIndex));
             else if (property == "StepErrorMessage")
-                row.Append(_spreadsheetService.CreateTextCell(cellRef, step.StepErrorMessage, dataStyleIndex));
+                row.Append(_spreadsheetService.CreateTextCell(cellRef, step?.StepErrorMessage ?? string.Empty, dataStyleIndex));
+            else if (property == "History")
+                row.Append(_spreadsheetService.CreateTextCell(cellRef, StripHtmlAndTruncate(historyEntry), dataStyleIndex));
             else
                 // For all test case properties, use the common method
                 AddTestCasePropertyCell(row, property, cellRef, testCase, step,
@@ -565,18 +554,20 @@ namespace JsonToWord.Services.ExcelServices
         }
 
 
-        private void AddStepOnlyCell(Row row, string property, string cellRef, TestStepModel step, uint dataStyleIndex)
+        private void AddStepOnlyCell(Row row, string property, string cellRef, TestStepModel step, string historyEntry, uint dataStyleIndex)
         {
             if (property == "StepNo")
-                row.Append(_spreadsheetService.CreateTextCell(cellRef, step.StepNo, dataStyleIndex));
+                row.Append(_spreadsheetService.CreateTextCell(cellRef, step?.StepNo ?? string.Empty, dataStyleIndex));
             else if (property == "StepAction")
-                row.Append(_spreadsheetService.CreateTextCell(cellRef, StripHtmlAndTruncate(step.StepAction), dataStyleIndex));
+                row.Append(_spreadsheetService.CreateTextCell(cellRef, StripHtmlAndTruncate(step?.StepAction), dataStyleIndex));
             else if (property == "StepExpected")
-                row.Append(_spreadsheetService.CreateTextCell(cellRef, StripHtmlAndTruncate(step.StepExpected), dataStyleIndex));
+                row.Append(_spreadsheetService.CreateTextCell(cellRef, StripHtmlAndTruncate(step?.StepExpected), dataStyleIndex));
             else if (property == "StepRunStatus")
-                row.Append(_spreadsheetService.CreateTextCell(cellRef, step.StepRunStatus, dataStyleIndex));
+                row.Append(_spreadsheetService.CreateTextCell(cellRef, step?.StepRunStatus ?? string.Empty, dataStyleIndex));
             else if (property == "StepErrorMessage")
-                row.Append(_spreadsheetService.CreateTextCell(cellRef, step.StepErrorMessage, dataStyleIndex));
+                row.Append(_spreadsheetService.CreateTextCell(cellRef, step?.StepErrorMessage ?? string.Empty, dataStyleIndex));
+            else if (property == "History")
+                row.Append(_spreadsheetService.CreateTextCell(cellRef, StripHtmlAndTruncate(historyEntry), dataStyleIndex));
             else
                 FillEmptyCell(row, cellRef, dataStyleIndex);
         }

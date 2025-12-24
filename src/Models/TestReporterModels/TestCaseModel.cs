@@ -17,6 +17,7 @@ namespace JsonToWord.Models.TestReporterModels
         public string? ExecutionDate { get; set; }  
         public string? State { get; set; }  
         public string? StateChangeDate { get; set; }
+        public List<string>? HistoryEntries { get; set; }
         public List<AssociatedItemModel>? AssociatedRequirements { get; set; }
         public List<AssociatedItemModel>? AssociatedBugs { get; set; }
         public List<AssociatedItemModel>? AssociatedCRs { get; set; }

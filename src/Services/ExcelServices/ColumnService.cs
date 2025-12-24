@@ -54,6 +54,7 @@ namespace JsonToWord.Services.ExcelServices
                 new ColumnDefinition { Name = "Step Expected Result", Width = 40, Property = "StepExpected", Group= "Test Cases" },
                 new ColumnDefinition { Name = "Step Actual Result", Width = 30, Property = "StepErrorMessage", Group= "Test Cases" },
                 new ColumnDefinition { Name = "Step Run Status", Width = 17, Property = "StepRunStatus", Group= "Test Cases" },
+                new ColumnDefinition { Name = "History", Width = 45, Property = "History", Group= "Test Cases" },
 
                 // TestCase fields - include additional properties
                 new ColumnDefinition { Name = "Run By", Width = 20, Property = "RunBy", Group= "Test Cases" },
@@ -326,6 +327,18 @@ namespace JsonToWord.Services.ExcelServices
                                 testCaseColumnsWithData.Add("StepRunStatus");
                             if (!string.IsNullOrEmpty(step.StepErrorMessage))
                                 testCaseColumnsWithData.Add("StepErrorMessage");
+                        }
+                    }
+
+                    if (testCase.HistoryEntries != null)
+                    {
+                        foreach (var entry in testCase.HistoryEntries)
+                        {
+                            if (!string.IsNullOrEmpty(entry))
+                            {
+                                testCaseColumnsWithData.Add("History");
+                                break;
+                            }
                         }
                     }
 
