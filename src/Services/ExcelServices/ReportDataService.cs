@@ -109,18 +109,31 @@ namespace JsonToWord.Services.ExcelServices
                         // We'll use this to track the current row as we add data
                         uint currentRowIndex = rowIndex;
                         
-                        // Determine the number of rows needed for the test case part (steps or single row)
-                        int testCaseStepRows = testCase.TestSteps?.Count ?? 0;
-                        int testCaseHistoryRows = testCase.HistoryEntries?.Count ?? 0;
-                        int testCaseRows = Math.Max(testCaseStepRows, testCaseHistoryRows);
+	                        // Determine the number of rows needed for the test case part, based on selected columns.
+	                        bool includeStepColumns = testCaseColumnDefinitions.Any(cd =>
+	                            cd.Property == "StepNo" ||
+	                            cd.Property == "StepAction" ||
+	                            cd.Property == "StepExpected" ||
+	                            cd.Property == "StepRunStatus" ||
+	                            cd.Property == "StepErrorMessage");
+	                        bool includeHistoryColumn = testCaseColumnDefinitions.Any(cd => cd.Property == "History");
 
-                        // Determine the maximum number of rows needed for any associated item group
-                        int maxAssociatedItems = Math.Max(testCase.AssociatedRequirements?.Count ?? 0,
-                            Math.Max(testCase.AssociatedBugs?.Count ?? 0, testCase.AssociatedCRs?.Count ?? 0));
+	                        int testCaseStepRows = includeStepColumns ? (testCase.TestSteps?.Count ?? 0) : 0;
+	                        int testCaseHistoryRows = includeHistoryColumn ? (testCase.HistoryEntries?.Count ?? 0) : 0;
+	                        int testCaseRows = Math.Max(testCaseStepRows, testCaseHistoryRows);
 
-                        // The total row span for this test case block is the max of the two
-                        int rowSpan = Math.Max(testCaseRows, maxAssociatedItems);
-                        if (rowSpan == 0) rowSpan = 1; // Ensure at least one row is always processed
+	                        // Determine the maximum number of rows needed for any associated item group, based on selected columns.
+	                        int maxAssociatedItems = 0;
+	                        if (requirementsColumnDefinitions.Count > 0)
+	                            maxAssociatedItems = Math.Max(maxAssociatedItems, testCase.AssociatedRequirements?.Count ?? 0);
+	                        if (bugsColumnDefinitions.Count > 0)
+	                            maxAssociatedItems = Math.Max(maxAssociatedItems, testCase.AssociatedBugs?.Count ?? 0);
+	                        if (crsColumnDefinitions.Count > 0)
+	                            maxAssociatedItems = Math.Max(maxAssociatedItems, testCase.AssociatedCRs?.Count ?? 0);
+
+	                        // The total row span for this test case block is the max of the visible sections.
+	                        int rowSpan = Math.Max(testCaseRows, maxAssociatedItems);
+	                        if (rowSpan == 0) rowSpan = 1; // Ensure at least one row is always processed
 
                         // Emit rows (step rows + history rows). History entries align with row index (start at first data row).
                         bool isFirstRow = true;
@@ -218,6 +231,37 @@ namespace JsonToWord.Services.ExcelServices
                                 string property = testCaseColumnDefinitions[i].Property;
                                 if (!stepProperties.Contains(property))
                                 {
+                                    string colLetter = _spreadsheetService.GetColumnLetter(testCaseColStart + i + 1);
+                                    string startCellRef = $"{colLetter}{rowIndex}";
+                                    string endCellRef = $"{colLetter}{rowIndex + (uint)rowSpan - 1}";
+                                    string mergeRef = $"{startCellRef}:{endCellRef}";
+                                    mergeCells.Append(new MergeCell
+                                    {
+                                        Reference = new StringValue(mergeRef)
+                                    });
+                                }
+                            }
+
+                            // If there are NO steps at all, the step columns should not look "split" into multiple empty rows.
+                            // In that case we merge the step columns vertically across the entire block.
+                            // We intentionally do NOT merge History, so multiple history entries can still appear on separate rows.
+                            if (includeStepColumns && testCaseStepRows == 0)
+                            {
+                                var stepOnlyProperties = new HashSet<string>
+                                {
+                                    "StepNo",
+                                    "StepAction",
+                                    "StepExpected",
+                                    "StepRunStatus",
+                                    "StepErrorMessage",
+                                };
+
+                                for (int i = 0; i < testCaseColumnDefinitions.Count; i++)
+                                {
+                                    string property = testCaseColumnDefinitions[i].Property;
+                                    if (!stepOnlyProperties.Contains(property))
+                                        continue;
+
                                     string colLetter = _spreadsheetService.GetColumnLetter(testCaseColStart + i + 1);
                                     string startCellRef = $"{colLetter}{rowIndex}";
                                     string endCellRef = $"{colLetter}{rowIndex + (uint)rowSpan - 1}";
