@@ -11,6 +11,7 @@ using Amazon.S3.Util;
 using Amazon.S3.Model;
 using Microsoft.Extensions.Logging;
 using System.Net.Http;
+using System.Text;
 
 namespace JsonToWord.Services
 {
@@ -114,11 +115,28 @@ namespace JsonToWord.Services
                     BucketName = FullBucketPath
                 };
                 
-                // Add metadata including CreatedBy
+                // Add metadata including CreatedBy.
+                // NOTE: `TransferUtilityUploadRequest.Metadata` expects keys WITHOUT the `x-amz-meta-` prefix.
+                // The SDK will serialize them as `x-amz-meta-{key}` automatically.
                 if (!string.IsNullOrEmpty(uploadProperties.CreatedBy))
                 {
-                    transferUtilityRequest.Metadata.Add("x-amz-meta-createdby", uploadProperties.CreatedBy);
+                    transferUtilityRequest.Metadata.Add("createdby", uploadProperties.CreatedBy);
                 }
+                if (!string.IsNullOrEmpty(uploadProperties.InputSummary))
+                {
+                    // Keep metadata safe for HTTP headers and within typical S3 metadata limits.
+                    var summary = uploadProperties.InputSummary.Trim();
+                    if (summary.Length > 1024)
+                    {
+                        summary = summary.Substring(0, 1021) + "...";
+                    }
+                    transferUtilityRequest.Metadata.Add("inputsummary", summary);
+                }
+                // Store full input details as a sidecar object (avoids S3 metadata size limits).
+                var hasInputDetails = !string.IsNullOrWhiteSpace(uploadProperties.InputDetails);
+                // Keep the key relative to the same place as the document object (no prefixes),
+                // because downstream consumers fetch from the same bucket context as the document.
+                string inputDetailsObjectKey = hasInputDetails ? $"__input__/{filename}.input.json" : string.Empty;
                 RegionEndpoint region = RegionEndpoint.GetBySystemName(uploadProperties.Region);
                 var amazonConfig = new AmazonS3Config
                 {
@@ -140,6 +158,40 @@ namespace JsonToWord.Services
                         await amazonClient.PutBucketAsync(putBucketRequest);
                     }
                     TransferUtility utility = new TransferUtility(amazonClient);
+
+                    // Best-effort: upload sidecar JSON first (so the reference is valid once the doc appears).
+                    if (hasInputDetails && !string.IsNullOrWhiteSpace(inputDetailsObjectKey))
+                    {
+                        var inputDetailsUploaded = false;
+                        try
+                        {
+                            var jsonBytes = Encoding.UTF8.GetBytes(uploadProperties.InputDetails);
+                            using (var ms = new MemoryStream(jsonBytes))
+                            {
+                                var sidecarRequest = new TransferUtilityUploadRequest
+                                {
+                                    BucketName = FullBucketPath,
+                                    Key = inputDetailsObjectKey,
+                                    InputStream = ms,
+                                    ContentType = "application/json",
+                                    AutoCloseStream = false
+                                };
+                                await utility.UploadAsync(sidecarRequest);
+                            }
+                            inputDetailsUploaded = true;
+                        }
+                        catch (Exception ex)
+                        {
+                            // Do not fail the document upload if sidecar upload fails; just omit the reference.
+                            _logger.LogWarning(ex, "Failed uploading input details sidecar for {FileName}", filename);
+                        }
+
+                        // Only attach the reference metadata if the sidecar upload succeeded.
+                        if (inputDetailsUploaded)
+                        {
+                            transferUtilityRequest.Metadata.Add("inputdetailskey", inputDetailsObjectKey);
+                        }
+                    }
                     await utility.UploadAsync(transferUtilityRequest);
                 }
                 var fileUrl = GenerateMinioFileUrl(FullBucketPath, filename, uploadProperties.ServiceUrl);
