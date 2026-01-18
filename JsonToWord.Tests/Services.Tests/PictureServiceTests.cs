@@ -1,3 +1,4 @@
+using System;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
@@ -207,6 +208,60 @@ namespace JsonToWord.Services.Tests
 
             // ID should be greater than 5 and also greater than the ID used in the first image
             Assert.True(docProps?.Id?.Value > 5U);
+        }
+
+        [Fact]
+        public void ResizeDrawing_WithSmallerBounds_ScalesAndUpdatesTransform()
+        {
+            var drawing = _pictureService.CreateDrawing(_document.MainDocumentPart, _testImagePath);
+            var inline = drawing.Descendants<DW.Inline>().FirstOrDefault();
+            Assert.NotNull(inline);
+            Assert.NotNull(inline?.Extent);
+
+            var currentWidth = inline!.Extent!.Cx!.Value;
+            var currentHeight = inline.Extent!.Cy!.Value;
+
+            var maxWidth = currentWidth / 2;
+            var maxHeight = currentHeight / 2;
+
+            _pictureService.ResizeDrawing(drawing, maxWidth, maxHeight);
+
+            var expectedScale = Math.Min((double)maxWidth / currentWidth, (double)maxHeight / currentHeight);
+            var expectedWidth = (long)(currentWidth * expectedScale);
+            var expectedHeight = (long)(currentHeight * expectedScale);
+
+            Assert.Equal(expectedWidth, inline.Extent!.Cx!.Value);
+            Assert.Equal(expectedHeight, inline.Extent!.Cy!.Value);
+
+            var transformExtents = drawing.Descendants<DocumentFormat.OpenXml.Drawing.Extents>().FirstOrDefault();
+            Assert.NotNull(transformExtents);
+            Assert.Equal(expectedWidth, transformExtents?.Cx?.Value);
+            Assert.Equal(expectedHeight, transformExtents?.Cy?.Value);
+        }
+
+        [Fact]
+        public void ResizeDrawing_WhenWithinBounds_DoesNotChange()
+        {
+            var drawing = _pictureService.CreateDrawing(_document.MainDocumentPart, _testImagePath);
+            var inline = drawing.Descendants<DW.Inline>().FirstOrDefault();
+            Assert.NotNull(inline);
+            Assert.NotNull(inline?.Extent);
+
+            var currentWidth = inline!.Extent!.Cx!.Value;
+            var currentHeight = inline.Extent!.Cy!.Value;
+
+            _pictureService.ResizeDrawing(drawing, currentWidth + 1, currentHeight + 1);
+
+            Assert.Equal(currentWidth, inline.Extent!.Cx!.Value);
+            Assert.Equal(currentHeight, inline.Extent!.Cy!.Value);
+        }
+
+        [Fact]
+        public void ResizeDrawing_WithDefaultBounds_DoesNotThrowWhenInlineMissing()
+        {
+            var drawing = new Drawing();
+
+            _pictureService.ResizeDrawing(drawing);
         }
 
         [Fact]
