@@ -17,14 +17,13 @@ jobs:
         with:
           dotnet-version: "6.0.x"
       - name: 🧪 run tests (with coverage)
-        working-directory: docgen-json-to-word
         run: dotnet test JsonToWord.sln --configuration Release --collect:"XPlat Code Coverage" --settings coverlet.runsettings
       - name: 🧰 install reportgenerator
         run: dotnet tool install --global dotnet-reportgenerator-globaltool
       - name: 🧾 generate coverage html report
         run: |
           export PATH="$PATH:$HOME/.dotnet/tools"
-          reportgenerator -reports:"docgen-json-to-word/**/coverage.cobertura.xml" -targetdir:"docgen-json-to-word/coverage-report" -reporttypes:"Html"
+          reportgenerator -reports:"**/coverage.cobertura.xml" -targetdir:"coverage-report" -reporttypes:"Html"
       - name: ✅ enforce coverage (line-rate >= 80%)
         run: |
           python3 - <<'PY'
@@ -32,7 +31,7 @@ jobs:
           import os
           import xml.etree.ElementTree as ET
           
-          results_root = os.path.join("docgen-json-to-word", "TestResults")
+          results_root = os.path.join("TestResults")
           matches = glob.glob(os.path.join(results_root, "**", "coverage.cobertura.xml"), recursive=True)
           if not matches:
               raise SystemExit("coverage.cobertura.xml not found under TestResults")
@@ -56,14 +55,14 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: dotnet-coverage
-          path: docgen-json-to-word/TestResults
+          path: TestResults
           if-no-files-found: ignore
       - name: ⬆️ upload coverage html report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: coverage-html
-          path: docgen-json-to-word/coverage-report
+          path: coverage-report
           if-no-files-found: ignore
 
   release:
