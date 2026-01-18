@@ -15,6 +15,26 @@ using System.Text;
 
 namespace JsonToWord.Services
 {
+    public interface ITransferUtilityAdapter
+    {
+        Task UploadAsync(TransferUtilityUploadRequest request);
+    }
+
+    internal sealed class TransferUtilityAdapter : ITransferUtilityAdapter
+    {
+        private readonly TransferUtility _utility;
+
+        public TransferUtilityAdapter(IAmazonS3 client)
+        {
+            _utility = new TransferUtility(client);
+        }
+
+        public Task UploadAsync(TransferUtilityUploadRequest request)
+        {
+            return _utility.UploadAsync(request);
+        }
+    }
+
     public class AWSS3Service : IAWSS3Service
     {
         private readonly ILogger<AWSS3Service> _logger;
@@ -138,16 +158,10 @@ namespace JsonToWord.Services
                 // because downstream consumers fetch from the same bucket context as the document.
                 string inputDetailsObjectKey = hasInputDetails ? $"__input__/{filename}.input.json" : string.Empty;
                 RegionEndpoint region = RegionEndpoint.GetBySystemName(uploadProperties.Region);
-                var amazonConfig = new AmazonS3Config
-                {
-                    AuthenticationRegion = region.SystemName,
-                    ServiceURL = uploadProperties.ServiceUrl,
-                    ForcePathStyle = true
-                };
-                using (var amazonClient = new AmazonS3Client(uploadProperties.AwsAccessKeyId, uploadProperties.AwsSecretAccessKey, amazonConfig))
+                using (var amazonClient = CreateAmazonS3Client(uploadProperties, region))
                 {
                     
-                    var bucketExsists = await AmazonS3Util.DoesS3BucketExistV2Async(amazonClient, uploadProperties.BucketName);
+                    var bucketExsists = await DoesS3BucketExistAsync(amazonClient, uploadProperties.BucketName);
                     if (!bucketExsists)
                     {
                         var putBucketRequest = new PutBucketRequest
@@ -157,7 +171,7 @@ namespace JsonToWord.Services
                         };
                         await amazonClient.PutBucketAsync(putBucketRequest);
                     }
-                    TransferUtility utility = new TransferUtility(amazonClient);
+                    var utility = CreateTransferUtilityAdapter(amazonClient);
 
                     // Best-effort: upload sidecar JSON first (so the reference is valid once the doc appears).
                     if (hasInputDetails && !string.IsNullOrWhiteSpace(inputDetailsObjectKey))
@@ -203,6 +217,27 @@ namespace JsonToWord.Services
                 throw;
 
             }
+        }
+
+        protected virtual IAmazonS3 CreateAmazonS3Client(UploadProperties uploadProperties, RegionEndpoint region)
+        {
+            var amazonConfig = new AmazonS3Config
+            {
+                AuthenticationRegion = region.SystemName,
+                ServiceURL = uploadProperties.ServiceUrl,
+                ForcePathStyle = true
+            };
+            return new AmazonS3Client(uploadProperties.AwsAccessKeyId, uploadProperties.AwsSecretAccessKey, amazonConfig);
+        }
+
+        protected virtual ITransferUtilityAdapter CreateTransferUtilityAdapter(IAmazonS3 amazonClient)
+        {
+            return new TransferUtilityAdapter(amazonClient);
+        }
+
+        protected virtual Task<bool> DoesS3BucketExistAsync(IAmazonS3 amazonClient, string bucketName)
+        {
+            return AmazonS3Util.DoesS3BucketExistV2Async(amazonClient, bucketName);
         }
 
 

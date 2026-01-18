@@ -16,12 +16,14 @@ using Xunit;
 
 namespace JsonToWord.Services.Tests
 {
+    [Collection("NonParallel")]
     public class FileServiceTest : IDisposable
     {
         private readonly Mock<IContentControlService> _mockContentControlService;
         private readonly Mock<ILogger<FileService>> _mockLogger;
         private readonly FileService _fileService;
 
+        private readonly string _originalCwd;
         private readonly string _docPath;
         private readonly string _testFilesPath;
         private readonly string _attachmentsPath;
@@ -57,6 +59,7 @@ namespace JsonToWord.Services.Tests
             CreateTestIcons();
 
             // Set current directory for relative paths to work
+            _originalCwd = Environment.CurrentDirectory;
             Environment.CurrentDirectory = _testFilesPath;
 
             // Create temporary document for testing
@@ -439,6 +442,33 @@ namespace JsonToWord.Services.Tests
                 getProdIdMethod?.Invoke(_fileService, new[] { ".unknown" }));
         }
 
+        [Theory]
+        [InlineData("file.doc", "word.png")]
+        [InlineData("file.dotx", "word.png")]
+        [InlineData("file.xlsx", "excel.png")]
+        [InlineData("file.pptm", "powerpoint.png")]
+        [InlineData("file.pot", "powerpoint.png")]
+        [InlineData("file.txt", "txt.png")]
+        [InlineData("file.pdf", "pdf.png")]
+        [InlineData("file.csv", "csv.png")]
+        [InlineData("file.jpeg", "picture.png")]
+        [InlineData("file.mp3", "media.png")]
+        [InlineData("file.xml", "xml.png")]
+        [InlineData("file.7z", "zip.png")]
+        [InlineData("file.rar", "rar.png")]
+        [InlineData("file.unknown", "default.png")]
+        [InlineData("FILE.DOCX", "word.png")]
+        [InlineData("file", "default.png")]
+        public void GetIconPathForFileType_ReturnsExpectedIcon(string fileName, string expectedIcon)
+        {
+            MethodInfo? getIconPathMethod = typeof(FileService).GetMethod("GetIconPathForFileType",
+                BindingFlags.NonPublic | BindingFlags.Instance);
+
+            var result = (string?)getIconPathMethod?.Invoke(_fileService, new object[] { fileName });
+
+            Assert.Equal(expectedIcon, Path.GetFileName(result));
+        }
+
         [Fact]
         public void CopyAttachment_CreatesUniqueFilename_WhenFileExists()
         {
@@ -489,6 +519,9 @@ namespace JsonToWord.Services.Tests
         public void Dispose()
         {
             _document?.Dispose();
+
+            var restorePath = Directory.Exists(_originalCwd) ? _originalCwd : AppContext.BaseDirectory;
+            Environment.CurrentDirectory = restorePath;
 
             // Clean up temporary directories
             if (Directory.Exists(_testFilesPath))

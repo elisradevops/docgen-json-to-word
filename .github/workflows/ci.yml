@@ -6,9 +6,68 @@ on:
     paths-ignore:
       - '.github/**'
 jobs:
+  test:
+    name: 🧪 tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📚 checkout
+        uses: actions/checkout@v4
+      - name: 🟣 setup dotnet
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "6.0.x"
+      - name: 🧪 run tests (with coverage)
+        run: dotnet test JsonToWord.sln --configuration Release --collect:"XPlat Code Coverage" --settings coverlet.runsettings
+      - name: 🧰 install reportgenerator
+        run: dotnet tool install --global dotnet-reportgenerator-globaltool
+      - name: 🧾 generate coverage html report
+        run: |
+          export PATH="$PATH:$HOME/.dotnet/tools"
+          reportgenerator -reports:"**/coverage.cobertura.xml" -targetdir:"coverage-report" -reporttypes:"Html"
+      - name: ✅ enforce coverage (line-rate >= 80%)
+        run: |
+          python3 - <<'PY'
+          import glob
+          import os
+          import xml.etree.ElementTree as ET
+          
+          matches = glob.glob(os.path.join("**", "coverage.cobertura.xml"), recursive=True)
+          if not matches:
+              raise SystemExit("coverage.cobertura.xml not found")
+          
+          report_path = max(matches, key=lambda p: os.path.getmtime(p))
+          tree = ET.parse(report_path)
+          root = tree.getroot()
+          line_rate = root.attrib.get("line-rate")
+          if line_rate is None:
+              raise SystemExit("line-rate attribute missing in cobertura report")
+          
+          rate = float(line_rate)
+          percent = rate * 100
+          print(f"Coverage line-rate: {percent:.2f}% ({report_path})")
+          
+          if rate < 0.80:
+              raise SystemExit(f"Coverage below threshold: {percent:.2f}% < 80.00%")
+          PY
+      - name: ⬆️ upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotnet-coverage
+          path: TestResults
+          if-no-files-found: ignore
+      - name: ⬆️ upload coverage html report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-html
+          path: coverage-report
+          if-no-files-found: ignore
+
   release:
     name: 🚀 publish
     runs-on: ubuntu-latest
+    needs: test
     steps:
       - name: 📚 checkout
         uses: actions/checkout@v2
