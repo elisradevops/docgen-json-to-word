@@ -18,7 +18,12 @@ namespace JsonToWord.Services.Tests
         {
             var logger = new Mock<ILogger<ExcelService>>();
             var testReporterService = new Mock<ITestReporterService>();
-            var service = new ExcelService(logger.Object, testReporterService.Object);
+            var flatTestReporterService = new Mock<IFlatTestReporterService>();
+            var service = new ExcelService(
+                logger.Object,
+                testReporterService.Object,
+                flatTestReporterService.Object
+            );
 
             var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(tempDir);
@@ -53,7 +58,12 @@ namespace JsonToWord.Services.Tests
         {
             var logger = new Mock<ILogger<ExcelService>>();
             var testReporterService = new Mock<ITestReporterService>();
-            var service = new ExcelService(logger.Object, testReporterService.Object);
+            var flatTestReporterService = new Mock<IFlatTestReporterService>();
+            var service = new ExcelService(
+                logger.Object,
+                testReporterService.Object,
+                flatTestReporterService.Object
+            );
 
             var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(tempDir);
@@ -95,6 +105,72 @@ namespace JsonToWord.Services.Tests
                 Assert.Equal(filePath, resultPath);
                 Assert.True(File.Exists(filePath));
                 testReporterService.Verify(s => s.Insert(It.IsAny<DocumentFormat.OpenXml.Packaging.SpreadsheetDocument>(), "Plan A", testReporter, It.IsAny<bool>()), Times.Once);
+            }
+            finally
+            {
+                Directory.Delete(tempDir, true);
+            }
+        }
+
+        [Fact]
+        public void CreateExcelDocument_CallsFlatTestReporterService()
+        {
+            var logger = new Mock<ILogger<ExcelService>>();
+            var testReporterService = new Mock<ITestReporterService>();
+            var flatTestReporterService = new Mock<IFlatTestReporterService>();
+            var service = new ExcelService(
+                logger.Object,
+                testReporterService.Object,
+                flatTestReporterService.Object
+            );
+
+            var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDir);
+            var filePath = Path.Combine(tempDir, "flat-report.xlsx");
+
+            var flatReporter = new FlatTestReporterModel
+            {
+                TestPlanName = "Flat Plan",
+                Rows = new List<Dictionary<string, object>>
+                {
+                    new Dictionary<string, object> { { "PlanID", "1" } }
+                }
+            };
+
+            flatTestReporterService
+                .Setup(s => s.Insert(It.IsAny<SpreadsheetDocument>(), It.IsAny<string>(), It.IsAny<FlatTestReporterModel>()))
+                .Callback<SpreadsheetDocument, string, FlatTestReporterModel>((document, _, __) =>
+                {
+                    if (document.WorkbookPart == null)
+                    {
+                        var workbookPart = document.AddWorkbookPart();
+                        workbookPart.Workbook = new Workbook();
+                    }
+                });
+
+            var model = new ExcelModel
+            {
+                LocalPath = filePath,
+                ContentControls = new List<TestReporterContentControl>
+                {
+                    new TestReporterContentControl
+                    {
+                        Title = "cc",
+                        WordObjects = new List<ITestReporterObject> { flatReporter }
+                    }
+                }
+            };
+
+            try
+            {
+                var resultPath = service.CreateExcelDocument(model);
+
+                Assert.Equal(filePath, resultPath);
+                Assert.True(File.Exists(filePath));
+                flatTestReporterService.Verify(
+                    s => s.Insert(It.IsAny<SpreadsheetDocument>(), "Flat Plan", flatReporter),
+                    Times.Once
+                );
             }
             finally
             {

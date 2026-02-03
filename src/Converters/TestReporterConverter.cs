@@ -20,6 +20,8 @@ namespace JsonToWord.Converters
 
             if (string.Equals(jo[property].Value<string>(), TestReporterObjectType.TestReporter.ToString(), StringComparison.CurrentCultureIgnoreCase))
                 return jo.ToObject<TestReporterModel>(serializer);
+            if (string.Equals(jo[property].Value<string>(), TestReporterObjectType.FlatTestReporter.ToString(), StringComparison.CurrentCultureIgnoreCase))
+                return jo.ToObject<FlatTestReporterModel>(serializer);
 
             return serializer.Deserialize(reader, typeof(ITestReporterObject));
         }

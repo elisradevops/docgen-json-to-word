@@ -3,5 +3,6 @@
     public enum TestReporterObjectType
     {
         TestReporter,
+        FlatTestReporter,
     }
 }

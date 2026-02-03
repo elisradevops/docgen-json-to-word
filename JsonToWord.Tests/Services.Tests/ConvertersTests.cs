@@ -60,6 +60,18 @@ namespace JsonToWord.Services.Tests
         }
 
         [Fact]
+        public void TestReporterConverter_ReadJson_ReturnsFlatTestReporterModel()
+        {
+            var json = "{\"type\":\"FlatTestReporter\",\"testPlanName\":\"Plan A\",\"rows\":[]}";
+            var settings = new JsonSerializerSettings();
+            settings.Converters.Add(new TestReporterConverter());
+
+            var result = JsonConvert.DeserializeObject<ITestReporterObject>(json, settings);
+
+            Assert.IsType<FlatTestReporterModel>(result);
+        }
+
+        [Fact]
         public void TestReporterConverter_CanConvert_ITestReporterObject()
         {
             var converter = new TestReporterConverter();

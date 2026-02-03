@@ -32,6 +32,7 @@ namespace JsonToWord
             services.AddTransient<ITextService, TextService>();
             services.AddSingleton<ITableService, TableService>();
             services.AddSingleton<ITestReporterService, TestReporterService>();
+            services.AddSingleton<IFlatTestReporterService, FlatTestReporterService>();
             services.AddSingleton<IFileService, FileService>();
             services.AddSingleton<IUtilsService, UtilsService>();
             services.AddSingleton<IRunService, RunService>();
