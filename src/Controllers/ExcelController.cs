@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.IO;
 using Newtonsoft.Json.Linq;
 using JsonToWord.Models.S3;
+using JsonToWord.Models;
 
 namespace JsonToWord.Controllers
 {
@@ -98,15 +99,24 @@ namespace JsonToWord.Controllers
                 _logger.LogInformation("Excel document created successfully");
                 excelModel.UploadProperties.LocalFilePath = spreadsheetPath;
 
-                AWSUploadResult<string> Response = await _aWSS3Service.UploadFileToMinioBucketAsync(excelModel.UploadProperties);
-
-                _aWSS3Service.CleanUp(spreadsheetPath);
-
-                if (Response.Status)
+                if (excelModel.UploadProperties.EnableDirectDownload)
                 {
-                    return Ok(Response.Data);
+                    var downloadableFile = CreateDownloadableFile(spreadsheetPath);
+                    _aWSS3Service.CleanUp(spreadsheetPath);
+                    return Ok(downloadableFile);
                 }
-                return StatusCode(Response.StatusCode);
+                else
+                {
+                    AWSUploadResult<string> Response = await _aWSS3Service.UploadFileToMinioBucketAsync(excelModel.UploadProperties);
+
+                    _aWSS3Service.CleanUp(spreadsheetPath);
+
+                    if (Response.Status)
+                    {
+                        return Ok(Response.Data);
+                    }
+                    return StatusCode(Response.StatusCode);
+                }
             }
             catch (Exception e)
             {
@@ -125,5 +135,23 @@ namespace JsonToWord.Controllers
             }
         }
 
+        private DownloadableObjectModel CreateDownloadableFile(string docPath)
+        {
+            byte[] bytes = System.IO.File.ReadAllBytes(docPath);
+            string fileName = Path.GetFileName(docPath);
+            string base64 = Convert.ToBase64String(bytes);
+            string applicationType = Path.GetExtension(docPath).ToLower() switch
+            {
+                ".xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                _ => "application/octet-stream"
+            };
+
+            return new DownloadableObjectModel
+            {
+                FileName = fileName,
+                Base64 = base64,
+                ApplicationType = applicationType
+            };
+        }
     }
 }

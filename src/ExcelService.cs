@@ -14,12 +14,18 @@ namespace JsonToWord
         private readonly ILogger<ExcelService> _logger;
 
         private readonly ITestReporterService _testReporterService;
+        private readonly IFlatTestReporterService _flatTestReporterService;
         #endregion
 
-        public ExcelService(ILogger<ExcelService> logger, ITestReporterService tableService)
+        public ExcelService(
+            ILogger<ExcelService> logger,
+            ITestReporterService tableService,
+            IFlatTestReporterService flatTestReporterService
+        )
         {
             _logger = logger;
             _testReporterService = tableService;
+            _flatTestReporterService = flatTestReporterService;
         }
 
         public string CreateExcelDocument(ExcelModel excelModel)
@@ -45,6 +51,13 @@ namespace JsonToWord
                             if (excelObject is TestReporterModel testReporter)
                             {
                                 _testReporterService.Insert(spreadSheet, testReporter.TestPlanName, testReporter, contentControl.AllowGrouping);
+                            }
+                            if (excelObject is FlatTestReporterModel flatReporter)
+                            {
+                                var sheetName = string.IsNullOrWhiteSpace(flatReporter.TestPlanName)
+                                    ? contentControl.Title
+                                    : flatReporter.TestPlanName;
+                                _flatTestReporterService.Insert(spreadSheet, sheetName, flatReporter);
                             }
                         }
 
