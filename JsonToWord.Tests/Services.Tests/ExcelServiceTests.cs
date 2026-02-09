@@ -177,5 +177,75 @@ namespace JsonToWord.Services.Tests
                 Directory.Delete(tempDir, true);
             }
         }
+
+        [Fact]
+        public void CreateExcelDocument_CallsTestReporterService_ForEachReporterWorksheet()
+        {
+            var logger = new Mock<ILogger<ExcelService>>();
+            var testReporterService = new Mock<ITestReporterService>();
+            var flatTestReporterService = new Mock<IFlatTestReporterService>();
+            var service = new ExcelService(
+                logger.Object,
+                testReporterService.Object,
+                flatTestReporterService.Object
+            );
+
+            var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDir);
+            var filePath = Path.Combine(tempDir, "multi-sheet-report.xlsx");
+
+            var mainReporter = new TestReporterModel
+            {
+                TestPlanName = "Plan A"
+            };
+            var mewpCoverageReporter = new TestReporterModel
+            {
+                TestPlanName = "MEWP L2 Coverage - Plan A"
+            };
+
+            testReporterService
+                .Setup(s => s.Insert(It.IsAny<SpreadsheetDocument>(), It.IsAny<string>(), It.IsAny<TestReporterModel>(), It.IsAny<bool>()))
+                .Callback<SpreadsheetDocument, string, TestReporterModel, bool>((document, _, __, ___) =>
+                {
+                    if (document.WorkbookPart == null)
+                    {
+                        var workbookPart = document.AddWorkbookPart();
+                        workbookPart.Workbook = new Workbook();
+                    }
+                });
+
+            var model = new ExcelModel
+            {
+                LocalPath = filePath,
+                ContentControls = new List<TestReporterContentControl>
+                {
+                    new TestReporterContentControl
+                    {
+                        Title = "cc",
+                        WordObjects = new List<ITestReporterObject> { mainReporter, mewpCoverageReporter }
+                    }
+                }
+            };
+
+            try
+            {
+                var resultPath = service.CreateExcelDocument(model);
+
+                Assert.Equal(filePath, resultPath);
+                Assert.True(File.Exists(filePath));
+                testReporterService.Verify(
+                    s => s.Insert(It.IsAny<SpreadsheetDocument>(), "Plan A", mainReporter, It.IsAny<bool>()),
+                    Times.Once
+                );
+                testReporterService.Verify(
+                    s => s.Insert(It.IsAny<SpreadsheetDocument>(), "MEWP L2 Coverage - Plan A", mewpCoverageReporter, It.IsAny<bool>()),
+                    Times.Once
+                );
+            }
+            finally
+            {
+                Directory.Delete(tempDir, true);
+            }
+        }
     }
 }
