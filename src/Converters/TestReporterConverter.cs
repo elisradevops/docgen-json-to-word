@@ -22,6 +22,8 @@ namespace JsonToWord.Converters
                 return jo.ToObject<TestReporterModel>(serializer);
             if (string.Equals(jo[property].Value<string>(), TestReporterObjectType.FlatTestReporter.ToString(), StringComparison.CurrentCultureIgnoreCase))
                 return jo.ToObject<FlatTestReporterModel>(serializer);
+            if (string.Equals(jo[property].Value<string>(), TestReporterObjectType.MewpCoverageReporter.ToString(), StringComparison.CurrentCultureIgnoreCase))
+                return jo.ToObject<MewpCoverageReporterModel>(serializer);
 
             return serializer.Deserialize(reader, typeof(ITestReporterObject));
         }

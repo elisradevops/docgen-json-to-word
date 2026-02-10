@@ -19,10 +19,12 @@ namespace JsonToWord.Services.Tests
             var logger = new Mock<ILogger<ExcelService>>();
             var testReporterService = new Mock<ITestReporterService>();
             var flatTestReporterService = new Mock<IFlatTestReporterService>();
+            var mewpCoverageReporterService = new Mock<IMewpCoverageReporterService>();
             var service = new ExcelService(
                 logger.Object,
                 testReporterService.Object,
-                flatTestReporterService.Object
+                flatTestReporterService.Object,
+                mewpCoverageReporterService.Object
             );
 
             var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
@@ -59,10 +61,12 @@ namespace JsonToWord.Services.Tests
             var logger = new Mock<ILogger<ExcelService>>();
             var testReporterService = new Mock<ITestReporterService>();
             var flatTestReporterService = new Mock<IFlatTestReporterService>();
+            var mewpCoverageReporterService = new Mock<IMewpCoverageReporterService>();
             var service = new ExcelService(
                 logger.Object,
                 testReporterService.Object,
-                flatTestReporterService.Object
+                flatTestReporterService.Object,
+                mewpCoverageReporterService.Object
             );
 
             var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
@@ -118,10 +122,12 @@ namespace JsonToWord.Services.Tests
             var logger = new Mock<ILogger<ExcelService>>();
             var testReporterService = new Mock<ITestReporterService>();
             var flatTestReporterService = new Mock<IFlatTestReporterService>();
+            var mewpCoverageReporterService = new Mock<IMewpCoverageReporterService>();
             var service = new ExcelService(
                 logger.Object,
                 testReporterService.Object,
-                flatTestReporterService.Object
+                flatTestReporterService.Object,
+                mewpCoverageReporterService.Object
             );
 
             var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
@@ -184,10 +190,12 @@ namespace JsonToWord.Services.Tests
             var logger = new Mock<ILogger<ExcelService>>();
             var testReporterService = new Mock<ITestReporterService>();
             var flatTestReporterService = new Mock<IFlatTestReporterService>();
+            var mewpCoverageReporterService = new Mock<IMewpCoverageReporterService>();
             var service = new ExcelService(
                 logger.Object,
                 testReporterService.Object,
-                flatTestReporterService.Object
+                flatTestReporterService.Object,
+                mewpCoverageReporterService.Object
             );
 
             var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
@@ -239,6 +247,74 @@ namespace JsonToWord.Services.Tests
                 );
                 testReporterService.Verify(
                     s => s.Insert(It.IsAny<SpreadsheetDocument>(), "MEWP L2 Coverage - Plan A", mewpCoverageReporter, It.IsAny<bool>()),
+                    Times.Once
+                );
+            }
+            finally
+            {
+                Directory.Delete(tempDir, true);
+            }
+        }
+
+        [Fact]
+        public void CreateExcelDocument_CallsMewpCoverageReporterService()
+        {
+            var logger = new Mock<ILogger<ExcelService>>();
+            var testReporterService = new Mock<ITestReporterService>();
+            var flatTestReporterService = new Mock<IFlatTestReporterService>();
+            var mewpCoverageReporterService = new Mock<IMewpCoverageReporterService>();
+            var service = new ExcelService(
+                logger.Object,
+                testReporterService.Object,
+                flatTestReporterService.Object,
+                mewpCoverageReporterService.Object
+            );
+
+            var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDir);
+            var filePath = Path.Combine(tempDir, "mewp-coverage-report.xlsx");
+
+            var mewpCoverageReporter = new MewpCoverageReporterModel
+            {
+                TestPlanName = "MEWP L2 Coverage - Plan A",
+                Rows = new List<Dictionary<string, object>>
+                {
+                    new Dictionary<string, object> { { "Customer ID", "SR1001" } }
+                }
+            };
+
+            mewpCoverageReporterService
+                .Setup(s => s.Insert(It.IsAny<SpreadsheetDocument>(), It.IsAny<string>(), It.IsAny<MewpCoverageReporterModel>()))
+                .Callback<SpreadsheetDocument, string, MewpCoverageReporterModel>((document, _, __) =>
+                {
+                    if (document.WorkbookPart == null)
+                    {
+                        var workbookPart = document.AddWorkbookPart();
+                        workbookPart.Workbook = new Workbook();
+                    }
+                });
+
+            var model = new ExcelModel
+            {
+                LocalPath = filePath,
+                ContentControls = new List<TestReporterContentControl>
+                {
+                    new TestReporterContentControl
+                    {
+                        Title = "cc",
+                        WordObjects = new List<ITestReporterObject> { mewpCoverageReporter }
+                    }
+                }
+            };
+
+            try
+            {
+                var resultPath = service.CreateExcelDocument(model);
+
+                Assert.Equal(filePath, resultPath);
+                Assert.True(File.Exists(filePath));
+                mewpCoverageReporterService.Verify(
+                    s => s.Insert(It.IsAny<SpreadsheetDocument>(), "MEWP L2 Coverage - Plan A", mewpCoverageReporter),
                     Times.Once
                 );
             }
