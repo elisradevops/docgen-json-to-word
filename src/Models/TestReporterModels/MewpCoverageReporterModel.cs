@@ -3,7 +3,7 @@ using JsonToWord.Models;
 
 namespace JsonToWord.Models.TestReporterModels
 {
-    public class FlatTestReporterModel : ITestReporterObject
+    public class MewpCoverageReporterModel : ITestReporterObject
     {
         public TestReporterObjectType Type { get; set; }
         public string TestPlanName { get; set; }

@@ -15,17 +15,20 @@ namespace JsonToWord
 
         private readonly ITestReporterService _testReporterService;
         private readonly IFlatTestReporterService _flatTestReporterService;
+        private readonly IMewpCoverageReporterService _mewpCoverageReporterService;
         #endregion
 
         public ExcelService(
             ILogger<ExcelService> logger,
             ITestReporterService tableService,
-            IFlatTestReporterService flatTestReporterService
+            IFlatTestReporterService flatTestReporterService,
+            IMewpCoverageReporterService mewpCoverageReporterService
         )
         {
             _logger = logger;
             _testReporterService = tableService;
             _flatTestReporterService = flatTestReporterService;
+            _mewpCoverageReporterService = mewpCoverageReporterService;
         }
 
         public string CreateExcelDocument(ExcelModel excelModel)
@@ -58,6 +61,13 @@ namespace JsonToWord
                                     ? contentControl.Title
                                     : flatReporter.TestPlanName;
                                 _flatTestReporterService.Insert(spreadSheet, sheetName, flatReporter);
+                            }
+                            if (excelObject is MewpCoverageReporterModel mewpCoverageReporter)
+                            {
+                                var sheetName = string.IsNullOrWhiteSpace(mewpCoverageReporter.TestPlanName)
+                                    ? contentControl.Title
+                                    : mewpCoverageReporter.TestPlanName;
+                                _mewpCoverageReporterService.Insert(spreadSheet, sheetName, mewpCoverageReporter);
                             }
                         }
 

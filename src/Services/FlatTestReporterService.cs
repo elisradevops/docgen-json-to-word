@@ -6,6 +6,7 @@ using JsonToWord.Models.TestReporterModels;
 using JsonToWord.Services.Interfaces;
 using JsonToWord.Services.Interfaces.ExcelServices;
 using Microsoft.Extensions.Logging;
+using System.Linq;
 
 namespace JsonToWord.Services
 {
@@ -14,7 +15,7 @@ namespace JsonToWord.Services
         private readonly ILogger<FlatTestReporterService> _logger;
         private readonly ISpreadsheetService _spreadsheetService;
 
-        private static readonly string[] ColumnOrder = new[]
+        private static readonly string[] DefaultColumnOrder = new[]
         {
             "PlanID",
             "PlanName",
@@ -66,16 +67,20 @@ namespace JsonToWord.Services
                 worksheetPart.Worksheet = new Worksheet();
                 SheetData sheetData = new SheetData();
                 worksheetPart.Worksheet.Append(sheetData);
+                var columnOrder =
+                    flatReportModel.ColumnOrder != null && flatReportModel.ColumnOrder.Count > 0
+                        ? flatReportModel.ColumnOrder.ToArray()
+                        : DefaultColumnOrder;
 
                 uint rowIndex = 1;
                 Row headerRow = new Row { RowIndex = rowIndex };
                 sheetData.Append(headerRow);
-                for (int i = 0; i < ColumnOrder.Length; i++)
+                for (int i = 0; i < columnOrder.Length; i++)
                 {
                     string columnLetter = _spreadsheetService.GetColumnLetter(i + 1);
                     Cell headerCell = _spreadsheetService.CreateTextCell(
                         $"{columnLetter}{rowIndex}",
-                        ColumnOrder[i],
+                        columnOrder[i],
                         0
                     );
                     headerRow.Append(headerCell);
@@ -87,13 +92,13 @@ namespace JsonToWord.Services
                     rowIndex++;
                     Row dataRow = new Row { RowIndex = rowIndex };
                     sheetData.Append(dataRow);
-                    for (int i = 0; i < ColumnOrder.Length; i++)
+                    for (int i = 0; i < columnOrder.Length; i++)
                     {
                         string columnLetter = _spreadsheetService.GetColumnLetter(i + 1);
                         string cellRef = $"{columnLetter}{rowIndex}";
                         object value;
                         string cellValue = string.Empty;
-                        if (row != null && row.TryGetValue(ColumnOrder[i], out value))
+                        if (row != null && row.TryGetValue(columnOrder[i], out value))
                         {
                             cellValue = value?.ToString() ?? string.Empty;
                         }

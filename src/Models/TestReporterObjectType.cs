@@ -4,5 +4,6 @@
     {
         TestReporter,
         FlatTestReporter,
+        MewpCoverageReporter,
     }
 }

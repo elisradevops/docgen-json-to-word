@@ -33,6 +33,7 @@ namespace JsonToWord
             services.AddSingleton<ITableService, TableService>();
             services.AddSingleton<ITestReporterService, TestReporterService>();
             services.AddSingleton<IFlatTestReporterService, FlatTestReporterService>();
+            services.AddSingleton<IMewpCoverageReporterService, MewpCoverageReporterService>();
             services.AddSingleton<IFileService, FileService>();
             services.AddSingleton<IUtilsService, UtilsService>();
             services.AddSingleton<IRunService, RunService>();

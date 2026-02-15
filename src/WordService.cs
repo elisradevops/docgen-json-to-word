@@ -144,9 +144,10 @@ namespace JsonToWord
                 document.MainDocumentPart.Document.Save();
             }
             var voidListFiles = new List<string>();
+            var processVoidList = _wordModel.FormattingSettings?.ProcessVoidList == true;
 
             //Pass 3: Process Void List
-            if (_wordModel.FormattingSettings.ProcessVoidList)
+            if (processVoidList)
             {
                 _logger.LogInformation("PASS 3: Processing Void List");
                 voidListFiles = _voidListService.CreateVoidList(documentPath);

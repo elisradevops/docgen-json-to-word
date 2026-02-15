@@ -110,6 +110,46 @@ namespace JsonToWord.Services.Tests
         }
 
         [Fact]
+        public void Create_WithNullFormattingSettings_DoesNotThrow_AndSkipsVoidList()
+        {
+            var mocks = CreateServiceWithMocks();
+            var service = mocks.Service;
+
+            var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDir);
+            var templatePath = Path.Combine(tempDir, "template.docx");
+
+            try
+            {
+                using (var doc = WordprocessingDocument.Create(templatePath, WordprocessingDocumentType.Document))
+                {
+                    var mainPart = doc.AddMainDocumentPart();
+                    mainPart.Document = new Document(new Body(new Paragraph(new Run(new Text("content")))));
+                }
+
+                mocks.DocumentService
+                    .Setup(d => d.CreateDocument(templatePath))
+                    .Returns(templatePath);
+
+                var model = new WordModel
+                {
+                    LocalPath = templatePath,
+                    ContentControls = new List<WordContentControl>(),
+                    FormattingSettings = null
+                };
+
+                var resultPath = service.Create(model);
+
+                Assert.Equal(templatePath, resultPath);
+                mocks.VoidListService.Verify(v => v.CreateVoidList(It.IsAny<string>()), Times.Never);
+            }
+            finally
+            {
+                Directory.Delete(tempDir, true);
+            }
+        }
+
+        [Fact]
         public void Create_WithVoidList_CreatesZipWithVoidListFile()
         {
             var mocks = CreateServiceWithMocks();
