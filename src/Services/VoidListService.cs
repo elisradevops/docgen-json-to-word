@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
 
@@ -28,7 +29,11 @@ namespace JsonToWord.Services
         private readonly ILogger<VoidListService> _logger;
         private readonly ISpreadsheetService _spreadsheetService;
         private static readonly Regex vlRegex = new Regex(@"#VL-[^#]+#", RegexOptions.IgnoreCase);
-        private static readonly Regex validVlRegex = new Regex(@"#VL-\d+(?:\.\d+)?(\s[^#]*)?#", RegexOptions.IgnoreCase);
+        private static readonly Regex validVlRegex = new Regex(
+            @"^#(?<key>VL-\d+(?:\.\d+)?)(?![\d.])(?<value>[^#]*)#$",
+            RegexOptions.IgnoreCase
+        );
+        private static readonly Regex whitespaceRegex = new Regex(@"\s+", RegexOptions.Compiled);
 
         public VoidListService(ILogger<VoidListService> logger, ISpreadsheetService spreadsheetService)
         {
@@ -225,6 +230,18 @@ namespace JsonToWord.Services
             return new Word.Text(text) { Space = SpaceProcessingModeValues.Preserve };
         }
 
+        private static string NormalizeVlValue(string rawValue)
+        {
+            if (string.IsNullOrEmpty(rawValue))
+            {
+                return string.Empty;
+            }
+
+            string value = rawValue.Replace('\u00A0', ' ');
+            value = whitespaceRegex.Replace(value, " ").Trim();
+            return value;
+        }
+
         public List<string> CreateVoidList(string docPath)
         {
             List<string> filesToZip = new List<string>();
@@ -278,13 +295,16 @@ namespace JsonToWord.Services
                             }
 
                             string originalMatchValue = match.Value;
-                            bool isValidCode = validVlRegex.IsMatch(originalMatchValue);
-                            string[] parts = originalMatchValue.Trim('#').Split(new[] { ' ' }, 2);
-                            string key = parts[0].ToUpper();
-                            string value = parts.Length > 1 ? parts[1].Trim() : string.Empty;
+                            var validMatch = validVlRegex.Match(originalMatchValue);
+                            bool isValidCode = validMatch.Success;
+                            string key = string.Empty;
+                            string value = string.Empty;
 
                             if (isValidCode)
                             {
+                                key = validMatch.Groups["key"].Value.ToUpperInvariant();
+                                value = NormalizeVlValue(validMatch.Groups["value"].Value);
+
                                 if (!entriesByKey.TryGetValue(key, out var valuesForKey))
                                 {
                                     valuesForKey = new Dictionary<string, ValueAggregate>(StringComparer.OrdinalIgnoreCase);
@@ -322,7 +342,7 @@ namespace JsonToWord.Services
                             else
                             {
                                 var locDisplay = string.IsNullOrWhiteSpace(currentLocationId) ? "Unknown" : currentLocationId;
-                                validationErrors.Add($"Invalid VL code found: {originalMatchValue} at Work Item: {locDisplay}. Expected format: #VL-<number> [text]# (e.g., #VL-123 Description#).");
+                                validationErrors.Add($"Invalid VL code found: {originalMatchValue} at Work Item: {locDisplay}. Expected format: #VL-<number> [text]# (e.g., #VL-123 Description# or #VL-12.5 Description#).");
                             }
 
                             RewriteRunsForMatch(p, runInfos, match, isValidCode, key, originalMatchValue);
@@ -398,7 +418,7 @@ namespace JsonToWord.Services
                     {
                         // Extract numeric part from VL-X format for proper sorting
                         var keyPart = entry.Key.Replace("VL-", "");
-                        if (decimal.TryParse(keyPart, out decimal numericKey))
+                        if (decimal.TryParse(keyPart, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal numericKey))
                             return numericKey;
                         return decimal.MaxValue; // Put non-numeric keys at the end
                     }).ThenBy(entry => entry.Index).ToList();
