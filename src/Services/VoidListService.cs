@@ -33,6 +33,10 @@ namespace JsonToWord.Services
             @"^#(?<key>VL-\d+(?:\.\d+)?)(?![\d.])(?<value>[^#]*)#$",
             RegexOptions.IgnoreCase
         );
+        private static readonly Regex splitRunKeyOnlyRegex = new Regex(
+            @"^#(?<key>VL-\d+(?:\.\d+)?)$",
+            RegexOptions.IgnoreCase
+        );
         private static readonly Regex whitespaceRegex = new Regex(@"\s+", RegexOptions.Compiled);
 
         public VoidListService(ILogger<VoidListService> logger, ISpreadsheetService spreadsheetService)
@@ -242,6 +246,73 @@ namespace JsonToWord.Services
             return value;
         }
 
+        private static List<string> ExtractMatchFragmentsFromRuns(List<RunInfo> runInfos, Match match)
+        {
+            var fragments = new List<string>();
+            int matchStart = match.Index;
+            int matchEndExclusive = match.Index + match.Length;
+
+            foreach (var runInfo in runInfos)
+            {
+                int runStart = runInfo.StartIndex;
+                int runEndExclusive = runInfo.StartIndex + runInfo.Text.Length;
+
+                if (runEndExclusive <= matchStart || runStart >= matchEndExclusive)
+                {
+                    continue;
+                }
+
+                int localStart = Math.Max(matchStart, runStart) - runStart;
+                int localEndExclusive = Math.Min(matchEndExclusive, runEndExclusive) - runStart;
+                int fragmentLength = localEndExclusive - localStart;
+
+                if (fragmentLength > 0)
+                {
+                    fragments.Add(runInfo.Text.Substring(localStart, fragmentLength));
+                }
+            }
+
+            return fragments;
+        }
+
+        private static bool TryParseValidVlFromMatch(string originalMatchValue, List<RunInfo> runInfos, Match match, out string key, out string value)
+        {
+            key = string.Empty;
+            value = string.Empty;
+
+            var fragments = ExtractMatchFragmentsFromRuns(runInfos, match);
+
+            // Handle copy/paste formatting artifact where token is split across runs:
+            // run1: "#VL-19", run2: "45#" should map to key=VL-19, value=45.
+            if (fragments.Count >= 2)
+            {
+                var keyOnlyFragment = splitRunKeyOnlyRegex.Match(fragments[0]);
+                if (keyOnlyFragment.Success)
+                {
+                    string remainder = string.Concat(fragments.Skip(1));
+                    bool hasSingleClosingHash = remainder.EndsWith("#", StringComparison.Ordinal)
+                        && remainder.IndexOf('#') == remainder.Length - 1;
+
+                    if (hasSingleClosingHash)
+                    {
+                        key = keyOnlyFragment.Groups["key"].Value.ToUpperInvariant();
+                        value = NormalizeVlValue(remainder.Substring(0, remainder.Length - 1));
+                        return true;
+                    }
+                }
+            }
+
+            var validMatch = validVlRegex.Match(originalMatchValue);
+            if (!validMatch.Success)
+            {
+                return false;
+            }
+
+            key = validMatch.Groups["key"].Value.ToUpperInvariant();
+            value = NormalizeVlValue(validMatch.Groups["value"].Value);
+            return true;
+        }
+
         public List<string> CreateVoidList(string docPath)
         {
             List<string> filesToZip = new List<string>();
@@ -295,16 +366,10 @@ namespace JsonToWord.Services
                             }
 
                             string originalMatchValue = match.Value;
-                            var validMatch = validVlRegex.Match(originalMatchValue);
-                            bool isValidCode = validMatch.Success;
-                            string key = string.Empty;
-                            string value = string.Empty;
+                            bool isValidCode = TryParseValidVlFromMatch(originalMatchValue, runInfos, match, out string key, out string value);
 
                             if (isValidCode)
                             {
-                                key = validMatch.Groups["key"].Value.ToUpperInvariant();
-                                value = NormalizeVlValue(validMatch.Groups["value"].Value);
-
                                 if (!entriesByKey.TryGetValue(key, out var valuesForKey))
                                 {
                                     valuesForKey = new Dictionary<string, ValueAggregate>(StringComparer.OrdinalIgnoreCase);

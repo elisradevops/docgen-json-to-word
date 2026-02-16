@@ -112,6 +112,94 @@ namespace JsonToWord.Services.Tests
         }
 
         [Fact]
+        public void CreateVoidList_ParsesCodeAndValue_WhenKeyAndValueSplitAcrossRunsWithoutDelimiter()
+        {
+            var logger = new Mock<ILogger<VoidListService>>();
+            var service = new VoidListService(logger.Object, new SpreadsheetService());
+
+            var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDir);
+            var docPath = Path.Combine(tempDir, "input.docx");
+
+            try
+            {
+                using (var doc = WordprocessingDocument.Create(docPath, WordprocessingDocumentType.Document))
+                {
+                    var mainPart = doc.AddMainDocumentPart();
+                    mainPart.Document = new Document(new Body());
+
+                    mainPart.Document.Body.Append(
+                        new Paragraph(
+                            new ParagraphProperties(new ParagraphStyleId { Val = "Heading1" }),
+                            new Run(new Text("Test Case - 201"))
+                        )
+                    );
+
+                    mainPart.Document.Body.Append(
+                        new Paragraph(
+                            new Run(new Text("example value is ")),
+                            new Run(new Text("#VL-19")),
+                            new Run(new Text("45#"))
+                        )
+                    );
+                }
+
+                var files = service.CreateVoidList(docPath);
+                var voidListPath = files.First(f => f.EndsWith("VOID LIST.xlsx", StringComparison.OrdinalIgnoreCase));
+
+                using var spreadsheet = SpreadsheetDocument.Open(voidListPath, false);
+                var row2 = GetRow(spreadsheet, 2);
+                Assert.Equal("VL-19", GetCellStringValue(spreadsheet, row2, "A"));
+                Assert.Equal("45", GetCellStringValue(spreadsheet, row2, "B"));
+            }
+            finally
+            {
+                Directory.Delete(tempDir, true);
+            }
+        }
+
+        [Fact]
+        public void CreateVoidList_ParsesWholeNumberCode_WhenNoRunBoundaryExists()
+        {
+            var logger = new Mock<ILogger<VoidListService>>();
+            var service = new VoidListService(logger.Object, new SpreadsheetService());
+
+            var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDir);
+            var docPath = Path.Combine(tempDir, "input.docx");
+
+            try
+            {
+                using (var doc = WordprocessingDocument.Create(docPath, WordprocessingDocumentType.Document))
+                {
+                    var mainPart = doc.AddMainDocumentPart();
+                    mainPart.Document = new Document(new Body());
+
+                    mainPart.Document.Body.Append(
+                        new Paragraph(
+                            new ParagraphProperties(new ParagraphStyleId { Val = "Heading1" }),
+                            new Run(new Text("Test Case - 202"))
+                        )
+                    );
+
+                    mainPart.Document.Body.Append(new Paragraph(new Run(new Text("#VL-1945#"))));
+                }
+
+                var files = service.CreateVoidList(docPath);
+                var voidListPath = files.First(f => f.EndsWith("VOID LIST.xlsx", StringComparison.OrdinalIgnoreCase));
+
+                using var spreadsheet = SpreadsheetDocument.Open(voidListPath, false);
+                var row2 = GetRow(spreadsheet, 2);
+                Assert.Equal("VL-1945", GetCellStringValue(spreadsheet, row2, "A"));
+                Assert.Equal(string.Empty, GetCellStringValue(spreadsheet, row2, "B"));
+            }
+            finally
+            {
+                Directory.Delete(tempDir, true);
+            }
+        }
+
+        [Fact]
         public void CreateVoidList_CreatesSpreadsheetAndValidationReport()
         {
             var logger = new Mock<ILogger<VoidListService>>();
