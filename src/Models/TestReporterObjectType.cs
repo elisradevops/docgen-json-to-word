@@ -5,5 +5,6 @@
         TestReporter,
         FlatTestReporter,
         MewpCoverageReporter,
+        InternalValidationReporter,
     }
 }

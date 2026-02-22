@@ -46,7 +46,11 @@ namespace JsonToWord.Services.ExcelServices
                     new Fill(new PatternFill(new ForegroundColor { Rgb = new HexBinaryValue("FF004B50") }) { PatternType = PatternValues.Solid }), // Index 6 - Test Cases Group Header
                     new Fill(new PatternFill(new ForegroundColor { Rgb = new HexBinaryValue("FF0098C7") }) { PatternType = PatternValues.Solid }), // Index 7 - Requirements Group Header
                     new Fill(new PatternFill(new ForegroundColor { Rgb = new HexBinaryValue("FFCC293D") }) { PatternType = PatternValues.Solid }), // Index 8 - Bugs Group Header
-                    new Fill(new PatternFill(new ForegroundColor { Rgb = new HexBinaryValue("FFB4009E") }) { PatternType = PatternValues.Solid })  // Index 9 - CRs Group Header
+                    new Fill(new PatternFill(new ForegroundColor { Rgb = new HexBinaryValue("FFB4009E") }) { PatternType = PatternValues.Solid }),  // Index 9 - CRs Group Header
+                    new Fill(new PatternFill(new ForegroundColor { Rgb = new HexBinaryValue("FFF9D7D7") }) { PatternType = PatternValues.Solid }), // Index 10 - Bugs alternating color 1
+                    new Fill(new PatternFill(new ForegroundColor { Rgb = new HexBinaryValue("FFFDEBEB") }) { PatternType = PatternValues.Solid }), // Index 11 - Bugs alternating color 2
+                    new Fill(new PatternFill(new ForegroundColor { Rgb = new HexBinaryValue("FFD8EAFB") }) { PatternType = PatternValues.Solid }), // Index 12 - Linked L3/L4 alternating color 1
+                    new Fill(new PatternFill(new ForegroundColor { Rgb = new HexBinaryValue("FFE8F2FC") }) { PatternType = PatternValues.Solid }) // Index 13 - Linked L3/L4 alternating color 2
                 ),
                 new Borders(
                     new Border(), // Index 0 - Default border
@@ -154,7 +158,13 @@ namespace JsonToWord.Services.ExcelServices
                     new CellFormat { FontId = 1, FillId = 6, BorderId = 1, ApplyFont = true, ApplyFill = true, ApplyBorder = true, Alignment = new Alignment { Horizontal = HorizontalAlignmentValues.Center, Vertical = VerticalAlignmentValues.Center }, ApplyAlignment = true }, // Index 14 - Test Cases Group Header
                     new CellFormat { FontId = 1, FillId = 7, BorderId = 1, ApplyFont = true, ApplyFill = true, ApplyBorder = true, Alignment = new Alignment { Horizontal = HorizontalAlignmentValues.Center, Vertical = VerticalAlignmentValues.Center }, ApplyAlignment = true }, // Index 15 - Requirements Group Header
                     new CellFormat { FontId = 1, FillId = 8, BorderId = 1, ApplyFont = true, ApplyFill = true, ApplyBorder = true, Alignment = new Alignment { Horizontal = HorizontalAlignmentValues.Center, Vertical = VerticalAlignmentValues.Center }, ApplyAlignment = true }, // Index 16 - Bugs Group Header
-                    new CellFormat { FontId = 1, FillId = 9, BorderId = 1, ApplyFont = true, ApplyFill = true, ApplyBorder = true, Alignment = new Alignment { Horizontal = HorizontalAlignmentValues.Center, Vertical = VerticalAlignmentValues.Center }, ApplyAlignment = true }  // Index 17 - CRs Group Header
+                    new CellFormat { FontId = 1, FillId = 9, BorderId = 1, ApplyFont = true, ApplyFill = true, ApplyBorder = true, Alignment = new Alignment { Horizontal = HorizontalAlignmentValues.Center, Vertical = VerticalAlignmentValues.Center }, ApplyAlignment = true }, // Index 17 - CRs Group Header
+                    new CellFormat { BorderId = 1, FillId = 10, ApplyFill = true, ApplyBorder = true, Alignment = new Alignment { WrapText = true, Vertical = VerticalAlignmentValues.Top } }, // Index 18 - Bug text alternating 1
+                    new CellFormat { BorderId = 1, FillId = 11, ApplyFill = true, ApplyBorder = true, Alignment = new Alignment { WrapText = true, Vertical = VerticalAlignmentValues.Top } }, // Index 19 - Bug text alternating 2
+                    new CellFormat { BorderId = 1, FillId = 10, ApplyFill = true, ApplyBorder = true, NumberFormatId = 0, ApplyNumberFormat = true, Alignment = new Alignment { Vertical = VerticalAlignmentValues.Top } }, // Index 20 - Bug number alternating 1
+                    new CellFormat { BorderId = 1, FillId = 11, ApplyFill = true, ApplyBorder = true, NumberFormatId = 0, ApplyNumberFormat = true, Alignment = new Alignment { Vertical = VerticalAlignmentValues.Top } }, // Index 21 - Bug number alternating 2
+                    new CellFormat { BorderId = 1, FillId = 12, ApplyFill = true, ApplyBorder = true, Alignment = new Alignment { WrapText = true, Vertical = VerticalAlignmentValues.Top } }, // Index 22 - Linked text alternating 1
+                    new CellFormat { BorderId = 1, FillId = 13, ApplyFill = true, ApplyBorder = true, Alignment = new Alignment { WrapText = true, Vertical = VerticalAlignmentValues.Top } } // Index 23 - Linked text alternating 2
                 )
             );
         }
