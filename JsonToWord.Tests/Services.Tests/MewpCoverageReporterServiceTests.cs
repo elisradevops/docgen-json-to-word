@@ -405,5 +405,67 @@ namespace JsonToWord.Services.Tests
                 }
             }
         }
+
+        [Fact]
+        public void Insert_UsesDifferentStyleGroups_ForL3AndL4Columns()
+        {
+            var logger = new Mock<ILogger<MewpCoverageReporterService>>();
+            var service = new MewpCoverageReporterService(
+                logger.Object,
+                new SpreadsheetService(),
+                new StylesheetService()
+            );
+            var tempPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.xlsx");
+
+            try
+            {
+                using (var document = SpreadsheetDocument.Create(
+                    tempPath,
+                    DocumentFormat.OpenXml.SpreadsheetDocumentType.Workbook
+                ))
+                {
+                    var model = new MewpCoverageReporterModel
+                    {
+                        TestPlanName = "MEWP",
+                        Rows = new List<Dictionary<string, object>>
+                        {
+                            new Dictionary<string, object>
+                            {
+                                { "L2 REQ ID", "SR8001" },
+                                { "L2 REQ Title", "Req 8001" },
+                                { "L2 SubSystem", "Comms" },
+                                { "L2 Run Status", "Pass" },
+                                { "Bug ID", "" },
+                                { "Bug Title", "" },
+                                { "Bug Responsibility", "" },
+                                { "L3 REQ ID", "9301" },
+                                { "L3 REQ Title", "L3 9301" },
+                                { "L4 REQ ID", "9401" },
+                                { "L4 REQ Title", "L4 9401" },
+                            }
+                        }
+                    };
+
+                    service.Insert(document, "MEWP Coverage", model);
+
+                    var worksheetPart = document.WorkbookPart!.WorksheetParts.First();
+                    var sheetData = worksheetPart.Worksheet.GetFirstChild<SheetData>()!;
+                    var row = sheetData.Elements<Row>().ElementAt(1);
+                    var cells = row.Elements<Cell>().ToList();
+
+                    var l3Style = cells[7].StyleIndex!.Value; // H - L3 REQ ID
+                    var l4Style = cells[9].StyleIndex!.Value; // J - L4 REQ ID
+
+                    Assert.NotEqual(l3Style, l4Style);
+                }
+            }
+            finally
+            {
+                if (File.Exists(tempPath))
+                {
+                    File.Delete(tempPath);
+                }
+            }
+        }
     }
 }

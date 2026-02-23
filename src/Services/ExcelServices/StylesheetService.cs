@@ -50,7 +50,9 @@ namespace JsonToWord.Services.ExcelServices
                     new Fill(new PatternFill(new ForegroundColor { Rgb = new HexBinaryValue("FFF9D7D7") }) { PatternType = PatternValues.Solid }), // Index 10 - Bugs alternating color 1
                     new Fill(new PatternFill(new ForegroundColor { Rgb = new HexBinaryValue("FFFDEBEB") }) { PatternType = PatternValues.Solid }), // Index 11 - Bugs alternating color 2
                     new Fill(new PatternFill(new ForegroundColor { Rgb = new HexBinaryValue("FFD8EAFB") }) { PatternType = PatternValues.Solid }), // Index 12 - Linked L3/L4 alternating color 1
-                    new Fill(new PatternFill(new ForegroundColor { Rgb = new HexBinaryValue("FFE8F2FC") }) { PatternType = PatternValues.Solid }) // Index 13 - Linked L3/L4 alternating color 2
+                    new Fill(new PatternFill(new ForegroundColor { Rgb = new HexBinaryValue("FFE8F2FC") }) { PatternType = PatternValues.Solid }), // Index 13 - Linked L3/L4 alternating color 2
+                    new Fill(new PatternFill(new ForegroundColor { Rgb = new HexBinaryValue("FFE3EFFD") }) { PatternType = PatternValues.Solid }), // Index 14 - Linked L4 alternating color 1
+                    new Fill(new PatternFill(new ForegroundColor { Rgb = new HexBinaryValue("FFF1F7FE") }) { PatternType = PatternValues.Solid }) // Index 15 - Linked L4 alternating color 2
                 ),
                 new Borders(
                     new Border(), // Index 0 - Default border
@@ -163,8 +165,10 @@ namespace JsonToWord.Services.ExcelServices
                     new CellFormat { BorderId = 1, FillId = 11, ApplyFill = true, ApplyBorder = true, Alignment = new Alignment { WrapText = true, Vertical = VerticalAlignmentValues.Top } }, // Index 19 - Bug text alternating 2
                     new CellFormat { BorderId = 1, FillId = 10, ApplyFill = true, ApplyBorder = true, NumberFormatId = 0, ApplyNumberFormat = true, Alignment = new Alignment { Vertical = VerticalAlignmentValues.Top } }, // Index 20 - Bug number alternating 1
                     new CellFormat { BorderId = 1, FillId = 11, ApplyFill = true, ApplyBorder = true, NumberFormatId = 0, ApplyNumberFormat = true, Alignment = new Alignment { Vertical = VerticalAlignmentValues.Top } }, // Index 21 - Bug number alternating 2
-                    new CellFormat { BorderId = 1, FillId = 12, ApplyFill = true, ApplyBorder = true, Alignment = new Alignment { WrapText = true, Vertical = VerticalAlignmentValues.Top } }, // Index 22 - Linked text alternating 1
-                    new CellFormat { BorderId = 1, FillId = 13, ApplyFill = true, ApplyBorder = true, Alignment = new Alignment { WrapText = true, Vertical = VerticalAlignmentValues.Top } } // Index 23 - Linked text alternating 2
+                    new CellFormat { BorderId = 1, FillId = 12, ApplyFill = true, ApplyBorder = true, Alignment = new Alignment { WrapText = true, Vertical = VerticalAlignmentValues.Top } }, // Index 22 - Linked L3 text alternating 1
+                    new CellFormat { BorderId = 1, FillId = 13, ApplyFill = true, ApplyBorder = true, Alignment = new Alignment { WrapText = true, Vertical = VerticalAlignmentValues.Top } }, // Index 23 - Linked L3 text alternating 2
+                    new CellFormat { BorderId = 1, FillId = 14, ApplyFill = true, ApplyBorder = true, Alignment = new Alignment { WrapText = true, Vertical = VerticalAlignmentValues.Top } }, // Index 24 - Linked L4 text alternating 1
+                    new CellFormat { BorderId = 1, FillId = 15, ApplyFill = true, ApplyBorder = true, Alignment = new Alignment { WrapText = true, Vertical = VerticalAlignmentValues.Top } } // Index 25 - Linked L4 text alternating 2
                 )
             );
         }

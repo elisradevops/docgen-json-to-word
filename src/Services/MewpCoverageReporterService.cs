@@ -50,10 +50,14 @@ namespace JsonToWord.Services
             "Bug Responsibility",
         };
 
-        private static readonly HashSet<string> LinkedColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        private static readonly HashSet<string> L3Columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             "L3 REQ ID",
             "L3 REQ Title",
+        };
+
+        private static readonly HashSet<string> L4Columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
             "L4 REQ ID",
             "L4 REQ Title",
         };
@@ -242,9 +246,14 @@ namespace JsonToWord.Services
                 return useFirstAlternatingColor ? 18U : 19U;
             }
 
-            if (IsLinkedColumn(columnName))
+            if (IsL3Column(columnName))
             {
                 return useFirstAlternatingColor ? 22U : 23U;
+            }
+
+            if (IsL4Column(columnName))
+            {
+                return useFirstAlternatingColor ? 24U : 25U;
             }
 
             return useFirstAlternatingColor ? 6U : 7U;
@@ -261,9 +270,14 @@ namespace JsonToWord.Services
             return !string.IsNullOrWhiteSpace(columnName) && BugColumns.Contains(columnName.Trim());
         }
 
-        private static bool IsLinkedColumn(string columnName)
+        private static bool IsL3Column(string columnName)
         {
-            return !string.IsNullOrWhiteSpace(columnName) && LinkedColumns.Contains(columnName.Trim());
+            return !string.IsNullOrWhiteSpace(columnName) && L3Columns.Contains(columnName.Trim());
+        }
+
+        private static bool IsL4Column(string columnName)
+        {
+            return !string.IsNullOrWhiteSpace(columnName) && L4Columns.Contains(columnName.Trim());
         }
 
         private static bool TryToNumberCellValue(object value, out string numericValue)
