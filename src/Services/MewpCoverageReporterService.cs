@@ -33,12 +33,14 @@ namespace JsonToWord.Services
             "L4 REQ Title",
         };
         
-        private static readonly string[] MergeCandidateColumns = new[]
+        private static readonly string[] RequirementMergeCandidateColumns = new[]
         {
             "L2 REQ ID",
             "L2 REQ Title",
             "L2 SubSystem",
             "L2 Run Status",
+            "L3 REQ ID",
+            "L3 REQ Title",
         };
 
         private static readonly HashSet<string> BugColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
@@ -128,7 +130,7 @@ namespace JsonToWord.Services
                 var useFirstAlternatingColorByRow = BuildRowAlternatingColorFlags(
                     rows,
                     columnOrder,
-                    coverageModel.MergeDuplicateL2Cells
+                    coverageModel.MergeDuplicateRequirementCells
                 );
                 foreach (var row in rows)
                 {
@@ -166,9 +168,9 @@ namespace JsonToWord.Services
                     }
                 }
 
-                if (coverageModel.MergeDuplicateL2Cells)
+                if (coverageModel.MergeDuplicateRequirementCells)
                 {
-                    AppendL2DuplicateMergeRanges(mergeCells, rows, columnOrder);
+                    AppendRequirementDuplicateMergeRanges(mergeCells, rows, columnOrder);
                 }
 
                 if (mergeCells.Any())
@@ -350,7 +352,7 @@ namespace JsonToWord.Services
             return result;
         }
 
-        private void AppendL2DuplicateMergeRanges(
+        private void AppendRequirementDuplicateMergeRanges(
             MergeCells mergeCells,
             IReadOnlyList<Dictionary<string, object>> rows,
             IReadOnlyList<string> columnOrder
@@ -367,7 +369,7 @@ namespace JsonToWord.Services
                 return;
             }
 
-            var mergeColumnIndexes = MergeCandidateColumns
+            var mergeColumnIndexes = RequirementMergeCandidateColumns
                 .Select(columnName => new { Name = columnName, Index = FindColumnIndex(columnOrder, columnName) })
                 .Where(item => item.Index >= 0)
                 .ToList();

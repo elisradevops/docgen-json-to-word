@@ -111,7 +111,7 @@ namespace JsonToWord.Services.Tests
                     var model = new MewpCoverageReporterModel
                     {
                         TestPlanName = "MEWP",
-                        MergeDuplicateL2Cells = true,
+                        MergeDuplicateRequirementCells = true,
                         Rows = new List<Dictionary<string, object>>
                         {
                             new Dictionary<string, object>
@@ -171,6 +171,84 @@ namespace JsonToWord.Services.Tests
         }
 
         [Fact]
+        public void Insert_MergesDuplicateL3Columns_WhenMergeFlagEnabled()
+        {
+            var logger = new Mock<ILogger<MewpCoverageReporterService>>();
+            var service = new MewpCoverageReporterService(
+                logger.Object,
+                new SpreadsheetService(),
+                new StylesheetService()
+            );
+            var tempPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.xlsx");
+
+            try
+            {
+                using (var document = SpreadsheetDocument.Create(
+                    tempPath,
+                    DocumentFormat.OpenXml.SpreadsheetDocumentType.Workbook
+                ))
+                {
+                    var model = new MewpCoverageReporterModel
+                    {
+                        TestPlanName = "MEWP",
+                        MergeDuplicateRequirementCells = true,
+                        Rows = new List<Dictionary<string, object>>
+                        {
+                            new Dictionary<string, object>
+                            {
+                                { "L2 REQ ID", "SR9000" },
+                                { "L2 REQ Title", "Req 9000" },
+                                { "L2 SubSystem", "Power" },
+                                { "L2 Run Status", "Fail" },
+                                { "Bug ID", 30001 },
+                                { "Bug Title", "Bug 30001" },
+                                { "Bug Responsibility", "ESUK" },
+                                { "L3 REQ ID", "9003" },
+                                { "L3 REQ Title", "L3 9003" },
+                                { "L4 REQ ID", "9103" },
+                                { "L4 REQ Title", "L4 9103" },
+                            },
+                            new Dictionary<string, object>
+                            {
+                                { "L2 REQ ID", "SR9000" },
+                                { "L2 REQ Title", "Req 9000" },
+                                { "L2 SubSystem", "Power" },
+                                { "L2 Run Status", "Fail" },
+                                { "Bug ID", 30002 },
+                                { "Bug Title", "Bug 30002" },
+                                { "Bug Responsibility", "ESUK" },
+                                { "L3 REQ ID", "9003" },
+                                { "L3 REQ Title", "L3 9003" },
+                                { "L4 REQ ID", "9104" },
+                                { "L4 REQ Title", "L4 9104" },
+                            },
+                        }
+                    };
+
+                    service.Insert(document, "MEWP Coverage", model);
+
+                    var worksheetPart = document.WorkbookPart!.WorksheetParts.First();
+                    var mergeCells = worksheetPart.Worksheet.Elements<MergeCells>().FirstOrDefault();
+
+                    Assert.NotNull(mergeCells);
+                    var refs = mergeCells!.Elements<MergeCell>()
+                        .Select(x => x.Reference?.Value ?? string.Empty)
+                        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+                    Assert.Contains("H2:H3", refs);
+                    Assert.Contains("I2:I3", refs);
+                }
+            }
+            finally
+            {
+                if (File.Exists(tempPath))
+                {
+                    File.Delete(tempPath);
+                }
+            }
+        }
+
+        [Fact]
         public void Insert_AlternatesColorByL2Group_WhenMergeFlagEnabled()
         {
             var logger = new Mock<ILogger<MewpCoverageReporterService>>();
@@ -191,7 +269,7 @@ namespace JsonToWord.Services.Tests
                     var model = new MewpCoverageReporterModel
                     {
                         TestPlanName = "MEWP",
-                        MergeDuplicateL2Cells = true,
+                        MergeDuplicateRequirementCells = true,
                         Rows = new List<Dictionary<string, object>>
                         {
                             new Dictionary<string, object>
