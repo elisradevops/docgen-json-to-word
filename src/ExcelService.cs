@@ -16,19 +16,22 @@ namespace JsonToWord
         private readonly ITestReporterService _testReporterService;
         private readonly IFlatTestReporterService _flatTestReporterService;
         private readonly IMewpCoverageReporterService _mewpCoverageReporterService;
+        private readonly IInternalValidationReporterService _internalValidationReporterService;
         #endregion
 
         public ExcelService(
             ILogger<ExcelService> logger,
             ITestReporterService tableService,
             IFlatTestReporterService flatTestReporterService,
-            IMewpCoverageReporterService mewpCoverageReporterService
+            IMewpCoverageReporterService mewpCoverageReporterService,
+            IInternalValidationReporterService internalValidationReporterService
         )
         {
             _logger = logger;
             _testReporterService = tableService;
             _flatTestReporterService = flatTestReporterService;
             _mewpCoverageReporterService = mewpCoverageReporterService;
+            _internalValidationReporterService = internalValidationReporterService;
         }
 
         public string CreateExcelDocument(ExcelModel excelModel)
@@ -68,6 +71,13 @@ namespace JsonToWord
                                     ? contentControl.Title
                                     : mewpCoverageReporter.TestPlanName;
                                 _mewpCoverageReporterService.Insert(spreadSheet, sheetName, mewpCoverageReporter);
+                            }
+                            if (excelObject is InternalValidationReporterModel internalValidationReporter)
+                            {
+                                var sheetName = string.IsNullOrWhiteSpace(internalValidationReporter.TestPlanName)
+                                    ? contentControl.Title
+                                    : internalValidationReporter.TestPlanName;
+                                _internalValidationReporterService.Insert(spreadSheet, sheetName, internalValidationReporter);
                             }
                         }
 

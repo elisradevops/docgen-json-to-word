@@ -20,11 +20,13 @@ namespace JsonToWord.Services.Tests
             var testReporterService = new Mock<ITestReporterService>();
             var flatTestReporterService = new Mock<IFlatTestReporterService>();
             var mewpCoverageReporterService = new Mock<IMewpCoverageReporterService>();
+            var internalValidationReporterService = new Mock<IInternalValidationReporterService>();
             var service = new ExcelService(
                 logger.Object,
                 testReporterService.Object,
                 flatTestReporterService.Object,
-                mewpCoverageReporterService.Object
+                mewpCoverageReporterService.Object,
+                internalValidationReporterService.Object
             );
 
             var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
@@ -62,11 +64,13 @@ namespace JsonToWord.Services.Tests
             var testReporterService = new Mock<ITestReporterService>();
             var flatTestReporterService = new Mock<IFlatTestReporterService>();
             var mewpCoverageReporterService = new Mock<IMewpCoverageReporterService>();
+            var internalValidationReporterService = new Mock<IInternalValidationReporterService>();
             var service = new ExcelService(
                 logger.Object,
                 testReporterService.Object,
                 flatTestReporterService.Object,
-                mewpCoverageReporterService.Object
+                mewpCoverageReporterService.Object,
+                internalValidationReporterService.Object
             );
 
             var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
@@ -123,11 +127,13 @@ namespace JsonToWord.Services.Tests
             var testReporterService = new Mock<ITestReporterService>();
             var flatTestReporterService = new Mock<IFlatTestReporterService>();
             var mewpCoverageReporterService = new Mock<IMewpCoverageReporterService>();
+            var internalValidationReporterService = new Mock<IInternalValidationReporterService>();
             var service = new ExcelService(
                 logger.Object,
                 testReporterService.Object,
                 flatTestReporterService.Object,
-                mewpCoverageReporterService.Object
+                mewpCoverageReporterService.Object,
+                internalValidationReporterService.Object
             );
 
             var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
@@ -191,11 +197,13 @@ namespace JsonToWord.Services.Tests
             var testReporterService = new Mock<ITestReporterService>();
             var flatTestReporterService = new Mock<IFlatTestReporterService>();
             var mewpCoverageReporterService = new Mock<IMewpCoverageReporterService>();
+            var internalValidationReporterService = new Mock<IInternalValidationReporterService>();
             var service = new ExcelService(
                 logger.Object,
                 testReporterService.Object,
                 flatTestReporterService.Object,
-                mewpCoverageReporterService.Object
+                mewpCoverageReporterService.Object,
+                internalValidationReporterService.Object
             );
 
             var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
@@ -263,11 +271,13 @@ namespace JsonToWord.Services.Tests
             var testReporterService = new Mock<ITestReporterService>();
             var flatTestReporterService = new Mock<IFlatTestReporterService>();
             var mewpCoverageReporterService = new Mock<IMewpCoverageReporterService>();
+            var internalValidationReporterService = new Mock<IInternalValidationReporterService>();
             var service = new ExcelService(
                 logger.Object,
                 testReporterService.Object,
                 flatTestReporterService.Object,
-                mewpCoverageReporterService.Object
+                mewpCoverageReporterService.Object,
+                internalValidationReporterService.Object
             );
 
             var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
@@ -279,7 +289,7 @@ namespace JsonToWord.Services.Tests
                 TestPlanName = "MEWP L2 Coverage - Plan A",
                 Rows = new List<Dictionary<string, object>>
                 {
-                    new Dictionary<string, object> { { "Customer ID", "SR1001" } }
+                    new Dictionary<string, object> { { "L2 REQ ID", "SR1001" } }
                 }
             };
 
@@ -315,6 +325,76 @@ namespace JsonToWord.Services.Tests
                 Assert.True(File.Exists(filePath));
                 mewpCoverageReporterService.Verify(
                     s => s.Insert(It.IsAny<SpreadsheetDocument>(), "MEWP L2 Coverage - Plan A", mewpCoverageReporter),
+                    Times.Once
+                );
+            }
+            finally
+            {
+                Directory.Delete(tempDir, true);
+            }
+        }
+
+        [Fact]
+        public void CreateExcelDocument_CallsInternalValidationReporterService()
+        {
+            var logger = new Mock<ILogger<ExcelService>>();
+            var testReporterService = new Mock<ITestReporterService>();
+            var flatTestReporterService = new Mock<IFlatTestReporterService>();
+            var mewpCoverageReporterService = new Mock<IMewpCoverageReporterService>();
+            var internalValidationReporterService = new Mock<IInternalValidationReporterService>();
+            var service = new ExcelService(
+                logger.Object,
+                testReporterService.Object,
+                flatTestReporterService.Object,
+                mewpCoverageReporterService.Object,
+                internalValidationReporterService.Object
+            );
+
+            var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDir);
+            var filePath = Path.Combine(tempDir, "internal-validation-report.xlsx");
+
+            var internalValidationReporter = new InternalValidationReporterModel
+            {
+                TestPlanName = "MEWP Internal Validation - Plan A",
+                Rows = new List<Dictionary<string, object>>
+                {
+                    new Dictionary<string, object> { { "Test Case ID", 101 } }
+                }
+            };
+
+            internalValidationReporterService
+                .Setup(s => s.Insert(It.IsAny<SpreadsheetDocument>(), It.IsAny<string>(), It.IsAny<InternalValidationReporterModel>()))
+                .Callback<SpreadsheetDocument, string, InternalValidationReporterModel>((document, _, __) =>
+                {
+                    if (document.WorkbookPart == null)
+                    {
+                        var workbookPart = document.AddWorkbookPart();
+                        workbookPart.Workbook = new Workbook();
+                    }
+                });
+
+            var model = new ExcelModel
+            {
+                LocalPath = filePath,
+                ContentControls = new List<TestReporterContentControl>
+                {
+                    new TestReporterContentControl
+                    {
+                        Title = "cc",
+                        WordObjects = new List<ITestReporterObject> { internalValidationReporter }
+                    }
+                }
+            };
+
+            try
+            {
+                var resultPath = service.CreateExcelDocument(model);
+
+                Assert.Equal(filePath, resultPath);
+                Assert.True(File.Exists(filePath));
+                internalValidationReporterService.Verify(
+                    s => s.Insert(It.IsAny<SpreadsheetDocument>(), "MEWP Internal Validation - Plan A", internalValidationReporter),
                     Times.Once
                 );
             }
