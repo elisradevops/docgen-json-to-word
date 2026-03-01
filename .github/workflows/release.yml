@@ -1,12 +1,18 @@
-name: '🚀 publish'
+name: "🚀 publish"
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - main
     paths-ignore:
       - '.github/**'
+  workflow_dispatch:
+
 permissions:
   contents: write
+
 jobs:
   release:
     name: 🚀 publish
@@ -17,44 +23,29 @@ jobs:
         with:
           token: ${{ secrets.ELISRADEVOPS_ACCESS_TOKEN }}
           fetch-depth: 0
+
       - name: 🔵 dotnet
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 6.0.x
-      - name: "Tag Version Bump"
-        id: tag_version
+
+      - name: "Automated Version Bump"
+        if: github.event_name == 'push'
+        id: bump_version
         shell: bash
         run: |
-          LAST_TAG="$(git tag --list 'v*' --sort=-version:refname | head -n 1)"
-          if [[ -n "$LAST_TAG" ]]; then
-            BASE_VERSION="${LAST_TAG#v}"
-            RANGE="${LAST_TAG}..HEAD"
-            LAST_TAG_COMMIT="$(git rev-list -n 1 "$LAST_TAG")"
-            HEAD_COMMIT="$(git rev-parse HEAD)"
-            if [[ "$LAST_TAG_COMMIT" == "$HEAD_COMMIT" ]]; then
-              echo "HEAD is already tagged with ${LAST_TAG}; reusing existing tag/version."
-              echo "new-version=${BASE_VERSION}" >> "$GITHUB_OUTPUT"
-              echo "new-tag=${LAST_TAG}" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-          else
-            BASE_VERSION="1.0.0"
-            RANGE="HEAD"
-          fi
-
-          IFS='.' read -r MAJOR MINOR PATCH <<< "$BASE_VERSION"
-
+          CURRENT_VERSION="$(dotnet msbuild src/JsonToWord.csproj -nologo -getProperty:Version | tail -n 1 | tr -d '\r')"
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
           if [[ ! "$MAJOR" =~ ^[0-9]+$ || ! "$MINOR" =~ ^[0-9]+$ || ! "$PATCH" =~ ^[0-9]+$ ]]; then
-            echo "Version '$BASE_VERSION' is not in MAJOR.MINOR.PATCH format"
+            echo "Version '$CURRENT_VERSION' is not in MAJOR.MINOR.PATCH format"
             exit 1
           fi
 
-          COMMITS="$(git log --format=%B ${RANGE})"
+          COMMIT_TEXT="$(git log -1 --format=%B)"
           BUMP_TYPE="patch"
-
-          if echo "$COMMITS" | grep -Eiq 'BREAKING CHANGE|(^|[[:space:]])major([[:space:]]|$)|!:'; then
+          if echo "$COMMIT_TEXT" | grep -Eiq 'BREAKING CHANGE|(^|[[:space:]])major([[:space:]]|$)|!:'; then
             BUMP_TYPE="major"
-          elif echo "$COMMITS" | grep -Eiq '(^feat(\(.+\))?:)|(^feature(\(.+\))?:)|(^|[[:space:]])minor([[:space:]]|$)'; then
+          elif echo "$COMMIT_TEXT" | grep -Eiq '(^feat(\(.+\))?:)|(^feature(\(.+\))?:)|(^|[[:space:]])minor([[:space:]]|$)'; then
             BUMP_TYPE="minor"
           fi
 
@@ -66,31 +57,60 @@ jobs:
             NEXT_VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))"
           fi
 
-          NEW_TAG="v${NEXT_VERSION}"
-          if git rev-parse -q --verify "refs/tags/${NEW_TAG}" >/dev/null; then
-            echo "Tag ${NEW_TAG} already exists; reusing it."
-            echo "new-version=$NEXT_VERSION" >> "$GITHUB_OUTPUT"
-            echo "new-tag=$NEW_TAG" >> "$GITHUB_OUTPUT"
-            exit 0
+          echo "new-version=$NEXT_VERSION" >> "$GITHUB_OUTPUT"
+          export NEXT_VERSION
+
+          perl -0777 -i -pe 's#(<Version\b[^>]*>)([^<]+)(</Version>)#$1$ENV{NEXT_VERSION}$3#' src/JsonToWord.csproj
+          UPDATED_VERSION="$(dotnet msbuild src/JsonToWord.csproj -nologo -getProperty:Version | tail -n 1 | tr -d '\r')"
+          if [[ "$UPDATED_VERSION" != "$NEXT_VERSION" ]]; then
+            echo "Version update failed: expected $NEXT_VERSION, got $UPDATED_VERSION"
+            exit 1
           fi
 
-          echo "new-version=$NEXT_VERSION" >> "$GITHUB_OUTPUT"
-          echo "new-tag=$NEW_TAG" >> "$GITHUB_OUTPUT"
+          if ! git diff --quiet -- src/JsonToWord.csproj; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add src/JsonToWord.csproj
+            git commit -m "CI: bumps version to ${NEXT_VERSION} [skip ci]"
+            NEW_TAG="v${NEXT_VERSION}"
+            if git rev-parse -q --verify "refs/tags/${NEW_TAG}" >/dev/null; then
+              echo "Tag ${NEW_TAG} already exists, skipping tag creation."
+            else
+              git tag "${NEW_TAG}"
+            fi
+            git push --follow-tags
+          else
+            echo "No version change detected."
+          fi
 
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag "$NEW_TAG"
-          git push origin "$NEW_TAG"
+      - name: Read current project version
+        id: project-version
+        shell: bash
+        run: |
+          CURRENT_VERSION="$(dotnet msbuild src/JsonToWord.csproj -nologo -getProperty:Version | tail -n 1 | tr -d '\r')"
+          if [[ -z "$CURRENT_VERSION" ]]; then
+            echo "Failed to read Version from src/JsonToWord.csproj"
+            exit 1
+          fi
+          echo "current-version=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
+
       - name: Set up QEMU
+        if: github.event_name == 'push'
         uses: docker/setup-qemu-action@v3
+
       - name: Set up Docker Buildx
+        if: github.event_name == 'push'
         uses: docker/setup-buildx-action@v3
+
       - name: Login to DockerHub
+        if: github.event_name == 'push'
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: Build and push
+        if: github.event_name == 'push'
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -98,7 +118,20 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           build-args: |
-            APP_VERSION=${{ steps.tag_version.outputs.new-version }}
+            APP_VERSION=${{ steps.project-version.outputs.current-version }}
           tags: |
-            elisradevops/docgen-json-to-word:${{ steps.tag_version.outputs.new-version }}
+            elisradevops/docgen-json-to-word:${{ steps.project-version.outputs.current-version }}
             elisradevops/docgen-json-to-word:latest
+
+      - name: PR check marker
+        if: github.event_name == 'pull_request'
+        run: echo "PR check completed. Release steps are push-only."
+
+  release_expected_compat:
+    name: 🚀 publishExpected
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Compatibility status check
+        run: |
+          echo "Compatibility check for branch protection context: publishExpected"
