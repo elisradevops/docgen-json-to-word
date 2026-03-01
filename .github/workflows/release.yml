@@ -1,11 +1,6 @@
-name: '🚀 publish'
+name: "🚀 publish"
 on:
   push:
-    branches:
-      - main
-    paths-ignore:
-      - '.github/**'
-  pull_request:
     branches:
       - main
     paths-ignore:
@@ -17,27 +12,18 @@ jobs:
     name: 🚀 publish
     runs-on: ubuntu-latest
     steps:
-      - name: 📚 checkout (PR)
-        if: github.event_name == 'pull_request'
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - name: 📚 checkout
-        if: github.event_name == 'push'
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.ELISRADEVOPS_ACCESS_TOKEN }}
           fetch-depth: 0
-      - name: PR validation gate
-        if: github.event_name == 'pull_request'
-        run: echo "PR event detected. Release steps are intentionally skipped."
+
       - name: 🔵 dotnet
-        if: github.event_name == 'push'
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 6.0.x
+
       - name: "Automated Version Bump"
-        if: github.event_name == 'push'
         id: bump_version
         shell: bash
         run: |
@@ -48,11 +34,31 @@ jobs:
             exit 1
           fi
 
-          NEXT_VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))"
+          COMMIT_TEXT="$(git log -1 --format=%B)"
+          BUMP_TYPE="patch"
+          if echo "$COMMIT_TEXT" | grep -Eiq 'BREAKING CHANGE|(^|[[:space:]])major([[:space:]]|$)|!:'; then
+            BUMP_TYPE="major"
+          elif echo "$COMMIT_TEXT" | grep -Eiq '(^feat(\(.+\))?:)|(^feature(\(.+\))?:)|(^|[[:space:]])minor([[:space:]]|$)'; then
+            BUMP_TYPE="minor"
+          fi
+
+          if [[ "$BUMP_TYPE" == "major" ]]; then
+            NEXT_VERSION="$((MAJOR + 1)).0.0"
+          elif [[ "$BUMP_TYPE" == "minor" ]]; then
+            NEXT_VERSION="${MAJOR}.$((MINOR + 1)).0"
+          else
+            NEXT_VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))"
+          fi
+
           echo "new-version=$NEXT_VERSION" >> "$GITHUB_OUTPUT"
           export NEXT_VERSION
 
-          perl -0777 -i -pe 's#(<Version\\b[^>]*>)([^<]+)(</Version>)#$1$ENV{NEXT_VERSION}$3#' src/JsonToWord.csproj
+          perl -0777 -i -pe 's#(<Version\b[^>]*>)([^<]+)(</Version>)#$1$ENV{NEXT_VERSION}$3#' src/JsonToWord.csproj
+          UPDATED_VERSION="$(dotnet msbuild src/JsonToWord.csproj -nologo -getProperty:Version | tail -n 1 | tr -d '\r')"
+          if [[ "$UPDATED_VERSION" != "$NEXT_VERSION" ]]; then
+            echo "Version update failed: expected $NEXT_VERSION, got $UPDATED_VERSION"
+            exit 1
+          fi
 
           if ! git diff --quiet -- src/JsonToWord.csproj; then
             git config user.name "github-actions[bot]"
@@ -65,12 +71,12 @@ jobs:
             else
               git tag "${NEW_TAG}"
             fi
-            git push origin "HEAD:${GITHUB_REF_NAME}" --follow-tags
+            git push --follow-tags
           else
             echo "No version change detected."
           fi
+
       - name: Read current project version
-        if: github.event_name == 'push'
         id: project-version
         shell: bash
         run: |
@@ -80,20 +86,17 @@ jobs:
             exit 1
           fi
           echo "current-version=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
+
       - name: Set up QEMU
-        if: github.event_name == 'push'
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
-        if: github.event_name == 'push'
         uses: docker/setup-buildx-action@v3
       - name: Login to DockerHub
-        if: github.event_name == 'push'
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Build and push
-        if: github.event_name == 'push'
         uses: docker/build-push-action@v6
         with:
           context: .
