@@ -28,13 +28,20 @@ namespace JsonToWord.Services.ExcelServices
                         new FontName { Val = "Arial" },
                         new Bold()
                     ),
-                     new Font( // Index 3 - Hyperlink font
-                        new FontSize { Val = 10 },
-                        new FontName { Val = "Arial" },
-                        new Underline { Val = UnderlineValues.Single },
-                        new Color { Rgb = new HexBinaryValue("FF0563C1") } // Excel blue hyperlink color
-                    )
-                ),
+	                    new Font( // Index 3 - Hyperlink font
+	                        new FontSize { Val = 10 },
+	                        new FontName { Val = "Arial" },
+	                        new Underline { Val = UnderlineValues.Single },
+	                        new Color { Rgb = new HexBinaryValue("FF0563C1") } // Excel blue hyperlink color
+	                    ),
+                        new Font( // Index 4 - Duplicate item highlight font
+                            new FontSize { Val = 10 },
+                            new FontName { Val = "Arial" },
+                            new Bold(),
+                            new Italic(),
+                            new Color { Rgb = new HexBinaryValue("FFCC007A") }
+	                    )
+	                ),
                 new Fills(
                     new Fill(new PatternFill { PatternType = PatternValues.None }), // Index 0 - Default fill
                     new Fill(new PatternFill { PatternType = PatternValues.None }), // Index 1 - Not working
@@ -167,10 +174,18 @@ namespace JsonToWord.Services.ExcelServices
                     new CellFormat { BorderId = 1, FillId = 11, ApplyFill = true, ApplyBorder = true, NumberFormatId = 0, ApplyNumberFormat = true, Alignment = new Alignment { Vertical = VerticalAlignmentValues.Top } }, // Index 21 - Bug number alternating 2
                     new CellFormat { BorderId = 1, FillId = 12, ApplyFill = true, ApplyBorder = true, Alignment = new Alignment { WrapText = true, Vertical = VerticalAlignmentValues.Top } }, // Index 22 - Linked L3 text alternating 1
                     new CellFormat { BorderId = 1, FillId = 13, ApplyFill = true, ApplyBorder = true, Alignment = new Alignment { WrapText = true, Vertical = VerticalAlignmentValues.Top } }, // Index 23 - Linked L3 text alternating 2
-                    new CellFormat { BorderId = 1, FillId = 14, ApplyFill = true, ApplyBorder = true, Alignment = new Alignment { WrapText = true, Vertical = VerticalAlignmentValues.Top } }, // Index 24 - Linked L4 text alternating 1
-                    new CellFormat { BorderId = 1, FillId = 15, ApplyFill = true, ApplyBorder = true, Alignment = new Alignment { WrapText = true, Vertical = VerticalAlignmentValues.Top } } // Index 25 - Linked L4 text alternating 2
-                )
-            );
+	                    new CellFormat { BorderId = 1, FillId = 14, ApplyFill = true, ApplyBorder = true, Alignment = new Alignment { WrapText = true, Vertical = VerticalAlignmentValues.Top } }, // Index 24 - Linked L4 text alternating 1
+	                    new CellFormat { BorderId = 1, FillId = 15, ApplyFill = true, ApplyBorder = true, Alignment = new Alignment { WrapText = true, Vertical = VerticalAlignmentValues.Top } }, // Index 25 - Linked L4 text alternating 2
+                        new CellFormat { FontId = 4, BorderId = 1, FillId = 10, ApplyFont = true, ApplyFill = true, ApplyBorder = true, Alignment = new Alignment { WrapText = true, Vertical = VerticalAlignmentValues.Top } }, // Index 26 - Duplicate bug text alternating 1
+                        new CellFormat { FontId = 4, BorderId = 1, FillId = 11, ApplyFont = true, ApplyFill = true, ApplyBorder = true, Alignment = new Alignment { WrapText = true, Vertical = VerticalAlignmentValues.Top } }, // Index 27 - Duplicate bug text alternating 2
+                        new CellFormat { FontId = 4, BorderId = 1, FillId = 10, ApplyFont = true, ApplyFill = true, ApplyBorder = true, NumberFormatId = 0, ApplyNumberFormat = true, Alignment = new Alignment { Vertical = VerticalAlignmentValues.Top } }, // Index 28 - Duplicate bug number alternating 1
+                        new CellFormat { FontId = 4, BorderId = 1, FillId = 11, ApplyFont = true, ApplyFill = true, ApplyBorder = true, NumberFormatId = 0, ApplyNumberFormat = true, Alignment = new Alignment { Vertical = VerticalAlignmentValues.Top } }, // Index 29 - Duplicate bug number alternating 2
+                        new CellFormat { FontId = 4, BorderId = 1, FillId = 12, ApplyFont = true, ApplyFill = true, ApplyBorder = true, Alignment = new Alignment { WrapText = true, Vertical = VerticalAlignmentValues.Top } }, // Index 30 - Duplicate L3 text alternating 1
+                        new CellFormat { FontId = 4, BorderId = 1, FillId = 13, ApplyFont = true, ApplyFill = true, ApplyBorder = true, Alignment = new Alignment { WrapText = true, Vertical = VerticalAlignmentValues.Top } }, // Index 31 - Duplicate L3 text alternating 2
+                        new CellFormat { FontId = 4, BorderId = 1, FillId = 14, ApplyFont = true, ApplyFill = true, ApplyBorder = true, Alignment = new Alignment { WrapText = true, Vertical = VerticalAlignmentValues.Top } }, // Index 32 - Duplicate L4 text alternating 1
+                        new CellFormat { FontId = 4, BorderId = 1, FillId = 15, ApplyFont = true, ApplyFill = true, ApplyBorder = true, Alignment = new Alignment { WrapText = true, Vertical = VerticalAlignmentValues.Top } } // Index 33 - Duplicate L4 text alternating 2
+	                )
+	            );
         }
 
         public void EnsureStylesheet(WorkbookPart workbookPart)
