@@ -21,7 +21,9 @@ namespace JsonToWord.Services
         private static readonly string[] DefaultColumnOrder = new[]
         {
             "L2 REQ ID",
+            "SR #",
             "L2 REQ Title",
+            "L2 Owner",
             "L2 SubSystem",
             "L2 Run Status",
             "Bug ID",
@@ -36,11 +38,21 @@ namespace JsonToWord.Services
         private static readonly string[] RequirementMergeCandidateColumns = new[]
         {
             "L2 REQ ID",
+            "SR #",
             "L2 REQ Title",
+            "L2 Owner",
             "L2 SubSystem",
             "L2 Run Status",
             "L3 REQ ID",
             "L3 REQ Title",
+        };
+
+        private static readonly string[] L2CoverageSummaryColumns = new[]
+        {
+            "SR num",
+            "L2 REQ Title",
+            "L2 Run Status",
+            "L2 Owner",
         };
 
         private static readonly HashSet<string> BugColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
@@ -96,93 +108,22 @@ namespace JsonToWord.Services
                     workbookPart.Workbook = new Workbook();
                 }
 
-                WorksheetPart worksheetPart = _spreadsheetService.GetOrCreateWorksheetPart(workbookPart, safeName);
-                worksheetPart.Worksheet = new Worksheet();
-                SheetData sheetData = new SheetData();
-                worksheetPart.Worksheet.Append(sheetData);
                 _stylesheetService.EnsureStylesheet(workbookPart);
-
-                SheetViews sheetViews = new SheetViews(
-                    new SheetView { WorkbookViewId = 0U, RightToLeft = false }
-                );
-                worksheetPart.Worksheet.InsertBefore(sheetViews, sheetData);
 
                 var columnOrder =
                     coverageModel.ColumnOrder != null && coverageModel.ColumnOrder.Count > 0
                         ? coverageModel.ColumnOrder.ToArray()
                         : DefaultColumnOrder;
-
-                var columns = CreateColumns(columnOrder);
-                worksheetPart.Worksheet.InsertBefore(columns, sheetData);
-                MergeCells mergeCells = new MergeCells();
-
-                uint rowIndex = 1;
-                Row headerRow = new Row { RowIndex = rowIndex };
-                sheetData.Append(headerRow);
-                for (int i = 0; i < columnOrder.Length; i++)
-                {
-                    string columnLetter = _spreadsheetService.GetColumnLetter(i + 1);
-                    Cell headerCell = _spreadsheetService.CreateTextCell(
-                        $"{columnLetter}{rowIndex}",
-                        columnOrder[i],
-                        1
-                    );
-                    headerRow.Append(headerCell);
-                }
-
                 var rows = coverageModel.Rows ?? new List<Dictionary<string, object>>();
-                var useFirstAlternatingColorByRow = BuildRowAlternatingColorFlags(
-                    rows,
+
+                InsertCoverageWorksheet(
+                    workbookPart,
+                    safeName,
                     columnOrder,
+                    rows,
                     coverageModel.MergeDuplicateRequirementCells
                 );
-                foreach (var row in rows)
-                {
-                    rowIndex++;
-                    Row dataRow = new Row { RowIndex = rowIndex };
-                    sheetData.Append(dataRow);
-                    int dataRowOffset = (int)rowIndex - 2;
-                    bool useFirstAlternatingColor =
-                        dataRowOffset >= 0 &&
-                        dataRowOffset < useFirstAlternatingColorByRow.Count
-                            ? useFirstAlternatingColorByRow[dataRowOffset]
-                            : rowIndex % 2 == 0;
-
-                    for (int i = 0; i < columnOrder.Length; i++)
-                    {
-                        string columnLetter = _spreadsheetService.GetColumnLetter(i + 1);
-                        string cellRef = $"{columnLetter}{rowIndex}";
-                        object value = null;
-                        string cellValue = string.Empty;
-                        if (row != null && row.TryGetValue(columnOrder[i], out value))
-                        {
-                            cellValue = value?.ToString() ?? string.Empty;
-                        }
-                        uint styleIndex = ResolveDataStyle(columnOrder[i], useFirstAlternatingColor);
-                        Cell cell;
-                        if (IsNumericColumn(columnOrder[i]) && TryToNumberCellValue(value, out string numericValue))
-                        {
-                            cell = _spreadsheetService.CreateNumberCell(cellRef, numericValue, styleIndex);
-                        }
-                        else
-                        {
-                            cell = _spreadsheetService.CreateTextCell(cellRef, cellValue, styleIndex);
-                        }
-                        dataRow.Append(cell);
-                    }
-                }
-
-                if (coverageModel.MergeDuplicateRequirementCells)
-                {
-                    AppendRequirementDuplicateMergeRanges(mergeCells, rows, columnOrder);
-                }
-
-                if (mergeCells.Any())
-                {
-                    worksheetPart.Worksheet.InsertAfter(mergeCells, sheetData);
-                }
-
-                worksheetPart.Worksheet.Save();
+                InsertL2CoverageSummaryWorksheet(workbookPart, safeName, rows);
                 workbookPart.Workbook.Save();
             }
             catch (Exception ex)
@@ -193,6 +134,160 @@ namespace JsonToWord.Services
                 );
                 throw;
             }
+        }
+
+        private void InsertCoverageWorksheet(
+            WorkbookPart workbookPart,
+            string worksheetName,
+            IReadOnlyList<string> columnOrder,
+            IReadOnlyList<Dictionary<string, object>> rows,
+            bool mergeDuplicateRequirementCells
+        )
+        {
+            WorksheetPart worksheetPart = _spreadsheetService.GetOrCreateWorksheetPart(workbookPart, worksheetName);
+            worksheetPart.Worksheet = new Worksheet();
+            SheetData sheetData = new SheetData();
+            worksheetPart.Worksheet.Append(sheetData);
+
+            SheetViews sheetViews = new SheetViews(
+                new SheetView { WorkbookViewId = 0U, RightToLeft = false }
+            );
+            worksheetPart.Worksheet.InsertBefore(sheetViews, sheetData);
+
+            var columns = CreateColumns(columnOrder.ToArray());
+            worksheetPart.Worksheet.InsertBefore(columns, sheetData);
+            MergeCells mergeCells = new MergeCells();
+
+            uint rowIndex = 1;
+            Row headerRow = new Row { RowIndex = rowIndex };
+            sheetData.Append(headerRow);
+            for (int i = 0; i < columnOrder.Count; i++)
+            {
+                string columnLetter = _spreadsheetService.GetColumnLetter(i + 1);
+                Cell headerCell = _spreadsheetService.CreateTextCell(
+                    $"{columnLetter}{rowIndex}",
+                    columnOrder[i],
+                    1
+                );
+                headerRow.Append(headerCell);
+            }
+
+            var useFirstAlternatingColorByRow = BuildRowAlternatingColorFlags(
+                rows,
+                columnOrder,
+                mergeDuplicateRequirementCells
+            );
+            var duplicateFlagsByRow = BuildDuplicateHighlightFlags(rows);
+            for (int rowOffset = 0; rowOffset < rows.Count; rowOffset++)
+            {
+                rowIndex++;
+                var row = rows[rowOffset];
+                Row dataRow = new Row { RowIndex = rowIndex };
+                sheetData.Append(dataRow);
+                bool useFirstAlternatingColor =
+                    rowOffset >= 0 && rowOffset < useFirstAlternatingColorByRow.Count
+                        ? useFirstAlternatingColorByRow[rowOffset]
+                        : rowIndex % 2 == 0;
+                var duplicateFlags =
+                    rowOffset >= 0 && rowOffset < duplicateFlagsByRow.Count
+                        ? duplicateFlagsByRow[rowOffset]
+                        : new DuplicateHighlightFlags();
+
+                for (int i = 0; i < columnOrder.Count; i++)
+                {
+                    string columnName = columnOrder[i];
+                    string columnLetter = _spreadsheetService.GetColumnLetter(i + 1);
+                    string cellRef = $"{columnLetter}{rowIndex}";
+                    object value = null;
+                    string cellValue = string.Empty;
+                    if (row != null && row.TryGetValue(columnName, out value))
+                    {
+                        cellValue = value?.ToString() ?? string.Empty;
+                    }
+                    uint styleIndex = ResolveDataStyle(columnName, useFirstAlternatingColor, duplicateFlags);
+                    Cell cell;
+                    if (IsNumericColumn(columnName) && TryToNumberCellValue(value, out string numericValue))
+                    {
+                        cell = _spreadsheetService.CreateNumberCell(cellRef, numericValue, styleIndex);
+                    }
+                    else
+                    {
+                        cell = _spreadsheetService.CreateTextCell(cellRef, cellValue, styleIndex);
+                    }
+                    dataRow.Append(cell);
+                }
+            }
+
+            if (mergeDuplicateRequirementCells)
+            {
+                AppendRequirementDuplicateMergeRanges(mergeCells, rows, columnOrder);
+            }
+
+            if (mergeCells.Any())
+            {
+                worksheetPart.Worksheet.InsertAfter(mergeCells, sheetData);
+            }
+
+            worksheetPart.Worksheet.Save();
+        }
+
+        private void InsertL2CoverageSummaryWorksheet(
+            WorkbookPart workbookPart,
+            string mainWorksheetName,
+            IReadOnlyList<Dictionary<string, object>> rows
+        )
+        {
+            string summaryWorksheetName = BuildSummaryWorksheetName(mainWorksheetName);
+            var summaryRows = BuildL2CoverageSummaryRows(rows);
+            WorksheetPart worksheetPart = _spreadsheetService.GetOrCreateWorksheetPart(workbookPart, summaryWorksheetName);
+            worksheetPart.Worksheet = new Worksheet();
+            SheetData sheetData = new SheetData();
+            worksheetPart.Worksheet.Append(sheetData);
+
+            SheetViews sheetViews = new SheetViews(
+                new SheetView { WorkbookViewId = 0U, RightToLeft = false }
+            );
+            worksheetPart.Worksheet.InsertBefore(sheetViews, sheetData);
+
+            var columns = CreateColumns(L2CoverageSummaryColumns);
+            worksheetPart.Worksheet.InsertBefore(columns, sheetData);
+
+            uint rowIndex = 1;
+            Row headerRow = new Row { RowIndex = rowIndex };
+            sheetData.Append(headerRow);
+            for (int i = 0; i < L2CoverageSummaryColumns.Length; i++)
+            {
+                string columnLetter = _spreadsheetService.GetColumnLetter(i + 1);
+                headerRow.Append(
+                    _spreadsheetService.CreateTextCell(
+                        $"{columnLetter}{rowIndex}",
+                        L2CoverageSummaryColumns[i],
+                        1
+                    )
+                );
+            }
+
+            for (int rowOffset = 0; rowOffset < summaryRows.Count; rowOffset++)
+            {
+                rowIndex++;
+                bool useFirstAlternatingColor = rowOffset % 2 == 0;
+                var sourceRow = summaryRows[rowOffset];
+                Row dataRow = new Row { RowIndex = rowIndex };
+                sheetData.Append(dataRow);
+
+                for (int i = 0; i < L2CoverageSummaryColumns.Length; i++)
+                {
+                    string columnName = L2CoverageSummaryColumns[i];
+                    string columnLetter = _spreadsheetService.GetColumnLetter(i + 1);
+                    string cellRef = $"{columnLetter}{rowIndex}";
+                    string cellValue = GetComparableCellValue(sourceRow, columnName);
+                    uint styleIndex = ResolveDataStyle(columnName, useFirstAlternatingColor, new DuplicateHighlightFlags());
+                    Cell cell = _spreadsheetService.CreateTextCell(cellRef, cellValue, styleIndex);
+                    dataRow.Append(cell);
+                }
+            }
+
+            worksheetPart.Worksheet.Save();
         }
 
         private Columns CreateColumns(string[] columnOrder)
@@ -217,7 +312,10 @@ namespace JsonToWord.Services
         {
             var key = (columnName ?? string.Empty).Trim().ToLowerInvariant();
             if (key == "l2 req id") return 18;
+            if (key == "sr #") return 16;
+            if (key == "sr num") return 16;
             if (key == "l2 req title") return 40;
+            if (key == "l2 owner") return 20;
             if (key == "l2 subsystem") return 24;
             if (key == "l2 run status") return 18;
             if (key == "bug id") return 14;
@@ -230,15 +328,42 @@ namespace JsonToWord.Services
             return 24;
         }
 
-        private static uint ResolveDataStyle(string columnName, bool useFirstAlternatingColor)
+        private static uint ResolveDataStyle(
+            string columnName,
+            bool useFirstAlternatingColor,
+            DuplicateHighlightFlags duplicateFlags
+        )
         {
+            bool isBugDuplicate = duplicateFlags?.BugDuplicate == true && IsBugColumn(columnName);
+            bool isL3Duplicate = duplicateFlags?.L3Duplicate == true && IsL3Column(columnName);
+            bool isL4Duplicate = duplicateFlags?.L4Duplicate == true && IsL4Column(columnName);
+
             if (IsNumericColumn(columnName))
             {
+                if (isBugDuplicate)
+                {
+                    return useFirstAlternatingColor ? 28U : 29U;
+                }
                 if (IsBugColumn(columnName))
                 {
                     return useFirstAlternatingColor ? 20U : 21U;
                 }
                 return useFirstAlternatingColor ? 10U : 11U;
+            }
+
+            if (isBugDuplicate)
+            {
+                return useFirstAlternatingColor ? 26U : 27U;
+            }
+
+            if (isL3Duplicate)
+            {
+                return useFirstAlternatingColor ? 30U : 31U;
+            }
+
+            if (isL4Duplicate)
+            {
+                return useFirstAlternatingColor ? 32U : 33U;
             }
 
             if (IsBugColumn(columnName))
@@ -315,6 +440,142 @@ namespace JsonToWord.Services
             }
 
             return false;
+        }
+
+        private string BuildSummaryWorksheetName(string mainWorksheetName)
+        {
+            const string summaryName = "MEWP L2 Summary";
+            if (string.Equals(summaryName, mainWorksheetName?.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                return "MEWP L2 Coverage Summary";
+            }
+            return summaryName;
+        }
+
+        private List<Dictionary<string, object>> BuildL2CoverageSummaryRows(
+            IReadOnlyList<Dictionary<string, object>> sourceRows
+        )
+        {
+            var summaryRows = new List<Dictionary<string, object>>();
+            if (sourceRows == null || sourceRows.Count == 0)
+            {
+                return summaryRows;
+            }
+
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var row in sourceRows)
+            {
+                var l2ReqId = GetComparableCellValue(row, "L2 REQ ID");
+                var srNumber = GetComparableCellValue(row, "SR #");
+                var uniqueKey = !string.IsNullOrWhiteSpace(l2ReqId) ? l2ReqId : srNumber;
+                if (string.IsNullOrWhiteSpace(uniqueKey))
+                {
+                    continue;
+                }
+
+                if (!seen.Add(uniqueKey))
+                {
+                    continue;
+                }
+                var l2ReqTitle = GetComparableCellValue(row, "L2 REQ Full Title");
+                if (string.IsNullOrWhiteSpace(l2ReqTitle))
+                {
+                    l2ReqTitle = GetComparableCellValue(row, "L2 REQ Title");
+                }
+
+                summaryRows.Add(new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["SR num"] = srNumber,
+                    ["L2 REQ Title"] = l2ReqTitle,
+                    ["L2 Run Status"] = GetComparableCellValue(row, "L2 Run Status"),
+                    ["L2 Owner"] = GetComparableCellValue(row, "L2 Owner"),
+                });
+            }
+
+            return summaryRows;
+        }
+
+        private List<DuplicateHighlightFlags> BuildDuplicateHighlightFlags(
+            IReadOnlyList<Dictionary<string, object>> rows
+        )
+        {
+            var result = new List<DuplicateHighlightFlags>();
+            if (rows == null || rows.Count == 0)
+            {
+                return result;
+            }
+
+            var seenBugKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var seenL3Keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var seenL4Keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var row in rows)
+            {
+                var bugKey = ResolveBugDuplicateKey(row);
+                var l3Key = ResolveL3DuplicateKey(row);
+                var l4Key = ResolveL4DuplicateKey(row);
+
+                result.Add(new DuplicateHighlightFlags
+                {
+                    BugDuplicate = !string.IsNullOrWhiteSpace(bugKey) && !seenBugKeys.Add(bugKey),
+                    L3Duplicate = !string.IsNullOrWhiteSpace(l3Key) && !seenL3Keys.Add(l3Key),
+                    L4Duplicate = !string.IsNullOrWhiteSpace(l4Key) && !seenL4Keys.Add(l4Key),
+                });
+            }
+
+            return result;
+        }
+
+        private static string ResolveBugDuplicateKey(IReadOnlyDictionary<string, object> row)
+        {
+            var bugId = GetComparableCellValue(row, "Bug ID");
+            if (!string.IsNullOrWhiteSpace(bugId))
+            {
+                return $"BUG:{bugId}";
+            }
+
+            var bugTitle = GetComparableCellValue(row, "Bug Title");
+            var bugResponsibility = GetComparableCellValue(row, "Bug Responsibility");
+            if (string.IsNullOrWhiteSpace(bugTitle) && string.IsNullOrWhiteSpace(bugResponsibility))
+            {
+                return string.Empty;
+            }
+
+            return $"BUG:{bugTitle}|{bugResponsibility}";
+        }
+
+        private static string ResolveL3DuplicateKey(IReadOnlyDictionary<string, object> row)
+        {
+            var l3ReqId = GetComparableCellValue(row, "L3 REQ ID");
+            if (!string.IsNullOrWhiteSpace(l3ReqId))
+            {
+                return $"L3:{l3ReqId}";
+            }
+
+            var l3ReqTitle = GetComparableCellValue(row, "L3 REQ Title");
+            if (string.IsNullOrWhiteSpace(l3ReqTitle))
+            {
+                return string.Empty;
+            }
+
+            return $"L3:{l3ReqTitle}";
+        }
+
+        private static string ResolveL4DuplicateKey(IReadOnlyDictionary<string, object> row)
+        {
+            var l4ReqId = GetComparableCellValue(row, "L4 REQ ID");
+            if (!string.IsNullOrWhiteSpace(l4ReqId))
+            {
+                return $"L4:{l4ReqId}";
+            }
+
+            var l4ReqTitle = GetComparableCellValue(row, "L4 REQ Title");
+            if (string.IsNullOrWhiteSpace(l4ReqTitle))
+            {
+                return string.Empty;
+            }
+
+            return $"L4:{l4ReqTitle}";
         }
 
         private List<bool> BuildRowAlternatingColorFlags(
@@ -467,6 +728,13 @@ namespace JsonToWord.Services
                 runStart = rowOffset;
                 runValue = candidateValue;
             }
+        }
+
+        private sealed class DuplicateHighlightFlags
+        {
+            public bool BugDuplicate { get; set; }
+            public bool L3Duplicate { get; set; }
+            public bool L4Duplicate { get; set; }
         }
 
         private static int FindColumnIndex(IReadOnlyList<string> columnOrder, string columnName)

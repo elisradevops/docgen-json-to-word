@@ -16,9 +16,9 @@ namespace JsonToWord.Services.Tests
             Assert.NotNull(stylesheet.Fonts);
             Assert.NotNull(stylesheet.Fills);
             Assert.NotNull(stylesheet.CellFormats);
-            Assert.Equal(4, stylesheet.Fonts.Elements<DocumentFormat.OpenXml.Spreadsheet.Font>().Count());
+            Assert.Equal(5, stylesheet.Fonts.Elements<DocumentFormat.OpenXml.Spreadsheet.Font>().Count());
             Assert.Equal(16, stylesheet.Fills.Elements<DocumentFormat.OpenXml.Spreadsheet.Fill>().Count());
-            Assert.Equal(26, stylesheet.CellFormats.Elements<DocumentFormat.OpenXml.Spreadsheet.CellFormat>().Count());
+            Assert.Equal(34, stylesheet.CellFormats.Elements<DocumentFormat.OpenXml.Spreadsheet.CellFormat>().Count());
         }
 
         [Fact]
