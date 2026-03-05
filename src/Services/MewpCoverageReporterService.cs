@@ -12,6 +12,10 @@ using Microsoft.Extensions.Logging;
 
 namespace JsonToWord.Services
 {
+    /// <summary>
+    /// Builds the MEWP L2 coverage workbook, including the detailed coverage sheet and a summary sheet.
+    /// Also applies duplicate highlighting and optional merge-by-L2 behavior.
+    /// </summary>
     public class MewpCoverageReporterService : IMewpCoverageReporterService
     {
         private readonly ILogger<MewpCoverageReporterService> _logger;
@@ -49,30 +53,13 @@ namespace JsonToWord.Services
 
         private static readonly string[] L2CoverageSummaryColumns = new[]
         {
-            "SR num",
+            "SR #",
             "L2 REQ Title",
             "L2 Run Status",
             "L2 Owner",
         };
 
-        private static readonly HashSet<string> BugColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "Bug ID",
-            "Bug Title",
-            "Bug Responsibility",
-        };
-
-        private static readonly HashSet<string> L3Columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "L3 REQ ID",
-            "L3 REQ Title",
-        };
-
-        private static readonly HashSet<string> L4Columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "L4 REQ ID",
-            "L4 REQ Title",
-        };
+        private static readonly StringComparer CellComparer = StringComparer.OrdinalIgnoreCase;
 
         public MewpCoverageReporterService(
             ILogger<MewpCoverageReporterService> logger,
@@ -85,6 +72,9 @@ namespace JsonToWord.Services
             _stylesheetService = stylesheetService;
         }
 
+        /// <summary>
+        /// Inserts or replaces the MEWP coverage worksheets in the provided workbook.
+        /// </summary>
         public void Insert(
             SpreadsheetDocument document,
             string worksheetName,
@@ -114,7 +104,8 @@ namespace JsonToWord.Services
                     coverageModel.ColumnOrder != null && coverageModel.ColumnOrder.Count > 0
                         ? coverageModel.ColumnOrder.ToArray()
                         : DefaultColumnOrder;
-                var rows = coverageModel.Rows ?? new List<Dictionary<string, object>>();
+                var sourceRows = coverageModel.Rows ?? new List<Dictionary<string, object>>();
+                var rows = NormalizeRowsForLookup(sourceRows);
 
                 InsertCoverageWorksheet(
                     workbookPart,
@@ -136,6 +127,9 @@ namespace JsonToWord.Services
             }
         }
 
+        /// <summary>
+        /// Writes the detailed coverage worksheet and applies row styles, duplicate highlighting, and optional merges.
+        /// </summary>
         private void InsertCoverageWorksheet(
             WorkbookPart workbookPart,
             string worksheetName,
@@ -200,9 +194,9 @@ namespace JsonToWord.Services
                     string cellRef = $"{columnLetter}{rowIndex}";
                     object value = null;
                     string cellValue = string.Empty;
-                    if (row != null && row.TryGetValue(columnName, out value))
+                    if (TryGetCellValue(row, columnName, out value))
                     {
-                        cellValue = value?.ToString() ?? string.Empty;
+                        cellValue = NormalizeComparableText(value);
                     }
                     uint styleIndex = ResolveDataStyle(columnName, useFirstAlternatingColor, duplicateFlags);
                     Cell cell;
@@ -231,6 +225,9 @@ namespace JsonToWord.Services
             worksheetPart.Worksheet.Save();
         }
 
+        /// <summary>
+        /// Writes a compact L2 summary worksheet with one row per unique L2 requirement.
+        /// </summary>
         private void InsertL2CoverageSummaryWorksheet(
             WorkbookPart workbookPart,
             string mainWorksheetName,
@@ -281,7 +278,7 @@ namespace JsonToWord.Services
                     string columnLetter = _spreadsheetService.GetColumnLetter(i + 1);
                     string cellRef = $"{columnLetter}{rowIndex}";
                     string cellValue = GetComparableCellValue(sourceRow, columnName);
-                    uint styleIndex = ResolveDataStyle(columnName, useFirstAlternatingColor, new DuplicateHighlightFlags());
+                    uint styleIndex = ResolveDataStyle(columnName, useFirstAlternatingColor, null);
                     Cell cell = _spreadsheetService.CreateTextCell(cellRef, cellValue, styleIndex);
                     dataRow.Append(cell);
                 }
@@ -313,7 +310,6 @@ namespace JsonToWord.Services
             var key = (columnName ?? string.Empty).Trim().ToLowerInvariant();
             if (key == "l2 req id") return 18;
             if (key == "sr #") return 16;
-            if (key == "sr num") return 16;
             if (key == "l2 req title") return 40;
             if (key == "l2 owner") return 20;
             if (key == "l2 subsystem") return 24;
@@ -392,17 +388,24 @@ namespace JsonToWord.Services
 
         private static bool IsBugColumn(string columnName)
         {
-            return !string.IsNullOrWhiteSpace(columnName) && BugColumns.Contains(columnName.Trim());
+            var key = (columnName ?? string.Empty).Trim();
+            return CellComparer.Equals(key, "Bug ID")
+                || CellComparer.Equals(key, "Bug Title")
+                || CellComparer.Equals(key, "Bug Responsibility");
         }
 
         private static bool IsL3Column(string columnName)
         {
-            return !string.IsNullOrWhiteSpace(columnName) && L3Columns.Contains(columnName.Trim());
+            var key = (columnName ?? string.Empty).Trim();
+            return CellComparer.Equals(key, "L3 REQ ID")
+                || CellComparer.Equals(key, "L3 REQ Title");
         }
 
         private static bool IsL4Column(string columnName)
         {
-            return !string.IsNullOrWhiteSpace(columnName) && L4Columns.Contains(columnName.Trim());
+            var key = (columnName ?? string.Empty).Trim();
+            return CellComparer.Equals(key, "L4 REQ ID")
+                || CellComparer.Equals(key, "L4 REQ Title");
         }
 
         private static bool TryToNumberCellValue(object value, out string numericValue)
@@ -452,11 +455,16 @@ namespace JsonToWord.Services
             return summaryName;
         }
 
+        /// <summary>
+        /// Projects coverage rows into summary rows and de-duplicates by L2 id (or SR fallback).
+        /// </summary>
         private List<Dictionary<string, object>> BuildL2CoverageSummaryRows(
             IReadOnlyList<Dictionary<string, object>> sourceRows
         )
         {
-            var summaryRows = new List<Dictionary<string, object>>();
+            var summaryRows = sourceRows == null
+                ? new List<Dictionary<string, object>>()
+                : new List<Dictionary<string, object>>(sourceRows.Count);
             if (sourceRows == null || sourceRows.Count == 0)
             {
                 return summaryRows;
@@ -477,15 +485,11 @@ namespace JsonToWord.Services
                 {
                     continue;
                 }
-                var l2ReqTitle = GetComparableCellValue(row, "L2 REQ Full Title");
-                if (string.IsNullOrWhiteSpace(l2ReqTitle))
-                {
-                    l2ReqTitle = GetComparableCellValue(row, "L2 REQ Title");
-                }
+                var l2ReqTitle = ResolveSummaryL2ReqTitle(row, srNumber);
 
                 summaryRows.Add(new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
                 {
-                    ["SR num"] = srNumber,
+                    ["SR #"] = srNumber,
                     ["L2 REQ Title"] = l2ReqTitle,
                     ["L2 Run Status"] = GetComparableCellValue(row, "L2 Run Status"),
                     ["L2 Owner"] = GetComparableCellValue(row, "L2 Owner"),
@@ -524,6 +528,113 @@ namespace JsonToWord.Services
             }
 
             return result;
+        }
+
+        private static string ResolveSummaryL2ReqTitle(
+            IReadOnlyDictionary<string, object> row,
+            string srNumber
+        )
+        {
+            var splitTitle = GetComparableCellValue(row, "L2 REQ Title");
+            if (!string.IsNullOrWhiteSpace(splitTitle))
+            {
+                return splitTitle;
+            }
+
+            var fullTitle = GetComparableCellValue(row, "L2 REQ Full Title");
+            return StripSrPrefixFromTitle(srNumber, fullTitle);
+        }
+
+        /// <summary>
+        /// Attempts to consume <paramref name="prefixText"/> from the start of <paramref name="sourceText"/>
+        /// while tolerating arbitrary whitespace in either side.
+        /// Returns the consumed source index on success; otherwise -1.
+        /// </summary>
+        private static int ConsumeFlexiblePrefix(string sourceText, string prefixText)
+        {
+            if (string.IsNullOrWhiteSpace(sourceText) || string.IsNullOrWhiteSpace(prefixText))
+            {
+                return -1;
+            }
+
+            var compactPrefix = new string(prefixText.Where(ch => !char.IsWhiteSpace(ch)).ToArray());
+            if (string.IsNullOrWhiteSpace(compactPrefix))
+            {
+                return -1;
+            }
+
+            int sourceIndex = 0;
+            int prefixIndex = 0;
+            while (sourceIndex < sourceText.Length && prefixIndex < compactPrefix.Length)
+            {
+                if (char.IsWhiteSpace(sourceText[sourceIndex]))
+                {
+                    sourceIndex++;
+                    continue;
+                }
+
+                if (char.ToUpperInvariant(sourceText[sourceIndex]) != char.ToUpperInvariant(compactPrefix[prefixIndex]))
+                {
+                    return -1;
+                }
+
+                sourceIndex++;
+                prefixIndex++;
+            }
+
+            return prefixIndex == compactPrefix.Length ? sourceIndex : -1;
+        }
+
+        /// <summary>
+        /// Removes SR prefix tokens from full title values for summary display.
+        /// Preserves child-coded identifiers (e.g. SR0054-1) as-is.
+        /// </summary>
+        private static string StripSrPrefixFromTitle(string srNumber, string title)
+        {
+            var normalizedTitle = (title ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(normalizedTitle))
+            {
+                return string.Empty;
+            }
+
+            var prefixEnd = ConsumeFlexiblePrefix(normalizedTitle, srNumber);
+            if (prefixEnd < 0)
+            {
+                return normalizedTitle;
+            }
+
+            var suffix = normalizedTitle.Substring(prefixEnd);
+            if (string.IsNullOrEmpty(suffix))
+            {
+                return normalizedTitle;
+            }
+
+            var firstChar = suffix[0];
+            // Keep values like SR0054-1 as-is when suffix starts with child-id notation.
+            if (firstChar == '-' && suffix.Length > 1 && char.IsDigit(suffix[1]))
+            {
+                return normalizedTitle;
+            }
+
+            var trimmed = suffix.TrimStart();
+            if (string.IsNullOrEmpty(trimmed))
+            {
+                return normalizedTitle;
+            }
+
+            var leading = trimmed[0];
+            var looksLikeDelimiter = leading == ':' || leading == '-' || leading == '–' || leading == '—';
+            var looksLikeWhitespaceSeparator = char.IsWhiteSpace(firstChar);
+            if (looksLikeDelimiter)
+            {
+                trimmed = trimmed.Substring(1).TrimStart();
+            }
+            else if (!looksLikeWhitespaceSeparator)
+            {
+                return normalizedTitle;
+            }
+
+            return string.IsNullOrWhiteSpace(trimmed) ? normalizedTitle : trimmed;
         }
 
         private static string ResolveBugDuplicateKey(IReadOnlyDictionary<string, object> row)
@@ -578,6 +689,10 @@ namespace JsonToWord.Services
             return $"L4:{l4ReqTitle}";
         }
 
+        /// <summary>
+        /// Computes alternating row colors. When grouping is enabled, color toggles per L2 group
+        /// rather than on every single row.
+        /// </summary>
         private List<bool> BuildRowAlternatingColorFlags(
             IReadOnlyList<Dictionary<string, object>> rows,
             IReadOnlyList<string> columnOrder,
@@ -599,7 +714,8 @@ namespace JsonToWord.Services
                 return result;
             }
 
-            int l2IdColumnIndex = FindColumnIndex(columnOrder, "L2 REQ ID");
+            var columnIndexMap = BuildColumnIndexMap(columnOrder);
+            int l2IdColumnIndex = FindColumnIndex(columnIndexMap, "L2 REQ ID");
             if (l2IdColumnIndex < 0)
             {
                 for (int i = 0; i < rows.Count; i++)
@@ -627,6 +743,9 @@ namespace JsonToWord.Services
             return result;
         }
 
+        /// <summary>
+        /// Builds merge ranges for repeated requirement-level values inside the same L2 group.
+        /// </summary>
         private void AppendRequirementDuplicateMergeRanges(
             MergeCells mergeCells,
             IReadOnlyList<Dictionary<string, object>> rows,
@@ -638,15 +757,16 @@ namespace JsonToWord.Services
                 return;
             }
 
-            int l2IdColumnIndex = FindColumnIndex(columnOrder, "L2 REQ ID");
+            var columnIndexMap = BuildColumnIndexMap(columnOrder);
+            int l2IdColumnIndex = FindColumnIndex(columnIndexMap, "L2 REQ ID");
             if (l2IdColumnIndex < 0)
             {
                 return;
             }
 
             var mergeColumnIndexes = RequirementMergeCandidateColumns
-                .Select(columnName => new { Name = columnName, Index = FindColumnIndex(columnOrder, columnName) })
-                .Where(item => item.Index >= 0)
+                .Select(columnName => FindColumnIndex(columnIndexMap, columnName))
+                .Where(index => index >= 0)
                 .ToList();
             if (mergeColumnIndexes.Count == 0)
             {
@@ -670,13 +790,13 @@ namespace JsonToWord.Services
                 int groupEnd = i - 1;
                 if (groupEnd > groupStart && !string.IsNullOrWhiteSpace(currentL2Id))
                 {
-                    foreach (var mergeColumn in mergeColumnIndexes)
+                    foreach (var mergeColumnIndex in mergeColumnIndexes)
                     {
                         AppendColumnMergeRangesInGroup(
                             mergeCells,
                             rows,
-                            columnOrder[mergeColumn.Index],
-                            mergeColumn.Index,
+                            columnOrder[mergeColumnIndex],
+                            mergeColumnIndex,
                             groupStart,
                             groupEnd
                         );
@@ -688,6 +808,9 @@ namespace JsonToWord.Services
             }
         }
 
+        /// <summary>
+        /// Appends contiguous merge ranges for a single column inside a single L2 group.
+        /// </summary>
         private void AppendColumnMergeRangesInGroup(
             MergeCells mergeCells,
             IReadOnlyList<Dictionary<string, object>> rows,
@@ -737,17 +860,158 @@ namespace JsonToWord.Services
             public bool L4Duplicate { get; set; }
         }
 
-        private static int FindColumnIndex(IReadOnlyList<string> columnOrder, string columnName)
+        /// <summary>
+        /// Builds a case-insensitive index map for column names to avoid repeated linear scans.
+        /// </summary>
+        private static Dictionary<string, int> BuildColumnIndexMap(IReadOnlyList<string> columnOrder)
         {
+            if (columnOrder == null || columnOrder.Count == 0)
+            {
+                return new Dictionary<string, int>(CellComparer);
+            }
+
+            var map = new Dictionary<string, int>(CellComparer);
             for (int i = 0; i < columnOrder.Count; i++)
             {
-                if (string.Equals(columnOrder[i], columnName, StringComparison.OrdinalIgnoreCase))
+                var key = (columnOrder[i] ?? string.Empty).Trim();
+                if (string.IsNullOrWhiteSpace(key) || map.ContainsKey(key))
                 {
-                    return i;
+                    continue;
+                }
+                map[key] = i;
+            }
+
+            return map;
+        }
+
+        /// <summary>
+        /// Finds the index of a column by name from a pre-built index map.
+        /// </summary>
+        private static int FindColumnIndex(IReadOnlyDictionary<string, int> columnIndexMap, string columnName)
+        {
+            if (columnIndexMap == null || string.IsNullOrWhiteSpace(columnName))
+            {
+                return -1;
+            }
+
+            return columnIndexMap.TryGetValue(columnName.Trim(), out var index) ? index : -1;
+        }
+
+        /// <summary>
+        /// Reads a cell value using case-insensitive column-name matching.
+        /// Fast path handles normalized dictionaries in O(1).
+        /// </summary>
+        private static bool TryGetCellValue(IReadOnlyDictionary<string, object> row, string columnName, out object value)
+        {
+            value = null;
+            if (row == null || string.IsNullOrWhiteSpace(columnName))
+            {
+                return false;
+            }
+
+            var normalizedColumnName = columnName.Trim();
+
+            // Fast path when key casing matches dictionary keys.
+            if (row.TryGetValue(normalizedColumnName, out value))
+            {
+                return true;
+            }
+
+            // Fallback for dictionaries that are case-sensitive.
+            foreach (var kvp in row)
+            {
+                if (!CellComparer.Equals(kvp.Key?.Trim(), normalizedColumnName))
+                {
+                    continue;
+                }
+
+                value = kvp.Value;
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Normalizes row dictionaries for stable lookup semantics (trimmed keys + case-insensitive comparer).
+        /// </summary>
+        private static List<Dictionary<string, object>> NormalizeRowsForLookup(
+            IReadOnlyList<Dictionary<string, object>> sourceRows
+        )
+        {
+            if (sourceRows == null || sourceRows.Count == 0)
+            {
+                return new List<Dictionary<string, object>>();
+            }
+
+            var normalizedRows = new List<Dictionary<string, object>>(sourceRows.Count);
+            for (int i = 0; i < sourceRows.Count; i++)
+            {
+                var row = sourceRows[i];
+                normalizedRows.Add(
+                    RequiresRowNormalization(row)
+                        ? NormalizeRowForLookup(row)
+                        : row
+                );
+            }
+
+            return normalizedRows;
+        }
+
+        /// <summary>
+        /// Returns a normalized dictionary with trimmed unique keys and case-insensitive comparer.
+        /// </summary>
+        private static Dictionary<string, object> NormalizeRowForLookup(IReadOnlyDictionary<string, object> row)
+        {
+            var normalized = new Dictionary<string, object>(CellComparer);
+            if (row == null)
+            {
+                return normalized;
+            }
+
+            foreach (var kvp in row)
+            {
+                var normalizedKey = (kvp.Key ?? string.Empty).Trim();
+                if (string.IsNullOrWhiteSpace(normalizedKey) || normalized.ContainsKey(normalizedKey))
+                {
+                    continue;
+                }
+
+                normalized[normalizedKey] = kvp.Value;
+            }
+
+            return normalized;
+        }
+
+        /// <summary>
+        /// Detects whether a row dictionary can be used directly or should be normalized first.
+        /// </summary>
+        private static bool RequiresRowNormalization(IReadOnlyDictionary<string, object> row)
+        {
+            if (row is not Dictionary<string, object> typedRow)
+            {
+                return true;
+            }
+
+            if (!CellComparer.Equals(typedRow.Comparer))
+            {
+                return true;
+            }
+
+            foreach (var key in typedRow.Keys)
+            {
+                if (key == null || key.Length != key.Trim().Length)
+                {
+                    return true;
                 }
             }
 
-            return -1;
+            return false;
+        }
+
+        private static string NormalizeComparableText(object value)
+        {
+            return Convert.ToString(value, CultureInfo.InvariantCulture)?.Trim() ?? string.Empty;
         }
 
         private static string GetComparableCellValue(
@@ -755,22 +1019,9 @@ namespace JsonToWord.Services
             string columnName
         )
         {
-            if (row == null || string.IsNullOrWhiteSpace(columnName))
-            {
-                return string.Empty;
-            }
-
-            foreach (var kvp in row)
-            {
-                if (!string.Equals(kvp.Key, columnName, StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                return Convert.ToString(kvp.Value, CultureInfo.InvariantCulture)?.Trim() ?? string.Empty;
-            }
-
-            return string.Empty;
+            return TryGetCellValue(row, columnName, out var rawValue)
+                ? NormalizeComparableText(rawValue)
+                : string.Empty;
         }
     }
 }

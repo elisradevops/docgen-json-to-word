@@ -420,7 +420,7 @@ namespace JsonToWord.Services.Tests
                 // Header + one row per unique L2 requirement.
                 Assert.Equal(3, summaryRows.Count);
                 var headerValues = summaryRows[0].Elements<Cell>().Select(c => c.CellValue?.Text ?? string.Empty).ToList();
-                Assert.Equal(new[] { "SR num", "L2 REQ Title", "L2 Run Status", "L2 Owner" }, headerValues);
+                Assert.Equal(new[] { "SR #", "L2 REQ Title", "L2 Run Status", "L2 Owner" }, headerValues);
             }
             finally
             {
@@ -432,7 +432,7 @@ namespace JsonToWord.Services.Tests
         }
 
         [Fact]
-        public void Insert_SummaryUsesFullTitleAndDedupesBySrWhenL2ReqIdMissing()
+        public void Insert_SummaryUsesSplitTitleAndDedupesBySrWhenL2ReqIdMissing()
         {
             var logger = new Mock<ILogger<MewpCoverageReporterService>>();
             var service = new MewpCoverageReporterService(
@@ -503,9 +503,137 @@ namespace JsonToWord.Services.Tests
 
                 var dataCells = summaryRows[1].Elements<Cell>().ToList();
                 Assert.Equal("SR0054", dataCells[0].CellValue?.Text);
-                Assert.Equal("SR0054 - Full title should be used in summary", dataCells[1].CellValue?.Text);
+                Assert.Equal("Short split title", dataCells[1].CellValue?.Text);
                 Assert.Equal("Pass", dataCells[2].CellValue?.Text);
                 Assert.Equal("ESUK", dataCells[3].CellValue?.Text);
+            }
+            finally
+            {
+                if (File.Exists(tempPath))
+                {
+                    File.Delete(tempPath);
+                }
+            }
+        }
+
+        [Fact]
+        public void Insert_SummaryStripsSrPrefixFromFullTitle_WhenSplitTitleIsMissing()
+        {
+            var logger = new Mock<ILogger<MewpCoverageReporterService>>();
+            var service = new MewpCoverageReporterService(
+                logger.Object,
+                new SpreadsheetService(),
+                new StylesheetService()
+            );
+            var tempPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.xlsx");
+
+            try
+            {
+                using var document = SpreadsheetDocument.Create(
+                    tempPath,
+                    DocumentFormat.OpenXml.SpreadsheetDocumentType.Workbook
+                );
+
+                var model = new MewpCoverageReporterModel
+                {
+                    TestPlanName = "MEWP",
+                    Rows = new List<Dictionary<string, object>>
+                    {
+                        new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
+                        {
+                            { "L2 REQ ID", "12345" },
+                            { "SR #", "SR0054" },
+                            { "L2 REQ Title", "" },
+                            { "L2 REQ Full Title", "SR0054 - Fallback full title" },
+                            { "L2 Owner", "ESUK" },
+                            { "L2 SubSystem", "Power" },
+                            { "L2 Run Status", "Pass" },
+                            { "Bug ID", "" },
+                            { "Bug Title", "" },
+                            { "Bug Responsibility", "" },
+                            { "L3 REQ ID", "" },
+                            { "L3 REQ Title", "" },
+                            { "L4 REQ ID", "" },
+                            { "L4 REQ Title", "" },
+                        },
+                    }
+                };
+
+                service.Insert(document, "MEWP Coverage", model);
+
+                var workbook = document.WorkbookPart!.Workbook;
+                var summarySheet = workbook.Descendants<Sheet>()
+                    .First(s => (s.Name?.Value ?? string.Empty).Contains("Summary", StringComparison.OrdinalIgnoreCase));
+                var summaryPart = (WorksheetPart)document.WorkbookPart!.GetPartById(summarySheet.Id!);
+                var summaryRows = summaryPart.Worksheet.GetFirstChild<SheetData>()!.Elements<Row>().ToList();
+                var dataCells = summaryRows[1].Elements<Cell>().ToList();
+
+                Assert.Equal("SR0054", dataCells[0].CellValue?.Text);
+                Assert.Equal("Fallback full title", dataCells[1].CellValue?.Text);
+            }
+            finally
+            {
+                if (File.Exists(tempPath))
+                {
+                    File.Delete(tempPath);
+                }
+            }
+        }
+
+        [Fact]
+        public void Insert_SummaryStripsSrPrefixFromFullTitle_WhenSrContainsWhitespace()
+        {
+            var logger = new Mock<ILogger<MewpCoverageReporterService>>();
+            var service = new MewpCoverageReporterService(
+                logger.Object,
+                new SpreadsheetService(),
+                new StylesheetService()
+            );
+            var tempPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.xlsx");
+
+            try
+            {
+                using var document = SpreadsheetDocument.Create(
+                    tempPath,
+                    DocumentFormat.OpenXml.SpreadsheetDocumentType.Workbook
+                );
+
+                var model = new MewpCoverageReporterModel
+                {
+                    TestPlanName = "MEWP",
+                    Rows = new List<Dictionary<string, object>>
+                    {
+                        new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
+                        {
+                            { "L2 REQ ID", "12346" },
+                            { "SR #", "SR0054" },
+                            { "L2 REQ Title", "" },
+                            { "L2 REQ Full Title", "S R 0 0 5 4  :   Whitespace tolerant title" },
+                            { "L2 Owner", "ESUK" },
+                            { "L2 SubSystem", "Power" },
+                            { "L2 Run Status", "Pass" },
+                            { "Bug ID", "" },
+                            { "Bug Title", "" },
+                            { "Bug Responsibility", "" },
+                            { "L3 REQ ID", "" },
+                            { "L3 REQ Title", "" },
+                            { "L4 REQ ID", "" },
+                            { "L4 REQ Title", "" },
+                        },
+                    }
+                };
+
+                service.Insert(document, "MEWP Coverage", model);
+
+                var workbook = document.WorkbookPart!.Workbook;
+                var summarySheet = workbook.Descendants<Sheet>()
+                    .First(s => (s.Name?.Value ?? string.Empty).Contains("Summary", StringComparison.OrdinalIgnoreCase));
+                var summaryPart = (WorksheetPart)document.WorkbookPart!.GetPartById(summarySheet.Id!);
+                var summaryRows = summaryPart.Worksheet.GetFirstChild<SheetData>()!.Elements<Row>().ToList();
+                var dataCells = summaryRows[1].Elements<Cell>().ToList();
+
+                Assert.Equal("SR0054", dataCells[0].CellValue?.Text);
+                Assert.Equal("Whitespace tolerant title", dataCells[1].CellValue?.Text);
             }
             finally
             {
