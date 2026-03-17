@@ -23,12 +23,13 @@ namespace JsonToWord
         private readonly IHtmlService _htmlService;
         private readonly IVoidListService _voidListService;
         private readonly IDocumentService _documentService;
+        private readonly ISectionPlaceholderService _sectionPlaceholderService;
         private bool _isZipNeeded = false;
         #endregion
         
         #region Constructor
         public WordService(IContentControlService contentControlService, ITableService tableService, IPictureService pictureService, ITextService textService, IHtmlService htmlService ,IFileService fileService, IVoidListService voidListService,
-         IDocumentService documentService ,ILogger<WordService> logger)
+         IDocumentService documentService, ISectionPlaceholderService sectionPlaceholderService, ILogger<WordService> logger)
         {
             _contentControlService = contentControlService;
             _fileService = fileService;
@@ -39,6 +40,7 @@ namespace JsonToWord
             _logger = logger;
             _voidListService = voidListService;
             _documentService = documentService;
+            _sectionPlaceholderService = sectionPlaceholderService;
             OnSubscribeEvents();
 
         }
@@ -139,6 +141,10 @@ namespace JsonToWord
                 }
                 
                 _contentControlService.ClearContentControlHeadingMap();
+                
+                // PASS 2.5: Resolve {{section:X.Y}} placeholders in table cells
+                _logger.LogInformation("PASS 2.5: Resolving section placeholders");
+                _sectionPlaceholderService.ResolveSectionPlaceholders(document);
                 
                 // Save document
                 document.MainDocumentPart.Document.Save();

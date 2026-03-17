@@ -48,6 +48,7 @@ namespace JsonToWord
             services.AddTransient<IStylesheetService, StylesheetService>();
             services.AddTransient<IColumnService, ColumnService>();
             services.AddTransient<IVoidListService, VoidListService>();
+            services.AddTransient<ISectionPlaceholderService, SectionPlaceholderService>();
         }
 
         // Remove ILoggingBuilder from the method signature

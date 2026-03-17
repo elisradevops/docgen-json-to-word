@@ -375,6 +375,7 @@ namespace JsonToWord.Services.Tests
             var fileService = new Mock<IFileService>();
             var voidListService = new Mock<IVoidListService>();
             var documentService = new Mock<IDocumentService>();
+            var sectionPlaceholderService = new Mock<ISectionPlaceholderService>();
             var logger = new Mock<ILogger<WordService>>();
 
             var service = new WordService(
@@ -386,6 +387,7 @@ namespace JsonToWord.Services.Tests
                 fileService.Object,
                 voidListService.Object,
                 documentService.Object,
+                sectionPlaceholderService.Object,
                 logger.Object);
 
             return (service, contentControlService, fileService, voidListService, documentService, tableService, pictureService, textService, htmlService);
