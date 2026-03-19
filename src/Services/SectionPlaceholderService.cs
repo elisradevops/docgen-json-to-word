@@ -150,12 +150,14 @@ namespace JsonToWord.Services
                     var relativePath = match.Groups["path"]?.Value;
 
                     var baseHeading = parentHeading;
+                    var hasAnchoredBase = false;
                     if (!string.IsNullOrEmpty(anchor)
                         && anchorHeadingMap != null
                         && anchorHeadingMap.TryGetValue(anchor, out var anchoredHeading)
                         && !string.IsNullOrEmpty(anchoredHeading))
                     {
                         baseHeading = anchoredHeading;
+                        hasAnchoredBase = true;
                     }
 
                     if (string.IsNullOrEmpty(baseHeading) || string.IsNullOrEmpty(relativePath))
@@ -163,7 +165,15 @@ namespace JsonToWord.Services
                         return match.Value;
                     }
 
-                    var resolved = $"{baseHeading}.{relativePath}";
+                    var resolved = hasAnchoredBase
+                        ? ResolveAnchoredSection(baseHeading, relativePath)
+                        : $"{baseHeading}.{relativePath}";
+
+                    if (string.IsNullOrEmpty(resolved))
+                    {
+                        return match.Value;
+                    }
+
                     _logger.LogDebug(
                         $"Resolved section placeholder: {match.Value} → {resolved} (anchor: {(string.IsNullOrEmpty(anchor) ? "<parent>" : anchor)})"
                     );
@@ -175,6 +185,58 @@ namespace JsonToWord.Services
                     textElement.Text = replacedText;
                 }
             }
+        }
+
+        private string ResolveAnchoredSection(string anchorHeading, string relativePath)
+        {
+            var anchorParts = anchorHeading.Split('.');
+            var pathParts = relativePath.Split('.');
+            if (anchorParts.Length == 0 || pathParts.Length == 0)
+            {
+                return string.Empty;
+            }
+
+            if (!int.TryParse(pathParts[0], out var firstRelativeNumber))
+            {
+                return string.Empty;
+            }
+
+            // When anchor is a chapter heading only (e.g., "4"), keep legacy anchored behavior:
+            // "4" + "1.2" => "4.1.2".
+            if (anchorParts.Length == 1)
+            {
+                return $"{anchorHeading}.{relativePath}";
+            }
+
+            var resolvedParts = new string[(anchorParts.Length - 1) + pathParts.Length];
+            for (int i = 0; i < anchorParts.Length - 1; i++)
+            {
+                if (!int.TryParse(anchorParts[i], out var anchorPart))
+                {
+                    return string.Empty;
+                }
+
+                resolvedParts[i] = anchorPart.ToString();
+            }
+
+            if (!int.TryParse(anchorParts[anchorParts.Length - 1], out var anchorLastPart))
+            {
+                return string.Empty;
+            }
+
+            resolvedParts[anchorParts.Length - 1] = (anchorLastPart + firstRelativeNumber).ToString();
+
+            for (int i = 1; i < pathParts.Length; i++)
+            {
+                if (!int.TryParse(pathParts[i], out var parsedPart))
+                {
+                    return string.Empty;
+                }
+
+                resolvedParts[(anchorParts.Length - 1) + i] = parsedPart.ToString();
+            }
+
+            return string.Join(".", resolvedParts);
         }
 
         private void CaptureAndClearAnchorMarkers(
