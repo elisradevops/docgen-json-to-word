@@ -56,18 +56,10 @@ namespace JsonToWord.Services
                 }
                 else if (element is SdtBlock sdtBlock)
                 {
-                    // Content controls may contain paragraphs (headings) or tables
-                    foreach (var child in sdtBlock.Descendants<Paragraph>().ToList())
-                    {
-                        var headingLevel = GetHeadingLevel(child, document.MainDocumentPart);
-                        if (headingLevel > 0 && headingLevel <= 9)
-                        {
-                            counters[headingLevel - 1]++;
-                            for (int i = headingLevel; i < 9; i++)
-                                counters[i] = 0;
-                            lastHeadingNumber = BuildHeadingNumber(counters, headingLevel);
-                        }
-                    }
+                    // Content controls contain generated headings (e.g., requirement
+                    // hierarchy) that must NOT affect the document-level heading counters.
+                    // Only resolve table placeholders using the last heading number
+                    // computed from the static template headings above.
                     foreach (var tbl in sdtBlock.Descendants<Table>().ToList())
                     {
                         ResolveTablePlaceholders(tbl, lastHeadingNumber);
