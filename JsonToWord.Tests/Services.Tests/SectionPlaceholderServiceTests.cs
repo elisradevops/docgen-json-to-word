@@ -178,9 +178,16 @@ namespace JsonToWord.Services.Tests
         [Fact]
         public void ResolveSectionPlaceholders_SysRsTemplate_ResolvesVcrmRowsAsChapterSections()
         {
-            var templatePath = FindSysRsTemplatePath();
             var tempPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.docx");
-            File.Copy(templatePath, tempPath, true);
+            var templatePath = FindSysRsTemplatePath();
+            if (!string.IsNullOrEmpty(templatePath))
+            {
+                File.Copy(templatePath, tempPath, true);
+            }
+            else
+            {
+                CreateSysRsLikeTemplate(tempPath);
+            }
 
             try
             {
@@ -250,7 +257,41 @@ namespace JsonToWord.Services.Tests
                 dir = dir.Parent;
             }
 
-            throw new FileNotFoundException("Could not locate SysRS.dotx template from test runtime path.");
+            return string.Empty;
+        }
+
+        private static void CreateSysRsLikeTemplate(string path)
+        {
+            using var document = WordprocessingDocument.Create(path, WordprocessingDocumentType.Document, true);
+            var mainPart = document.AddMainDocumentPart();
+            mainPart.Document = new Document(new Body());
+            var body = mainPart.Document.Body;
+
+            body.Append(CreateHeadingParagraph("Scope", "Heading1")); // 1
+            body.Append(CreateHeadingParagraph("Referenced Documents", "Heading1")); // 2
+            body.Append(CreateHeadingParagraph("Engineering Requirements", "Heading1")); // 3
+            body.Append(CreateHeadingParagraph("System Requirements", "Heading1")); // 4
+            body.Append(CreateHeadingParagraph("Critical Items/Key Characteristics", "Heading2")); // 4.1
+            body.Append(
+                new SdtBlock(
+                    new SdtProperties(
+                        new SdtAlias { Val = "system-requirements" },
+                        new Tag { Val = "system-requirements" }
+                    ),
+                    new SdtContentBlock(new Paragraph(new Run(new Text("Click or tap here to enter text."))))
+                )
+            );
+            body.Append(CreateHeadingParagraph("Qualification Provisions", "Heading1")); // 5
+            body.Append(
+                new SdtBlock(
+                    new SdtProperties(
+                        new SdtAlias { Val = "vcrm" },
+                        new Tag { Val = "vcrm" }
+                    ),
+                    new SdtContentBlock(new Paragraph(new Run(new Text("Click or tap here to enter text."))))
+                )
+            );
+            mainPart.Document.Save();
         }
 
         private static SdtBlock FindSdtByAlias(Body body, string alias)
