@@ -90,6 +90,7 @@ namespace JsonToWord
                 }
                 
                 _logger.LogInformation("PASS 2: Processing content controls with mapped heading status");
+                var processedContentControlTitles = new List<string>();
                 
                 // PASS 2: Process content controls using the mapped heading status
                 foreach (var contentControl in _wordModel.ContentControls)
@@ -132,19 +133,32 @@ namespace JsonToWord
                             }
                         }
                         document.MainDocumentPart.Document.Save();
-                        _contentControlService.RemoveContentControl(document, contentControl.Title);
+                        processedContentControlTitles.Add(contentControl.Title);
                     }
                     catch (Exception ex)
                     {
                         _logger.LogError(ex, "Error processing content control: " + contentControl.Title);
                     }
                 }
-                
-                _contentControlService.ClearContentControlHeadingMap();
-                
+
                 // PASS 2.5: Resolve {{section:X.Y}} placeholders in table cells
                 _logger.LogInformation("PASS 2.5: Resolving section placeholders");
                 _sectionPlaceholderService.ResolveSectionPlaceholders(document);
+
+                // PASS 2.6: Remove content controls after section placeholders are resolved
+                foreach (var contentControlTitle in processedContentControlTitles.Distinct())
+                {
+                    try
+                    {
+                        _contentControlService.RemoveContentControl(document, contentControlTitle);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error removing content control: " + contentControlTitle);
+                    }
+                }
+
+                _contentControlService.ClearContentControlHeadingMap();
                 
                 // Save document
                 document.MainDocumentPart.Document.Save();

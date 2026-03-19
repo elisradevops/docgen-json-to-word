@@ -12,7 +12,9 @@ namespace JsonToWord.Services
     public class SectionPlaceholderService : ISectionPlaceholderService
     {
         private static readonly Regex PlaceholderRegex =
-            new Regex(@"\{\{section:([0-9.]+)\}\}", RegexOptions.Compiled);
+            new Regex(@"\{\{section:(?:(?<anchor>[A-Za-z0-9_-]+):)?(?<path>[0-9.]+)\}\}", RegexOptions.Compiled);
+        private static readonly Regex AnchorMarkerRegex =
+            new Regex(@"\{\{section-anchor:(?<anchor>[A-Za-z0-9_-]+)\}\}", RegexOptions.Compiled);
 
         private readonly ILogger<SectionPlaceholderService> _logger;
 
@@ -31,6 +33,9 @@ namespace JsonToWord.Services
             var counters = new int[9];
             // Track the last heading number string that was computed (e.g., "4")
             string lastHeadingNumber = "";
+            var anchorHeadingMap = new System.Collections.Generic.Dictionary<string, string>(
+                StringComparer.OrdinalIgnoreCase
+            );
 
             foreach (var element in body.ChildElements.ToList())
             {
@@ -49,20 +54,25 @@ namespace JsonToWord.Services
                         // "4.2" for Heading2 under the 4th Heading1)
                         lastHeadingNumber = BuildHeadingNumber(counters, headingLevel);
                     }
+
+                    CaptureAndClearAnchorMarkers(paragraph, lastHeadingNumber, anchorHeadingMap);
                 }
                 else if (element is Table table)
                 {
-                    ResolveTablePlaceholders(table, lastHeadingNumber);
+                    CaptureAndClearAnchorMarkers(table, lastHeadingNumber, anchorHeadingMap);
+                    ResolveTablePlaceholders(table, lastHeadingNumber, anchorHeadingMap);
                 }
                 else if (element is SdtBlock sdtBlock)
                 {
+                    CaptureAndClearAnchorMarkers(sdtBlock, lastHeadingNumber, anchorHeadingMap);
+
                     // Content controls contain generated headings (e.g., requirement
                     // hierarchy) that must NOT affect the document-level heading counters.
                     // Only resolve table placeholders using the last heading number
                     // computed from the static template headings above.
                     foreach (var tbl in sdtBlock.Descendants<Table>().ToList())
                     {
-                        ResolveTablePlaceholders(tbl, lastHeadingNumber);
+                        ResolveTablePlaceholders(tbl, lastHeadingNumber, anchorHeadingMap);
                     }
                 }
             }
@@ -122,22 +132,79 @@ namespace JsonToWord.Services
         /// Scans all text runs in the table for {{section:X.Y}} placeholders
         /// and replaces them with parentHeading.X.Y.
         /// </summary>
-        private void ResolveTablePlaceholders(Table table, string parentHeading)
+        private void ResolveTablePlaceholders(
+            Table table,
+            string parentHeading,
+            System.Collections.Generic.IDictionary<string, string> anchorHeadingMap
+        )
         {
-            if (string.IsNullOrEmpty(parentHeading)) return;
-
             foreach (var run in table.Descendants<Run>().ToList())
             {
                 var textElement = run.GetFirstChild<Text>();
                 if (textElement == null || string.IsNullOrEmpty(textElement.Text)) continue;
 
-                var match = PlaceholderRegex.Match(textElement.Text);
-                if (match.Success)
+                var originalText = textElement.Text;
+                var replacedText = PlaceholderRegex.Replace(originalText, (match) =>
                 {
-                    var relativePath = match.Groups[1].Value;
-                    var resolved = $"{parentHeading}.{relativePath}";
-                    textElement.Text = PlaceholderRegex.Replace(textElement.Text, resolved);
-                    _logger.LogDebug($"Resolved section placeholder: {{{{section:{relativePath}}}}} → {resolved}");
+                    var anchor = match.Groups["anchor"]?.Value;
+                    var relativePath = match.Groups["path"]?.Value;
+
+                    var baseHeading = parentHeading;
+                    if (!string.IsNullOrEmpty(anchor)
+                        && anchorHeadingMap != null
+                        && anchorHeadingMap.TryGetValue(anchor, out var anchoredHeading)
+                        && !string.IsNullOrEmpty(anchoredHeading))
+                    {
+                        baseHeading = anchoredHeading;
+                    }
+
+                    if (string.IsNullOrEmpty(baseHeading) || string.IsNullOrEmpty(relativePath))
+                    {
+                        return match.Value;
+                    }
+
+                    var resolved = $"{baseHeading}.{relativePath}";
+                    _logger.LogDebug(
+                        $"Resolved section placeholder: {match.Value} → {resolved} (anchor: {(string.IsNullOrEmpty(anchor) ? "<parent>" : anchor)})"
+                    );
+                    return resolved;
+                });
+
+                if (!string.Equals(originalText, replacedText, StringComparison.Ordinal))
+                {
+                    textElement.Text = replacedText;
+                }
+            }
+        }
+
+        private void CaptureAndClearAnchorMarkers(
+            OpenXmlElement container,
+            string currentHeading,
+            System.Collections.Generic.IDictionary<string, string> anchorHeadingMap
+        )
+        {
+            if (container == null || string.IsNullOrEmpty(currentHeading) || anchorHeadingMap == null)
+            {
+                return;
+            }
+
+            foreach (var textElement in container.Descendants<Text>().ToList())
+            {
+                if (string.IsNullOrEmpty(textElement.Text)) continue;
+
+                var originalText = textElement.Text;
+                foreach (Match match in AnchorMarkerRegex.Matches(originalText))
+                {
+                    var anchor = match.Groups["anchor"]?.Value;
+                    if (string.IsNullOrWhiteSpace(anchor)) continue;
+                    anchorHeadingMap[anchor] = currentHeading;
+                    _logger.LogDebug($"Captured section anchor marker: {anchor} → {currentHeading}");
+                }
+
+                var cleanedText = AnchorMarkerRegex.Replace(originalText, string.Empty);
+                if (!string.Equals(originalText, cleanedText, StringComparison.Ordinal))
+                {
+                    textElement.Text = cleanedText;
                 }
             }
         }
