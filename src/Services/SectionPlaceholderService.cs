@@ -11,6 +11,7 @@ namespace JsonToWord.Services
 {
     public class SectionPlaceholderService : ISectionPlaceholderService
     {
+        private const string SysRsAnchorName = "requirements-root";
         private static readonly Regex PlaceholderRegex =
             new Regex(@"\{\{section:(?:(?<anchor>[A-Za-z0-9_-]+):)?(?<path>[0-9.]+)\}\}", RegexOptions.Compiled);
         private static readonly Regex AnchorMarkerRegex =
@@ -166,7 +167,7 @@ namespace JsonToWord.Services
                     }
 
                     var resolved = hasAnchoredBase
-                        ? ResolveAnchoredSection(baseHeading, relativePath)
+                        ? ResolveAnchoredSection(anchor, baseHeading, relativePath)
                         : $"{baseHeading}.{relativePath}";
 
                     if (string.IsNullOrEmpty(resolved))
@@ -187,7 +188,7 @@ namespace JsonToWord.Services
             }
         }
 
-        private string ResolveAnchoredSection(string anchorHeading, string relativePath)
+        private string ResolveAnchoredSection(string anchorName, string anchorHeading, string relativePath)
         {
             var anchorParts = anchorHeading.Split('.');
             var pathParts = relativePath.Split('.');
@@ -201,14 +202,47 @@ namespace JsonToWord.Services
                 return string.Empty;
             }
 
-            // When anchor is a chapter heading only (e.g., "4"), keep legacy anchored behavior:
-            // "4" + "1.2" => "4.1.2".
+            if (string.Equals(anchorName, SysRsAnchorName, StringComparison.OrdinalIgnoreCase))
+            {
+                // SysRS scanning model: section numbering is chapter-based.
+                // We anchor on Chapter(H1) and advance the next H2 index, ignoring deeper
+                // headings before the marker (e.g., 4.1.2 + 1 => 4.2).
+                if (!int.TryParse(anchorParts[0], out var chapterNumber))
+                {
+                    return string.Empty;
+                }
+
+                var existingSectionOffset = 0;
+                if (anchorParts.Length > 1 && int.TryParse(anchorParts[1], out var existingSecondLevel))
+                {
+                    existingSectionOffset = existingSecondLevel;
+                }
+
+                var resolvedParts = new string[pathParts.Length + 1];
+                resolvedParts[0] = chapterNumber.ToString();
+                resolvedParts[1] = (existingSectionOffset + firstRelativeNumber).ToString();
+
+                for (int i = 1; i < pathParts.Length; i++)
+                {
+                    if (!int.TryParse(pathParts[i], out var parsedPart))
+                    {
+                        return string.Empty;
+                    }
+
+                    resolvedParts[i + 1] = parsedPart.ToString();
+                }
+
+                return string.Join(".", resolvedParts);
+            }
+
+            // Generic anchored behavior for non-SysRS anchors:
+            // continue numbering from the anchor depth.
             if (anchorParts.Length == 1)
             {
                 return $"{anchorHeading}.{relativePath}";
             }
 
-            var resolvedParts = new string[(anchorParts.Length - 1) + pathParts.Length];
+            var genericParts = new string[(anchorParts.Length - 1) + pathParts.Length];
             for (int i = 0; i < anchorParts.Length - 1; i++)
             {
                 if (!int.TryParse(anchorParts[i], out var anchorPart))
@@ -216,7 +250,7 @@ namespace JsonToWord.Services
                     return string.Empty;
                 }
 
-                resolvedParts[i] = anchorPart.ToString();
+                genericParts[i] = anchorPart.ToString();
             }
 
             if (!int.TryParse(anchorParts[anchorParts.Length - 1], out var anchorLastPart))
@@ -224,7 +258,7 @@ namespace JsonToWord.Services
                 return string.Empty;
             }
 
-            resolvedParts[anchorParts.Length - 1] = (anchorLastPart + firstRelativeNumber).ToString();
+            genericParts[anchorParts.Length - 1] = (anchorLastPart + firstRelativeNumber).ToString();
 
             for (int i = 1; i < pathParts.Length; i++)
             {
@@ -233,10 +267,10 @@ namespace JsonToWord.Services
                     return string.Empty;
                 }
 
-                resolvedParts[(anchorParts.Length - 1) + i] = parsedPart.ToString();
+                genericParts[(anchorParts.Length - 1) + i] = parsedPart.ToString();
             }
 
-            return string.Join(".", resolvedParts);
+            return string.Join(".", genericParts);
         }
 
         private void CaptureAndClearAnchorMarkers(
