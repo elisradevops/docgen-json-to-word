@@ -28,22 +28,155 @@ namespace JsonToWord.Services
         public void ClearContentControl(WordprocessingDocument document, string contentControlTitle, bool force)
         {
             var body = document.MainDocumentPart.Document.Body;
-
-            // Find block-level content control by alias or tag
             var sdtBlock = body.Descendants<SdtBlock>()
                 .FirstOrDefault(e =>
                 {
                     var alias = e.SdtProperties?.GetFirstChild<SdtAlias>()?.Val?.Value;
                     var tag = e.SdtProperties?.GetFirstChild<Tag>()?.Val?.Value;
-                    return string.Equals(alias, contentControlTitle, StringComparison.Ordinal) ||
-                           string.Equals(tag, contentControlTitle, StringComparison.Ordinal);
+                    return ContentControlMatches(alias, tag, contentControlTitle);
                 });
 
             if (sdtBlock == null)
-                throw new Exception("Did not find a content control with the title " + contentControlTitle);
+            {
+                var sdtCell = body.Descendants<SdtCell>()
+                    .FirstOrDefault(e =>
+                    {
+                        var alias = e.SdtProperties?.GetFirstChild<SdtAlias>()?.Val?.Value;
+                        var tag = e.SdtProperties?.GetFirstChild<Tag>()?.Val?.Value;
+                        return ContentControlMatches(alias, tag, contentControlTitle);
+                    });
+                if (sdtCell != null)
+                    return;
 
-            if (!string.IsNullOrEmpty(sdtBlock.InnerText) && sdtBlock.InnerText == "Click or tap here to enter text." || force)
+                // Run-level controls (common in table cells) are handled later by FindContentControl()
+                // during write/insert, where they are converted to block-level controls.
+                var hasRunLevelMatch = body.Descendants<SdtRun>()
+                    .Any(e =>
+                    {
+                        var alias = e.SdtProperties?.GetFirstChild<SdtAlias>()?.Val?.Value;
+                        var tag = e.SdtProperties?.GetFirstChild<Tag>()?.Val?.Value;
+                        return ContentControlMatches(alias, tag, contentControlTitle);
+                    });
+
+                if (hasRunLevelMatch)
+                    return;
+
+                throw new Exception("Did not find a content control with the title " + contentControlTitle);
+            }
+
+            if ((!string.IsNullOrEmpty(sdtBlock.InnerText) && sdtBlock.InnerText == "Click or tap here to enter text.") || force)
                 RemoveAllStdContentBlock(sdtBlock);
+        }
+
+        public bool WritePlainTextToContentControl(WordprocessingDocument document, string contentControlTitle, string text)
+        {
+            var safeText = text ?? string.Empty;
+            var body = document.MainDocumentPart.Document.Body;
+
+            var sdtBlock = body.Descendants<SdtBlock>()
+                .FirstOrDefault(e =>
+                {
+                    var alias = e.SdtProperties?.GetFirstChild<SdtAlias>()?.Val?.Value;
+                    var tag = e.SdtProperties?.GetFirstChild<Tag>()?.Val?.Value;
+                    return ContentControlMatches(alias, tag, contentControlTitle);
+                });
+            if (sdtBlock != null)
+            {
+                RemoveAllStdContentBlock(sdtBlock);
+                sdtBlock.AppendChild(new SdtContentBlock(new Paragraph(new Run(new Text(safeText)))));
+                return true;
+            }
+
+            var sdtCell = body.Descendants<SdtCell>()
+                .FirstOrDefault(e =>
+                {
+                    var alias = e.SdtProperties?.GetFirstChild<SdtAlias>()?.Val?.Value;
+                    var tag = e.SdtProperties?.GetFirstChild<Tag>()?.Val?.Value;
+                    return ContentControlMatches(alias, tag, contentControlTitle);
+                });
+            if (sdtCell != null)
+            {
+                var contentCell = sdtCell.GetFirstChild<SdtContentCell>();
+                if (contentCell == null)
+                {
+                    contentCell = new SdtContentCell();
+                    sdtCell.AppendChild(contentCell);
+                }
+
+                var targetCell = contentCell.Elements<TableCell>().FirstOrDefault();
+                if (targetCell == null)
+                {
+                    contentCell.RemoveAllChildren();
+                    targetCell = new TableCell();
+                    contentCell.AppendChild(targetCell);
+                }
+
+                var tcProps = targetCell.GetFirstChild<TableCellProperties>()?.CloneNode(true);
+                targetCell.RemoveAllChildren();
+                if (tcProps != null)
+                    targetCell.Append(tcProps);
+                targetCell.Append(new Paragraph(new Run(new Text(safeText))));
+                return true;
+            }
+
+            return false;
+        }
+
+        public bool WriteParagraphToContentControl(WordprocessingDocument document, string contentControlTitle, Paragraph paragraph)
+        {
+            if (paragraph == null)
+                return false;
+
+            var body = document.MainDocumentPart.Document.Body;
+
+            var sdtBlock = body.Descendants<SdtBlock>()
+                .FirstOrDefault(e =>
+                {
+                    var alias = e.SdtProperties?.GetFirstChild<SdtAlias>()?.Val?.Value;
+                    var tag = e.SdtProperties?.GetFirstChild<Tag>()?.Val?.Value;
+                    return ContentControlMatches(alias, tag, contentControlTitle);
+                });
+            if (sdtBlock != null)
+            {
+                var sdtContentBlock = new SdtContentBlock();
+                sdtContentBlock.AppendChild((Paragraph)paragraph.CloneNode(true));
+                sdtBlock.AppendChild(sdtContentBlock);
+                return true;
+            }
+
+            var sdtCell = body.Descendants<SdtCell>()
+                .FirstOrDefault(e =>
+                {
+                    var alias = e.SdtProperties?.GetFirstChild<SdtAlias>()?.Val?.Value;
+                    var tag = e.SdtProperties?.GetFirstChild<Tag>()?.Val?.Value;
+                    return ContentControlMatches(alias, tag, contentControlTitle);
+                });
+            if (sdtCell != null)
+            {
+                var contentCell = sdtCell.GetFirstChild<SdtContentCell>();
+                if (contentCell == null)
+                {
+                    contentCell = new SdtContentCell();
+                    sdtCell.AppendChild(contentCell);
+                }
+
+                var targetCell = contentCell.Elements<TableCell>().FirstOrDefault();
+                if (targetCell == null)
+                {
+                    contentCell.RemoveAllChildren();
+                    targetCell = new TableCell();
+                    contentCell.AppendChild(targetCell);
+                }
+
+                var tcProps = targetCell.GetFirstChild<TableCellProperties>()?.CloneNode(true);
+                targetCell.RemoveAllChildren();
+                if (tcProps != null)
+                    targetCell.Append(tcProps);
+                targetCell.Append((Paragraph)paragraph.CloneNode(true));
+                return true;
+            }
+
+            return false;
         }
 
         public SdtBlock FindContentControl(WordprocessingDocument preprocessingDocument, string contentControlTitle)
@@ -56,8 +189,7 @@ namespace JsonToWord.Services
                 {
                     var alias = e.SdtProperties?.GetFirstChild<SdtAlias>()?.Val?.Value;
                     var tag = e.SdtProperties?.GetFirstChild<Tag>()?.Val?.Value;
-                    return string.Equals(alias, contentControlTitle, StringComparison.Ordinal) ||
-                           string.Equals(tag, contentControlTitle, StringComparison.Ordinal);
+                    return ContentControlMatches(alias, tag, contentControlTitle);
                 });
 
             if (sdtBlock != null)
@@ -69,8 +201,7 @@ namespace JsonToWord.Services
                 {
                     var alias = e.SdtProperties?.GetFirstChild<SdtAlias>()?.Val?.Value;
                     var tag = e.SdtProperties?.GetFirstChild<Tag>()?.Val?.Value;
-                    return string.Equals(alias, contentControlTitle, StringComparison.Ordinal) ||
-                           string.Equals(tag, contentControlTitle, StringComparison.Ordinal);
+                    return ContentControlMatches(alias, tag, contentControlTitle);
                 });
 
             if (sdtRun == null)
@@ -110,50 +241,142 @@ namespace JsonToWord.Services
 
         public void RemoveContentControl(WordprocessingDocument document, string contentControlTitle)
         {
-            var contentControl = FindContentControl(document, contentControlTitle);
             _logger.LogInformation("Removing content control: " + contentControlTitle);
             var errors = new List<string>();
-            // Special handling: for release-range-content-control we want the generated content
-            // to be merged into the previous paragraph (e.g., the "Project Name" title paragraph)
-            // instead of becoming a separate paragraph. This preserves the original paragraph
-            // style while still unwrapping the content control.
-            bool mergeIntoPreviousParagraph = string.Equals(contentControlTitle, "release-range-content-control", StringComparison.Ordinal);
-            Paragraph previousParagraph = null;
-            if (mergeIntoPreviousParagraph)
-            {
-                previousParagraph = contentControl.PreviousSibling<Paragraph>();
-            }
-            foreach (var element in contentControl.Elements())
-            {
-                if (element is SdtContentBlock)
+
+            var body = document.MainDocumentPart.Document.Body;
+            var sdtBlock = body.Descendants<SdtBlock>()
+                .FirstOrDefault(e =>
                 {
-                    foreach (var innerElement in element.Elements())
+                    var alias = e.SdtProperties?.GetFirstChild<SdtAlias>()?.Val?.Value;
+                    var tag = e.SdtProperties?.GetFirstChild<Tag>()?.Val?.Value;
+                    return ContentControlMatches(alias, tag, contentControlTitle);
+                });
+
+            if (sdtBlock != null)
+            {
+                // Special handling: for release-range-content-control we want the generated content
+                // to be merged into the previous paragraph (e.g., the "Project Name" title paragraph)
+                // instead of becoming a separate paragraph. This preserves the original paragraph
+                // style while still unwrapping the content control.
+                bool mergeIntoPreviousParagraph = string.Equals(contentControlTitle, "release-range-content-control", StringComparison.Ordinal);
+                Paragraph previousParagraph = null;
+                if (mergeIntoPreviousParagraph)
+                {
+                    previousParagraph = sdtBlock.PreviousSibling<Paragraph>();
+                }
+
+                foreach (var element in sdtBlock.Elements())
+                {
+                    if (element is SdtContentBlock)
                     {
-                        var errorMsgs = _documentValidator.ValidateInnerElementOfContentControl(contentControlTitle, innerElement);
-                        errors.AddRange(errorMsgs);
-                        if (mergeIntoPreviousParagraph && previousParagraph != null && innerElement is Paragraph innerParagraph)
+                        foreach (var innerElement in element.Elements())
                         {
-                            // Move all child runs/inline elements of the inner paragraph into the previous paragraph
-                            foreach (var child in innerParagraph.Elements())
+                            var errorMsgs = _documentValidator.ValidateInnerElementOfContentControl(contentControlTitle, innerElement);
+                            errors.AddRange(errorMsgs);
+                            if (mergeIntoPreviousParagraph && previousParagraph != null && innerElement is Paragraph innerParagraph)
                             {
-                                previousParagraph.AppendChild(child.CloneNode(true));
+                                // Move all child runs/inline elements of the inner paragraph into the previous paragraph
+                                foreach (var child in innerParagraph.Elements())
+                                {
+                                    previousParagraph.AppendChild(child.CloneNode(true));
+                                }
                             }
-                        }
-                        else
-                        {
-                            contentControl.Parent.InsertBefore(innerElement.CloneNode(true), contentControl);
+                            else
+                            {
+                                sdtBlock.Parent.InsertBefore(innerElement.CloneNode(true), sdtBlock);
+                            }
                         }
                     }
                 }
+
+                if (errors.Any())
+                {
+                    var message = string.Join("\n", errors);
+                    _logger.LogError(message);
+                    throw new Exception($"{contentControlTitle} Content control is not valid");
+                }
+
+                sdtBlock.Remove();
+                _logger.LogInformation("Content control removed: " + contentControlTitle);
+                return;
             }
-            if (errors.Any())
+
+            var sdtCell = body.Descendants<SdtCell>()
+                .FirstOrDefault(e =>
+                {
+                    var alias = e.SdtProperties?.GetFirstChild<SdtAlias>()?.Val?.Value;
+                    var tag = e.SdtProperties?.GetFirstChild<Tag>()?.Val?.Value;
+                    return ContentControlMatches(alias, tag, contentControlTitle);
+                });
+
+            if (sdtCell != null)
             {
-                var message = string.Join("\n", errors);
-                _logger.LogError(message);
-                throw new Exception($"{contentControlTitle} Content control is not valid");
+                var parent = sdtCell.Parent;
+                if (parent == null)
+                    throw new Exception($"Content control {contentControlTitle} has no parent element");
+
+                var sdtContentCell = sdtCell.GetFirstChild<SdtContentCell>();
+                if (sdtContentCell != null)
+                {
+                    foreach (var tableCell in sdtContentCell.Elements<TableCell>())
+                    {
+                        var errorMsgs = _documentValidator.ValidateInnerElementOfContentControl(contentControlTitle, tableCell);
+                        errors.AddRange(errorMsgs);
+                        parent.InsertBefore(tableCell.CloneNode(true), sdtCell);
+                    }
+                }
+
+                if (errors.Any())
+                {
+                    var message = string.Join("\n", errors);
+                    _logger.LogError(message);
+                    throw new Exception($"{contentControlTitle} Content control is not valid");
+                }
+
+                sdtCell.Remove();
+                _logger.LogInformation("Content control removed: " + contentControlTitle);
+                return;
             }
-            contentControl.Remove();
-            _logger.LogInformation("Content control removed: " + contentControlTitle);
+
+            var sdtRun = body.Descendants<SdtRun>()
+                .FirstOrDefault(e =>
+                {
+                    var alias = e.SdtProperties?.GetFirstChild<SdtAlias>()?.Val?.Value;
+                    var tag = e.SdtProperties?.GetFirstChild<Tag>()?.Val?.Value;
+                    return ContentControlMatches(alias, tag, contentControlTitle);
+                });
+
+            if (sdtRun != null)
+            {
+                var parent = sdtRun.Parent;
+                if (parent == null)
+                    throw new Exception($"Content control {contentControlTitle} has no parent element");
+
+                var sdtContentRun = sdtRun.GetFirstChild<SdtContentRun>();
+                if (sdtContentRun != null)
+                {
+                    foreach (var runElement in sdtContentRun.Elements())
+                    {
+                        var errorMsgs = _documentValidator.ValidateInnerElementOfContentControl(contentControlTitle, runElement);
+                        errors.AddRange(errorMsgs);
+                        parent.InsertBefore(runElement.CloneNode(true), sdtRun);
+                    }
+                }
+
+                if (errors.Any())
+                {
+                    var message = string.Join("\n", errors);
+                    _logger.LogError(message);
+                    throw new Exception($"{contentControlTitle} Content control is not valid");
+                }
+
+                sdtRun.Remove();
+                _logger.LogInformation("Content control removed: " + contentControlTitle);
+                return;
+            }
+
+            throw new Exception("Did not find a content control with the title " + contentControlTitle);
         }
 
         public void RemoveAllStdContentBlock(SdtBlock sdtBlock)
@@ -172,6 +395,20 @@ namespace JsonToWord.Services
             {
                 sdtBlock.RemoveChild(childElement);
             }
+        }
+
+        private static bool ContentControlMatches(string alias, string tag, string contentControlTitle)
+        {
+            var expected = NormalizeContentControlValue(contentControlTitle);
+            var normalizedAlias = NormalizeContentControlValue(alias);
+            var normalizedTag = NormalizeContentControlValue(tag);
+            return string.Equals(normalizedAlias, expected, StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(normalizedTag, expected, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string NormalizeContentControlValue(string value)
+        {
+            return (value ?? string.Empty).Trim();
         }
 
         /// <summary>

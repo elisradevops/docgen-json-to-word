@@ -87,6 +87,61 @@ namespace JsonToWord.Services.Tests
         }
 
         [Fact]
+        public void ClearContentControl_AllowsRunLevelControlWithoutThrowing()
+        {
+            using var stream = new MemoryStream();
+            using var document = WordprocessingDocument.Create(stream, WordprocessingDocumentType.Document, true);
+            var mainPart = document.AddMainDocumentPart();
+            mainPart.Document = new Document(new Body());
+
+            var sdtRun = new SdtRun(
+                new SdtProperties(new SdtAlias { Val = "cc-run-clear" }, new Tag { Val = "cc-run-clear" }),
+                new SdtContentRun(new Run(new Text("Click or tap here to enter text.")))
+            );
+            var paragraph = new Paragraph(new Run(new Text("Label ")), sdtRun);
+            mainPart.Document.Body.Append(paragraph);
+
+            var validator = new Mock<IDocumentValidatorService>();
+            var logger = new Mock<ILogger<ContentControlService>>();
+            var service = new ContentControlService(logger.Object, validator.Object);
+
+            service.ClearContentControl(document, "cc-run-clear", false);
+
+            Assert.True(mainPart.Document.Body.Descendants<SdtRun>().Any());
+        }
+
+        [Fact]
+        public void WritePlainTextToContentControl_WritesIntoSdtCell()
+        {
+            using var stream = new MemoryStream();
+            using var document = WordprocessingDocument.Create(stream, WordprocessingDocumentType.Document, true);
+            var mainPart = document.AddMainDocumentPart();
+            mainPart.Document = new Document(new Body());
+
+            var sdtCell = new SdtCell(
+                new SdtProperties(new SdtAlias { Val = "release-file-content-control" }, new Tag { Val = "release-file-content-control" }),
+                new SdtContentCell(
+                    new TableCell(
+                        new TableCellProperties(new TableCellWidth { Width = "2400", Type = TableWidthUnitValues.Dxa }),
+                        new Paragraph(new Run(new Text("Click or tap here to enter text.")))
+                    )
+                )
+            );
+            var row = new TableRow(sdtCell);
+            var table = new Table(row);
+            mainPart.Document.Body.Append(table);
+
+            var validator = new Mock<IDocumentValidatorService>();
+            var logger = new Mock<ILogger<ContentControlService>>();
+            var service = new ContentControlService(logger.Object, validator.Object);
+
+            var result = service.WritePlainTextToContentControl(document, "release-file-content-control", "artifact-1.2.3.zip");
+
+            Assert.True(result);
+            Assert.Contains("artifact-1.2.3.zip", mainPart.Document.Body.InnerText);
+        }
+
+        [Fact]
         public void ClearContentControl_DoesNotRemove_WhenNotForced()
         {
             using var stream = new MemoryStream();
@@ -206,6 +261,38 @@ namespace JsonToWord.Services.Tests
             var ex = Assert.Throws<Exception>(() => service.RemoveContentControl(document, "cc-errors"));
 
             Assert.Contains("Content control is not valid", ex.Message);
+        }
+
+        [Fact]
+        public void RemoveContentControl_UnwrapsSdtCell()
+        {
+            using var stream = new MemoryStream();
+            using var document = WordprocessingDocument.Create(stream, WordprocessingDocumentType.Document, true);
+            var mainPart = document.AddMainDocumentPart();
+            mainPart.Document = new Document(new Body());
+
+            var sdtCell = new SdtCell(
+                new SdtProperties(new SdtAlias { Val = "release-file-content-control" }, new Tag { Val = "release-file-content-control" }),
+                new SdtContentCell(
+                    new TableCell(new Paragraph(new Run(new Text("artifact-1.2.3.zip"))))
+                )
+            );
+            var row = new TableRow(sdtCell);
+            var table = new Table(row);
+            mainPart.Document.Body.Append(table);
+
+            var validator = new Mock<IDocumentValidatorService>();
+            validator
+                .Setup(v => v.ValidateInnerElementOfContentControl(It.IsAny<string>(), It.IsAny<OpenXmlElement>()))
+                .Returns(new List<string>());
+
+            var logger = new Mock<ILogger<ContentControlService>>();
+            var service = new ContentControlService(logger.Object, validator.Object);
+
+            service.RemoveContentControl(document, "release-file-content-control");
+
+            Assert.False(mainPart.Document.Body.Descendants<SdtCell>().Any());
+            Assert.Contains("artifact-1.2.3.zip", mainPart.Document.Body.InnerText);
         }
 
         [Fact]

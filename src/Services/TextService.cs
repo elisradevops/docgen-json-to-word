@@ -53,11 +53,12 @@ namespace JsonToWord.Services
                 }
             }
 
-            var sdtBlock = _contentControlService.FindContentControl(document, contentControlTitle);
+            if (_contentControlService.WriteParagraphToContentControl(document, contentControlTitle, paragraph))
+                return;
 
+            var sdtBlock = _contentControlService.FindContentControl(document, contentControlTitle);
             var sdtContentBlock = new SdtContentBlock();
             sdtContentBlock.AppendChild(paragraph);
-
             sdtBlock.AppendChild(sdtContentBlock);
         }
     }
