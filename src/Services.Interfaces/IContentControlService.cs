@@ -9,6 +9,7 @@ namespace JsonToWord.Services.Interfaces
         SdtBlock FindContentControl(WordprocessingDocument preprocessingDocument, string contentControlTitle);
         void RemoveContentControl(WordprocessingDocument document, string contentControlTitle);
         void RemoveAllStdContentBlock(SdtBlock sdtBlock);
+        bool WritePlainTextToContentControl(WordprocessingDocument document, string contentControlTitle, string text);
         bool IsUnderStandardHeading(SdtBlock sdtBlock);
         void MapContentControlHeading(string contentControlTitle, bool isUnderStandardHeading);
         bool GetContentControlHeadingStatus(string contentControlTitle);

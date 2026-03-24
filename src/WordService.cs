@@ -73,6 +73,14 @@ namespace JsonToWord
                             _logger.LogWarning("Content control with empty title found, skipping mapping");
                             continue;
                         }
+
+                        // release-file-content-control can be implemented as a table-cell content control (SdtCell).
+                        // Heading analysis is block-based, so default this control to standard heading behavior.
+                        if (string.Equals(contentControl.Title, "release-file-content-control", StringComparison.OrdinalIgnoreCase))
+                        {
+                            _contentControlService.MapContentControlHeading(contentControl.Title, true);
+                            continue;
+                        }
                         
                         // Find the content control
                         var sdtBlock = _contentControlService.FindContentControl(document, contentControl.Title);
@@ -105,12 +113,27 @@ namespace JsonToWord
                         
                         _contentControlService.ClearContentControl(document, contentControl.Title, contentControl.ForceClean);
                         
-                        // Get the content control and retrieve its heading status from the map
-                        var sdtBlockCC = _contentControlService.FindContentControl(document, contentControl.Title);
+                        // Retrieve heading status from the map (content control may be block/run/cell level)
                         var isUnderStandardHeading = _contentControlService.GetContentControlHeadingStatus(contentControl.Title);
                         
                         foreach (var wordObject in contentControl.WordObjects)
                         {
+                            if (
+                                string.Equals(contentControl.Title, "release-file-content-control", StringComparison.OrdinalIgnoreCase) &&
+                                wordObject.Type == WordObjectType.Paragraph
+                            )
+                            {
+                                var paragraphWordObject = (WordParagraph)wordObject;
+                                var text = paragraphWordObject?.Runs == null
+                                    ? string.Empty
+                                    : string.Concat(paragraphWordObject.Runs.Select(r => r?.Text ?? string.Empty));
+
+                                if (_contentControlService.WritePlainTextToContentControl(document, contentControl.Title, text))
+                                {
+                                    continue;
+                                }
+                            }
+
                             switch (wordObject.Type)
                             {
                                 case WordObjectType.File:
