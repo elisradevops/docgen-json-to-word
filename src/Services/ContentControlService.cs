@@ -82,8 +82,9 @@ namespace JsonToWord.Services
                 });
             if (sdtBlock != null)
             {
+                var existingParagraph = sdtBlock.Descendants<Paragraph>().FirstOrDefault();
                 RemoveAllStdContentBlock(sdtBlock);
-                sdtBlock.AppendChild(new SdtContentBlock(new Paragraph(new Run(new Text(safeText)))));
+                sdtBlock.AppendChild(new SdtContentBlock(CreateParagraphPreservingFormatting(existingParagraph, safeText)));
                 return true;
             }
 
@@ -111,15 +112,38 @@ namespace JsonToWord.Services
                     contentCell.AppendChild(targetCell);
                 }
 
+                var existingParagraph = targetCell.Elements<Paragraph>().FirstOrDefault();
                 var tcProps = targetCell.GetFirstChild<TableCellProperties>()?.CloneNode(true);
                 targetCell.RemoveAllChildren();
                 if (tcProps != null)
                     targetCell.Append(tcProps);
-                targetCell.Append(new Paragraph(new Run(new Text(safeText))));
+                targetCell.Append(CreateParagraphPreservingFormatting(existingParagraph, safeText));
                 return true;
             }
 
             return false;
+        }
+
+        private static Paragraph CreateParagraphPreservingFormatting(Paragraph templateParagraph, string text)
+        {
+            var paragraph = new Paragraph();
+            var paragraphProperties = templateParagraph?.ParagraphProperties?.CloneNode(true) as ParagraphProperties;
+            if (paragraphProperties != null)
+            {
+                paragraph.Append(paragraphProperties);
+            }
+
+            var run = new Run();
+            var templateRun = templateParagraph?.Descendants<Run>().FirstOrDefault();
+            var runProperties = templateRun?.RunProperties?.CloneNode(true) as RunProperties;
+            if (runProperties != null)
+            {
+                run.Append(runProperties);
+            }
+            run.Append(new Text(text ?? string.Empty));
+            paragraph.Append(run);
+
+            return paragraph;
         }
 
         public SdtBlock FindContentControl(WordprocessingDocument preprocessingDocument, string contentControlTitle)

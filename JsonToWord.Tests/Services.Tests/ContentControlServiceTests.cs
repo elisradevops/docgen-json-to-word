@@ -123,7 +123,10 @@ namespace JsonToWord.Services.Tests
                 new SdtContentCell(
                     new TableCell(
                         new TableCellProperties(new TableCellWidth { Width = "2400", Type = TableWidthUnitValues.Dxa }),
-                        new Paragraph(new Run(new Text("Click or tap here to enter text.")))
+                        new Paragraph(
+                            new ParagraphProperties(new ParagraphStyleId { Val = "Heading2" }),
+                            new Run(new RunProperties(new Bold()), new Text("Click or tap here to enter text."))
+                        )
                     )
                 )
             );
@@ -139,6 +142,43 @@ namespace JsonToWord.Services.Tests
 
             Assert.True(result);
             Assert.Contains("artifact-1.2.3.zip", mainPart.Document.Body.InnerText);
+            var resultingParagraph = mainPart.Document.Body.Descendants<TableCell>().First().Elements<Paragraph>().FirstOrDefault();
+            Assert.NotNull(resultingParagraph);
+            Assert.Equal("Heading2", resultingParagraph.ParagraphProperties?.ParagraphStyleId?.Val?.Value);
+            Assert.True(resultingParagraph.Descendants<RunProperties>().Any(rp => rp.Bold != null));
+        }
+
+        [Fact]
+        public void WritePlainTextToContentControl_PreservesBlockParagraphFormatting()
+        {
+            using var stream = new MemoryStream();
+            using var document = WordprocessingDocument.Create(stream, WordprocessingDocumentType.Document, true);
+            var mainPart = document.AddMainDocumentPart();
+            mainPart.Document = new Document(new Body());
+
+            var sdtBlock = new SdtBlock(
+                new SdtProperties(new SdtAlias { Val = "cc-format" }, new Tag { Val = "cc-format" }),
+                new SdtContentBlock(
+                    new Paragraph(
+                        new ParagraphProperties(new ParagraphStyleId { Val = "Heading3" }),
+                        new Run(new RunProperties(new Italic()), new Text("Click or tap here to enter text."))
+                    )
+                )
+            );
+            mainPart.Document.Body.Append(sdtBlock);
+
+            var validator = new Mock<IDocumentValidatorService>();
+            var logger = new Mock<ILogger<ContentControlService>>();
+            var service = new ContentControlService(logger.Object, validator.Object);
+
+            var result = service.WritePlainTextToContentControl(document, "cc-format", "formatted-text");
+
+            Assert.True(result);
+            Assert.Contains("formatted-text", mainPart.Document.Body.InnerText);
+            var resultingParagraph = sdtBlock.Descendants<Paragraph>().FirstOrDefault();
+            Assert.NotNull(resultingParagraph);
+            Assert.Equal("Heading3", resultingParagraph.ParagraphProperties?.ParagraphStyleId?.Val?.Value);
+            Assert.True(resultingParagraph.Descendants<RunProperties>().Any(rp => rp.Italic != null));
         }
 
         [Fact]
