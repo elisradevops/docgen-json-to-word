@@ -118,22 +118,6 @@ namespace JsonToWord
                         
                         foreach (var wordObject in contentControl.WordObjects)
                         {
-                            if (
-                                string.Equals(contentControl.Title, "release-file-content-control", StringComparison.OrdinalIgnoreCase) &&
-                                wordObject.Type == WordObjectType.Paragraph
-                            )
-                            {
-                                var paragraphWordObject = (WordParagraph)wordObject;
-                                var text = paragraphWordObject?.Runs == null
-                                    ? string.Empty
-                                    : string.Concat(paragraphWordObject.Runs.Select(r => r?.Text ?? string.Empty));
-
-                                if (_contentControlService.WritePlainTextToContentControl(document, contentControl.Title, text))
-                                {
-                                    continue;
-                                }
-                            }
-
                             switch (wordObject.Type)
                             {
                                 case WordObjectType.File:

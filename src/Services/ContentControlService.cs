@@ -122,6 +122,63 @@ namespace JsonToWord.Services
             return false;
         }
 
+        public bool WriteParagraphToContentControl(WordprocessingDocument document, string contentControlTitle, Paragraph paragraph)
+        {
+            if (paragraph == null)
+                return false;
+
+            var body = document.MainDocumentPart.Document.Body;
+
+            var sdtBlock = body.Descendants<SdtBlock>()
+                .FirstOrDefault(e =>
+                {
+                    var alias = e.SdtProperties?.GetFirstChild<SdtAlias>()?.Val?.Value;
+                    var tag = e.SdtProperties?.GetFirstChild<Tag>()?.Val?.Value;
+                    return ContentControlMatches(alias, tag, contentControlTitle);
+                });
+            if (sdtBlock != null)
+            {
+                var sdtContentBlock = new SdtContentBlock();
+                sdtContentBlock.AppendChild((Paragraph)paragraph.CloneNode(true));
+                sdtBlock.AppendChild(sdtContentBlock);
+                return true;
+            }
+
+            var sdtCell = body.Descendants<SdtCell>()
+                .FirstOrDefault(e =>
+                {
+                    var alias = e.SdtProperties?.GetFirstChild<SdtAlias>()?.Val?.Value;
+                    var tag = e.SdtProperties?.GetFirstChild<Tag>()?.Val?.Value;
+                    return ContentControlMatches(alias, tag, contentControlTitle);
+                });
+            if (sdtCell != null)
+            {
+                var contentCell = sdtCell.GetFirstChild<SdtContentCell>();
+                if (contentCell == null)
+                {
+                    contentCell = new SdtContentCell();
+                    sdtCell.AppendChild(contentCell);
+                }
+
+                var targetCell = contentCell.Elements<TableCell>().FirstOrDefault();
+                if (targetCell == null)
+                {
+                    contentCell.RemoveAllChildren();
+                    targetCell = new TableCell();
+                    contentCell.AppendChild(targetCell);
+                }
+
+                var tcProps = targetCell.GetFirstChild<TableCellProperties>()?.CloneNode(true);
+                targetCell.RemoveAllChildren();
+                if (tcProps != null)
+                    targetCell.Append(tcProps);
+                targetCell.Append((Paragraph)paragraph.CloneNode(true));
+                return true;
+            }
+
+            return false;
+        }
+
         public SdtBlock FindContentControl(WordprocessingDocument preprocessingDocument, string contentControlTitle)
         {
             var body = preprocessingDocument.MainDocumentPart.Document.Body;
