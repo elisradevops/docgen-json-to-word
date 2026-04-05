@@ -2,6 +2,9 @@
 using JsonToWord.Models;
 using JsonToWord.Models.S3;
 using JsonToWord.Services.Interfaces;
+using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Wordprocessing;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
@@ -10,6 +13,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 
@@ -41,10 +45,11 @@ namespace JsonToWord.Controllers
         [HttpPost("create")]
         public async Task<IActionResult> CreateWordDocument(dynamic json)
         {
+            var attachmentPaths = new List<String>();
+            var cleanupPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             try
             {
                 var settings = new JsonSerializerSettings();
-                var attachmentPaths = new List<String>();
                 settings.Converters.Add(new WordObjectConverter());
                 WordModel wordModel = JsonConvert.DeserializeObject<WordModel>(json.ToString(), settings);
                 if (wordModel.JsonDataList != null)
@@ -86,7 +91,8 @@ namespace JsonToWord.Controllers
                         _aWSS3Service.CleanUp(contentControlPath);
                     }
                 }
-                string fullpath = _aWSS3Service.DownloadFileFromS3BucketAsync(wordModel.TemplatePath, wordModel.UploadProperties.FileName);
+                string fullpath = ResolveTemplatePath(wordModel);
+                AddCleanupPath(cleanupPaths, fullpath);
                 wordModel.LocalPath = fullpath;
                 _logger.LogInformation("Initilized word model object");
                 if (wordModel.MinioAttachmentData != null)
@@ -97,9 +103,8 @@ namespace JsonToWord.Controllers
                     }
                 }
                 var documentPath = _wordService.Create(wordModel);
+                AddCleanupPath(cleanupPaths, documentPath);
                 _logger.LogInformation("Created word document");
-
-                _aWSS3Service.CleanUp(fullpath);
 
                 wordModel.UploadProperties.LocalFilePath = documentPath;
 
@@ -111,12 +116,6 @@ namespace JsonToWord.Controllers
                 else
                 {
                     AWSUploadResult<string> Response = await _aWSS3Service.UploadFileToMinioBucketAsync(wordModel.UploadProperties);
-                    _aWSS3Service.CleanUp(documentPath);
-
-                    foreach (var item in attachmentPaths)
-                    {
-                        _aWSS3Service.CleanUp(item);
-                    }
                     if (Response.Status)
                     {
                         return Ok(Response.Data);
@@ -141,6 +140,170 @@ namespace JsonToWord.Controllers
                 };
 
                 return BadRequest(JsonConvert.SerializeObject(errorResponse));
+            }
+            finally
+            {
+                foreach (var item in attachmentPaths)
+                {
+                    SafeCleanUp(item);
+                }
+
+                foreach (var path in cleanupPaths)
+                {
+                    SafeCleanUp(path);
+                }
+            }
+        }
+
+        private string ResolveTemplatePath(WordModel wordModel)
+        {
+            if (HasUsableTemplatePath(wordModel?.TemplatePath))
+            {
+                return _aWSS3Service.DownloadFileFromS3BucketAsync(
+                    wordModel.TemplatePath,
+                    wordModel?.UploadProperties?.FileName ?? "template.docx"
+                );
+            }
+
+            _logger.LogInformation("TemplatePath is missing or not absolute. Building a temporary template from content controls.");
+            return BuildTemporaryTemplate(wordModel);
+        }
+
+        private static bool HasUsableTemplatePath(Uri templatePath)
+        {
+            if (templatePath == null) return false;
+            var rawValue = templatePath.ToString();
+            if (string.IsNullOrWhiteSpace(rawValue)) return false;
+            if (string.Equals(rawValue.Trim(), "template path", StringComparison.OrdinalIgnoreCase)) return false;
+            return templatePath.IsAbsoluteUri;
+        }
+
+        private static string NormalizeFileToken(string value)
+        {
+            var safe = string.IsNullOrWhiteSpace(value) ? "generated-report" : value.Trim();
+            var invalidChars = Path.GetInvalidFileNameChars();
+            foreach (var invalid in invalidChars)
+            {
+                safe = safe.Replace(invalid, '-');
+            }
+            while (safe.Contains("--"))
+            {
+                safe = safe.Replace("--", "-");
+            }
+            safe = safe.Trim('-');
+            return string.IsNullOrWhiteSpace(safe) ? "generated-report" : safe;
+        }
+
+        private static IEnumerable<string> ResolveContentControlTitles(WordModel wordModel)
+        {
+            var controls = wordModel?.ContentControls ?? new List<WordContentControl>();
+            return controls
+                .Select(control => control?.Title?.Trim())
+                .Where(title => !string.IsNullOrWhiteSpace(title))
+                .Distinct(StringComparer.OrdinalIgnoreCase);
+        }
+
+        private string BuildTemporaryTemplate(WordModel wordModel)
+        {
+            var fileNameBase = Path.GetFileNameWithoutExtension(wordModel?.UploadProperties?.FileName ?? "generated-report.docx");
+            var safeBaseName = NormalizeFileToken(fileNameBase);
+            var tempDirectoryPath = Path.Combine(Path.GetTempPath(), $"json-to-word-{Guid.NewGuid():N}");
+            Directory.CreateDirectory(tempDirectoryPath);
+            var tempTemplatePath = Path.Combine(tempDirectoryPath, $"{safeBaseName}.docx");
+            var contentControlTitles = ResolveContentControlTitles(wordModel).ToList();
+
+            using (var document = WordprocessingDocument.Create(tempTemplatePath, WordprocessingDocumentType.Document))
+            {
+                var mainPart = document.AddMainDocumentPart();
+                mainPart.Document = new Document(new Body());
+                var body = mainPart.Document.Body;
+
+                if (contentControlTitles.Count == 0)
+                {
+                    body.AppendChild(new Paragraph(new Run(new Text("Generated document"))));
+                }
+                else
+                {
+                    foreach (var title in contentControlTitles)
+                    {
+                        var sdtBlock = new SdtBlock(
+                            new SdtProperties(
+                                new SdtAlias { Val = title },
+                                new Tag { Val = title }
+                            ),
+                            new SdtContentBlock(
+                                new Paragraph(
+                                    new Run(
+                                        new Text("Click or tap here to enter text.")
+                                    )
+                                )
+                            )
+                        );
+                        body.AppendChild(sdtBlock);
+                        body.AppendChild(new Paragraph());
+                    }
+                }
+
+                mainPart.Document.Save();
+            }
+
+            return tempTemplatePath;
+        }
+
+        private static void AddCleanupPath(ISet<string> cleanupPaths, string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return;
+            }
+            cleanupPaths.Add(path);
+        }
+
+        private static bool IsGeneratedTempDirectory(string directoryPath)
+        {
+            if (string.IsNullOrWhiteSpace(directoryPath))
+            {
+                return false;
+            }
+
+            var directoryName = Path.GetFileName(
+                directoryPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            );
+            return directoryName.StartsWith("json-to-word-", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private void SafeCleanUp(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return;
+            }
+
+            try
+            {
+                _aWSS3Service.CleanUp(path);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed cleaning temporary file {Path}", path);
+            }
+
+            try
+            {
+                var parentDirectory = Path.GetDirectoryName(path);
+                if (!IsGeneratedTempDirectory(parentDirectory))
+                {
+                    return;
+                }
+
+                if (Directory.Exists(parentDirectory) && !Directory.EnumerateFileSystemEntries(parentDirectory).Any())
+                {
+                    Directory.Delete(parentDirectory, false);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed deleting temporary directory for {Path}", path);
             }
         }
 
