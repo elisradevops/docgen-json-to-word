@@ -37,6 +37,8 @@ namespace JsonToWord.Services
 
     public class AWSS3Service : IAWSS3Service
     {
+        private const string EncodedMetadataPrefix = "utf8''";
+        private const int MaxMetadataHeaderValueLength = 1024;
         private readonly ILogger<AWSS3Service> _logger;
         private readonly string localPath;
         private readonly string AwsS3BaseUrl;
@@ -140,7 +142,11 @@ namespace JsonToWord.Services
                 // The SDK will serialize them as `x-amz-meta-{key}` automatically.
                 if (!string.IsNullOrEmpty(uploadProperties.CreatedBy))
                 {
-                    transferUtilityRequest.Metadata.Add("createdby", uploadProperties.CreatedBy);
+                    var createdBy = EncodeMetadataHeaderValue(uploadProperties.CreatedBy, 256);
+                    if (!string.IsNullOrEmpty(createdBy))
+                    {
+                        transferUtilityRequest.Metadata.Add("createdby", createdBy);
+                    }
                 }
                 if (!string.IsNullOrEmpty(uploadProperties.InputSummary))
                 {
@@ -150,7 +156,11 @@ namespace JsonToWord.Services
                     {
                         summary = summary.Substring(0, 1021) + "...";
                     }
-                    transferUtilityRequest.Metadata.Add("inputsummary", summary);
+                    var encodedSummary = EncodeMetadataHeaderValue(summary, MaxMetadataHeaderValueLength);
+                    if (!string.IsNullOrEmpty(encodedSummary))
+                    {
+                        transferUtilityRequest.Metadata.Add("inputsummary", encodedSummary);
+                    }
                 }
                 // Store full input details as a sidecar object (avoids S3 metadata size limits).
                 var hasInputDetails = !string.IsNullOrWhiteSpace(uploadProperties.InputDetails);
@@ -203,7 +213,11 @@ namespace JsonToWord.Services
                         // Only attach the reference metadata if the sidecar upload succeeded.
                         if (inputDetailsUploaded)
                         {
-                            transferUtilityRequest.Metadata.Add("inputdetailskey", inputDetailsObjectKey);
+                            var encodedInputDetailsKey = EncodeMetadataHeaderValue(inputDetailsObjectKey, MaxMetadataHeaderValueLength);
+                            if (!string.IsNullOrEmpty(encodedInputDetailsKey))
+                            {
+                                transferUtilityRequest.Metadata.Add("inputdetailskey", encodedInputDetailsKey);
+                            }
                         }
                     }
                     await utility.UploadAsync(transferUtilityRequest);
@@ -238,6 +252,83 @@ namespace JsonToWord.Services
         protected virtual Task<bool> DoesS3BucketExistAsync(IAmazonS3 amazonClient, string bucketName)
         {
             return AmazonS3Util.DoesS3BucketExistV2Async(amazonClient, bucketName);
+        }
+
+        private static string EncodeMetadataHeaderValue(string value, int maxLength)
+        {
+            var cleaned = RemoveHeaderUnsafeCharacters(value);
+            if (string.IsNullOrWhiteSpace(cleaned) || maxLength <= 0)
+            {
+                return string.Empty;
+            }
+
+            var normalized = cleaned.Length > maxLength ? cleaned.Substring(0, maxLength) : cleaned;
+            if (IsVisibleAscii(normalized))
+            {
+                return normalized;
+            }
+
+            var encoded = BuildEncodedMetadataValue(normalized);
+            if (encoded.Length <= maxLength)
+            {
+                return encoded;
+            }
+
+            var maxSourceLength = Math.Min(normalized.Length, Math.Max(1, (maxLength - EncodedMetadataPrefix.Length) / 3));
+            for (var i = maxSourceLength; i > 0; i--)
+            {
+                encoded = BuildEncodedMetadataValue(normalized.Substring(0, i));
+                if (encoded.Length <= maxLength)
+                {
+                    return encoded;
+                }
+            }
+
+            return string.Empty;
+        }
+
+        private static string BuildEncodedMetadataValue(string value)
+        {
+            return string.Concat(EncodedMetadataPrefix, Uri.EscapeDataString(value));
+        }
+
+        private static string RemoveHeaderUnsafeCharacters(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return string.Empty;
+            }
+
+            var trimmed = value.Trim();
+            var safeBuilder = new StringBuilder(trimmed.Length);
+            foreach (var ch in trimmed)
+            {
+                if (ch == '\r' || ch == '\n')
+                {
+                    continue;
+                }
+
+                if (ch < 0x20 || ch == 0x7F)
+                {
+                    continue;
+                }
+
+                safeBuilder.Append(ch);
+            }
+
+            return safeBuilder.ToString();
+        }
+
+        private static bool IsVisibleAscii(string value)
+        {
+            foreach (var ch in value)
+            {
+                if (ch < 0x20 || ch > 0x7E)
+                {
+                    return false;
+                }
+            }
+            return true;
         }
 
 

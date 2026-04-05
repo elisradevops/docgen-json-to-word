@@ -219,6 +219,53 @@ namespace JsonToWord.Services.Tests
         }
 
         [Fact]
+        public async Task UploadFileToMinioBucketAsync_EncodesNonAsciiMetadataAndStripsNewlines()
+        {
+            var logger = new Mock<ILogger<AWSS3Service>>();
+            var amazonClient = new Mock<IAmazonS3>();
+            var transferAdapter = new FakeTransferUtilityAdapter();
+            var service = new TestableAWSS3Service(logger.Object, amazonClient.Object, transferAdapter, true);
+
+            var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDir);
+            var localFile = Path.Combine(tempDir, "דוח-השוואה.docx");
+            File.WriteAllText(localFile, "content");
+
+            try
+            {
+                var props = new UploadProperties
+                {
+                    BucketName = "bucket",
+                    LocalFilePath = localFile,
+                    Region = "us-east-1",
+                    ServiceUrl = "https://minio.local",
+                    AwsAccessKeyId = "key",
+                    AwsSecretAccessKey = "secret",
+                    CreatedBy = "ישראל כהן\n",
+                    InputSummary = "Report - פע שבועי - 😀\r\n2026"
+                };
+
+                var result = await service.UploadFileToMinioBucketAsync(props);
+
+                Assert.True(result.Status);
+                Assert.Single(transferAdapter.Requests);
+
+                var mainUpload = transferAdapter.Requests[0];
+                var createdBy = mainUpload.Metadata["createdby"];
+                var inputSummary = mainUpload.Metadata["inputsummary"];
+
+                Assert.StartsWith("utf8''", createdBy);
+                Assert.StartsWith("utf8''", inputSummary);
+                Assert.Equal("ישראל כהן", DecodeEncodedMetadataValue(createdBy));
+                Assert.Equal("Report - פע שבועי - 😀2026", DecodeEncodedMetadataValue(inputSummary));
+            }
+            finally
+            {
+                Directory.Delete(tempDir, true);
+            }
+        }
+
+        [Fact]
         public async Task UploadFileToMinioBucketAsync_SidecarFails_OmitsInputDetailsKey()
         {
             var logger = new Mock<ILogger<AWSS3Service>>();
@@ -336,6 +383,22 @@ namespace JsonToWord.Services.Tests
             });
 
             return (new Uri($"http://127.0.0.1:{port}{path}"), serverTask);
+        }
+
+        private static string DecodeEncodedMetadataValue(string value)
+        {
+            const string prefix = "utf8''";
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return string.Empty;
+            }
+
+            if (!value.StartsWith(prefix, StringComparison.Ordinal))
+            {
+                return value;
+            }
+
+            return Uri.UnescapeDataString(value.Substring(prefix.Length));
         }
 
         private sealed class FakeTransferUtilityAdapter : ITransferUtilityAdapter
