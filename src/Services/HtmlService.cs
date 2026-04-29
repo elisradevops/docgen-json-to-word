@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
 using System.Text.RegularExpressions;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
@@ -95,11 +96,13 @@ namespace JsonToWord.Services
                 baseImageUrl = new Uri("file:///app/");
             }
 
-            // Rest of your existing method
-            var converter = new HtmlConverter(document.MainDocumentPart, new HtmlToOpenXml.Custom.IO.DefaultWebRequest()
+            // Use a fresh HttpClient because the custom DefaultWebRequest mutates default headers in its constructor.
+            using var httpClient = new HttpClient();
+            var webRequest = new HtmlToOpenXml.Custom.IO.DefaultWebRequest(httpClient, _logger)
             {
                 BaseImageUrl = baseImageUrl
-            });
+            };
+            var converter = new HtmlConverter(document.MainDocumentPart, webRequest);
             converter.ContinueNumbering = false;
             converter.SupportsHeadingNumbering = false;
 
