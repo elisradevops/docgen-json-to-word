@@ -87,6 +87,29 @@ namespace JsonToWord.Services.Tests
         }
 
         [Fact]
+        public void ClearContentControl_RemovesLegacyDefaultContentBlock()
+        {
+            using var stream = new MemoryStream();
+            using var document = WordprocessingDocument.Create(stream, WordprocessingDocumentType.Document, true);
+            var mainPart = document.AddMainDocumentPart();
+            mainPart.Document = new Document(new Body());
+
+            var sdtBlock = new SdtBlock(
+                new SdtProperties(new SdtAlias { Val = "cc3-legacy" }),
+                new SdtContentBlock(new Paragraph(new Run(new Text("Click here to enter text."))))
+            );
+            mainPart.Document.Body.Append(sdtBlock);
+
+            var validator = new Mock<IDocumentValidatorService>();
+            var logger = new Mock<ILogger<ContentControlService>>();
+            var service = new ContentControlService(logger.Object, validator.Object);
+
+            service.ClearContentControl(document, "cc3-legacy", false);
+
+            Assert.False(sdtBlock.Elements<SdtContentBlock>().Any());
+        }
+
+        [Fact]
         public void ClearContentControl_AllowsRunLevelControlWithoutThrowing()
         {
             using var stream = new MemoryStream();

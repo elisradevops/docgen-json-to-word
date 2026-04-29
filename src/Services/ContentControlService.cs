@@ -64,7 +64,10 @@ namespace JsonToWord.Services
                 throw new Exception("Did not find a content control with the title " + contentControlTitle);
             }
 
-            if ((!string.IsNullOrEmpty(sdtBlock.InnerText) && sdtBlock.InnerText == "Click or tap here to enter text.") || force)
+            var trimmed = sdtBlock.InnerText?.Trim();
+            if (force ||
+                trimmed == "Click or tap here to enter text." ||
+                trimmed == "Click here to enter text.")
                 RemoveAllStdContentBlock(sdtBlock);
         }
 
