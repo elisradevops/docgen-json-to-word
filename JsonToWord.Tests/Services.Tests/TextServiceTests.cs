@@ -129,5 +129,85 @@ namespace JsonToWord.Services.Tests
             Assert.NotNull(runProperties.Bold);
             Assert.Contains("test-release-Release-17.zip", mainPart.Document.Body.InnerText);
         }
+
+        [Fact]
+        public void Write_WithBookmarkName_EmitsBookmarkStartAndEnd()
+        {
+            using var stream = new MemoryStream();
+            using var document = WordprocessingDocument.Create(stream, WordprocessingDocumentType.Document, true);
+            var mainPart = document.AddMainDocumentPart();
+            mainPart.Document = new Document(new Body());
+
+            var sdtBlock = new SdtBlock(new SdtProperties(new SdtAlias { Val = "cc" }), new SdtContentBlock());
+            mainPart.Document.Body.Append(sdtBlock);
+
+            var contentControlService = new Mock<IContentControlService>();
+            contentControlService
+                .Setup(s => s.FindContentControl(document, "cc"))
+                .Returns(sdtBlock);
+
+            var paragraphService = new ParagraphService();
+            var runService = new RunService(new Mock<IPictureService>().Object);
+            var service = new TextService(contentControlService.Object, paragraphService, runService);
+
+            var wordParagraph = new WordParagraph
+            {
+                BookmarkName = "_WI42",
+                Runs = new List<WordRun>
+                {
+                    new WordRun { Text = "Test Case 42" }
+                }
+            };
+
+            service.Write(document, "cc", wordParagraph, true);
+
+            var bookmarkStarts = sdtBlock.Descendants<BookmarkStart>().ToList();
+            var bookmarkEnds = sdtBlock.Descendants<BookmarkEnd>().ToList();
+            Assert.Single(bookmarkStarts);
+            Assert.Single(bookmarkEnds);
+            Assert.Equal("_WI42", bookmarkStarts[0].Name.Value);
+            Assert.Equal(bookmarkStarts[0].Id.Value, bookmarkEnds[0].Id.Value);
+        }
+
+        [Fact]
+        public void Write_DuplicateBookmarkName_EmitsOnlyOnce()
+        {
+            using var stream = new MemoryStream();
+            using var document = WordprocessingDocument.Create(stream, WordprocessingDocumentType.Document, true);
+            var mainPart = document.AddMainDocumentPart();
+            mainPart.Document = new Document(new Body());
+
+            var sdtBlock = new SdtBlock(new SdtProperties(new SdtAlias { Val = "cc" }), new SdtContentBlock());
+            mainPart.Document.Body.Append(sdtBlock);
+
+            var contentControlService = new Mock<IContentControlService>();
+            contentControlService
+                .Setup(s => s.FindContentControl(document, "cc"))
+                .Returns(sdtBlock);
+            contentControlService
+                .Setup(s => s.WriteParagraphToContentControl(document, "cc", It.IsAny<Paragraph>()))
+                .Returns(false);
+
+            var paragraphService = new ParagraphService();
+            var runService = new RunService(new Mock<IPictureService>().Object);
+            var service = new TextService(contentControlService.Object, paragraphService, runService);
+
+            var wp1 = new WordParagraph
+            {
+                BookmarkName = "_WI42",
+                Runs = new List<WordRun> { new WordRun { Text = "First" } }
+            };
+            var wp2 = new WordParagraph
+            {
+                BookmarkName = "_WI42",
+                Runs = new List<WordRun> { new WordRun { Text = "Second" } }
+            };
+
+            service.Write(document, "cc", wp1, true);
+            service.Write(document, "cc", wp2, true);
+
+            var bookmarkStarts = sdtBlock.Descendants<BookmarkStart>().ToList();
+            Assert.Single(bookmarkStarts);
+        }
     }
 }

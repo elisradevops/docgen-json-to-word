@@ -11,6 +11,11 @@ namespace JsonToWord.Services
             return new Hyperlink() { History = true, Id = id };
         }
 
+        internal static Hyperlink CreateInternalHyperlink(string anchor)
+        {
+            return new Hyperlink() { History = true, Anchor = anchor };
+        }
+
         internal static string AddHyperlinkRelationship(MainDocumentPart mainDocumentPart, Uri uri)
         {
             var id = CreateHyperlinkId();

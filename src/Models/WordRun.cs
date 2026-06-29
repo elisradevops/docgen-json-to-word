@@ -13,6 +13,7 @@
         public int Size { get; set; }
         public string Text { get; set; }
         public string Uri { get; set; }
+        public string SectionRefId { get; set; }
         public string FontColor { get; set; }
 
         public WordRun()
