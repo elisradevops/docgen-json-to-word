@@ -97,6 +97,20 @@ namespace JsonToWord
                     }
                 }
                 
+                // Pre-scan: collect all bookmark names from paragraphs for internal hyperlink resolution
+                var sectionBookmarks = new HashSet<string>(StringComparer.Ordinal);
+                foreach (var cc in _wordModel.ContentControls)
+                {
+                    foreach (var wo in cc.WordObjects)
+                    {
+                        if (wo is WordParagraph wp && !string.IsNullOrEmpty(wp.BookmarkName))
+                        {
+                            sectionBookmarks.Add(wp.BookmarkName);
+                        }
+                    }
+                }
+                _tableService.SetSectionBookmarks(sectionBookmarks);
+
                 _logger.LogInformation("PASS 2: Processing content controls with mapped heading status");
                 var processedContentControlTitles = new List<string>();
                 

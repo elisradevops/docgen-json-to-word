@@ -609,6 +609,102 @@ namespace JsonToWord.Services.Tests
             Times.Once);
         }
 
+        [Fact]
+        public void Insert_WithSectionRefId_And_BookmarkExists_CreatesInternalHyperlink()
+        {
+            // Arrange
+            _tableService.SetSectionBookmarks(new HashSet<string> { "_WI42" });
+
+            // Override RunService mock to return a run with RunProperties
+            _mockRunService.Setup(m => m.CreateRun(It.IsAny<WordRun>()))
+                .Returns(new Run(new RunProperties(), new Text("42")));
+
+            var wordTable = new WordTable
+            {
+                RepeatHeaderRow = false,
+                Rows = new List<WordTableRow>
+                {
+                    new WordTableRow
+                    {
+                        Cells = new List<WordTableCell>
+                        {
+                            new WordTableCell
+                            {
+                                Paragraphs = new List<WordParagraph>
+                                {
+                                    new WordParagraph
+                                    {
+                                        Runs = new List<WordRun>
+                                        {
+                                            new WordRun { Text = "42", SectionRefId = "42" }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+
+            // Act
+            _tableService.Insert(_document, "test-cc", wordTable, null);
+
+            // Assert
+            var sdtBlock = _mockContentControlService.Object.FindContentControl(_document, "test-cc");
+            var table = sdtBlock.Descendants<Table>().FirstOrDefault();
+            Assert.NotNull(table);
+            var hyperlinks = table.Descendants<Hyperlink>().ToList();
+            Assert.Single(hyperlinks);
+            Assert.Equal("_WI42", hyperlinks[0].Anchor?.Value);
+        }
+
+        [Fact]
+        public void Insert_WithSectionRefId_But_NoBookmark_FallsBackToExternal()
+        {
+            // Arrange — no bookmarks set
+            _tableService.SetSectionBookmarks(new HashSet<string>());
+
+            var wordTable = new WordTable
+            {
+                RepeatHeaderRow = false,
+                Rows = new List<WordTableRow>
+                {
+                    new WordTableRow
+                    {
+                        Cells = new List<WordTableCell>
+                        {
+                            new WordTableCell
+                            {
+                                Paragraphs = new List<WordParagraph>
+                                {
+                                    new WordParagraph
+                                    {
+                                        Runs = new List<WordRun>
+                                        {
+                                            new WordRun { Text = "42", SectionRefId = "42", Uri = "https://tfs.example.com/wi/42" }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+
+            // Act
+            _tableService.Insert(_document, "test-cc", wordTable, null);
+
+            // Assert
+            var sdtBlock = _mockContentControlService.Object.FindContentControl(_document, "test-cc");
+            var table = sdtBlock.Descendants<Table>().FirstOrDefault();
+            Assert.NotNull(table);
+            var hyperlinks = table.Descendants<Hyperlink>().ToList();
+            Assert.Single(hyperlinks);
+            // External hyperlink has Id (relationship), not Anchor
+            Assert.NotNull(hyperlinks[0].Id?.Value);
+            Assert.Null(hyperlinks[0].Anchor?.Value);
+        }
+
         public void Dispose()
         {
             _document?.Dispose();

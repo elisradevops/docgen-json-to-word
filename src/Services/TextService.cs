@@ -3,6 +3,7 @@ using DocumentFormat.OpenXml.Wordprocessing;
 using JsonToWord.Models;
 using JsonToWord.Services.Interfaces;
 using System;
+using System.Collections.Generic;
 
 namespace JsonToWord.Services
 {
@@ -11,6 +12,8 @@ namespace JsonToWord.Services
         private readonly IContentControlService _contentControlService;
         private readonly IParagraphService _paragraphService;
         private readonly IRunService _runService;
+        private int _bookmarkIdCounter;
+        private readonly HashSet<string> _emittedBookmarks = new HashSet<string>();
 
 
         public TextService(IContentControlService contentControlService, IParagraphService paragraphService, IRunService runService)
@@ -22,6 +25,15 @@ namespace JsonToWord.Services
         public void Write(WordprocessingDocument document, string contentControlTitle, WordParagraph wordParagraph, bool isUnderStandardHeading)
         {
             var paragraph = _paragraphService.CreateParagraph(wordParagraph, isUnderStandardHeading);
+
+            // Emit bookmark if BookmarkName is set and not yet emitted (dedupe)
+            BookmarkEnd bookmarkEnd = null;
+            if (!string.IsNullOrEmpty(wordParagraph.BookmarkName) && _emittedBookmarks.Add(wordParagraph.BookmarkName))
+            {
+                var bmId = (++_bookmarkIdCounter).ToString();
+                paragraph.AppendChild(new BookmarkStart { Id = bmId, Name = wordParagraph.BookmarkName });
+                bookmarkEnd = new BookmarkEnd { Id = bmId };
+            }
 
             if (wordParagraph.Runs != null)
             {
@@ -45,12 +57,18 @@ namespace JsonToWord.Services
                             paragraph.AppendChild(run);
                         }
                     }
-                   
+
                     else
                     {
                         paragraph.AppendChild(run);
                     }
                 }
+            }
+
+            // Close bookmark after all runs
+            if (bookmarkEnd != null)
+            {
+                paragraph.AppendChild(bookmarkEnd);
             }
 
             if (_contentControlService.WriteParagraphToContentControl(document, contentControlTitle, paragraph))

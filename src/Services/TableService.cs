@@ -21,6 +21,12 @@ namespace JsonToWord.Services
         private readonly IHtmlService _htmlService;
         private readonly IUtilsService _utilsService;
         private readonly ILogger<TableService> _logger;
+        private HashSet<string> _sectionBookmarks = new HashSet<string>();
+
+        public void SetSectionBookmarks(HashSet<string> bookmarks)
+        {
+            _sectionBookmarks = bookmarks ?? new HashSet<string>();
+        }
 
         public TableService(IContentControlService contentControlService, IParagraphService paragraphService, IRunService runService, IHtmlService htmlService, IPictureService pictureService, IFileService fileService, ILogger<TableService> logger, IUtilsService utils) {
             _contentControlService = contentControlService;
@@ -406,7 +412,22 @@ namespace JsonToWord.Services
                     foreach (var wordRun in wordParagraph.Runs)
                     {
                         var run = _runService.CreateRun(wordRun);
-                        if (!string.IsNullOrEmpty(wordRun.Uri))
+
+                        // Internal section hyperlink (bookmark anchor) — takes precedence when the target section exists
+                        if (!string.IsNullOrEmpty(wordRun.SectionRefId) && _sectionBookmarks.Contains("_WI" + wordRun.SectionRefId))
+                        {
+                            var hyperlink = HyperlinkService.CreateInternalHyperlink("_WI" + wordRun.SectionRefId);
+                            // Apply hyperlink styling to the run
+                            var rp = run.RunProperties ?? new RunProperties();
+                            rp.RunStyle = new RunStyle() { Val = "Hyperlink" };
+                            rp.Color = new Color() { Val = "auto", ThemeColor = ThemeColorValues.Hyperlink };
+                            if (rp.Underline == null)
+                                rp.Underline = new Underline() { Val = UnderlineValues.Single };
+                            run.RunProperties = rp;
+                            hyperlink.AppendChild(run);
+                            paragraph.AppendChild(hyperlink);
+                        }
+                        else if (!string.IsNullOrEmpty(wordRun.Uri))
                         {
                             try
                             {

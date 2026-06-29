@@ -7,5 +7,6 @@ namespace JsonToWord.Models
         public int HeadingLevel { get; set; }
         public List<WordRun> Runs { get; set; }
         public WordObjectType Type { get; set; }
+        public string BookmarkName { get; set; }
     }
 }
