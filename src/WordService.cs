@@ -7,6 +7,7 @@ using JsonToWord.Services.Interfaces;
 using ICSharpCode.SharpZipLib.Zip;
 using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 
 namespace JsonToWord
@@ -25,6 +26,7 @@ namespace JsonToWord
         private readonly IDocumentService _documentService;
         private readonly ISectionPlaceholderService _sectionPlaceholderService;
         private bool _isZipNeeded = false;
+        private const string CurrentMonthYearContentControlTitle = "current-month-year-content-control";
         #endregion
         
         #region Constructor
@@ -60,6 +62,7 @@ namespace JsonToWord
             using (var document = WordprocessingDocument.Open(documentPath, true))
             {
                 _logger.LogInformation("Starting on doc path: " + documentPath);
+                FillCurrentMonthYearContentControl(document);
                 
                 // PASS 1: Build the content control heading status map
                 _logger.LogInformation("PASS 1: Analyzing all content controls to determine heading status");
@@ -201,6 +204,27 @@ namespace JsonToWord
             return generatedDocPath;
             //documentService.RunMacro(documentPath, "updateTableOfContent",sw);
             //log.Info("Ran Macro");
+        }
+
+        private void FillCurrentMonthYearContentControl(WordprocessingDocument document)
+        {
+            var currentMonthYear = DateTime.Now.ToString("MMMM yyyy", CultureInfo.InvariantCulture);
+            var wroteDate = _contentControlService.WritePlainTextToContentControl(
+                document,
+                CurrentMonthYearContentControlTitle,
+                currentMonthYear);
+
+            if (!wroteDate)
+                return;
+
+            try
+            {
+                _contentControlService.RemoveContentControl(document, CurrentMonthYearContentControlTitle);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error removing content control: " + CurrentMonthYearContentControlTitle);
+            }
         }
 
         public DownloadableObjectModel CreateDownloadableFile(string docPath)

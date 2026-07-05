@@ -165,6 +165,39 @@ namespace JsonToWord.Services.Tests
         }
 
         [Fact]
+        public void WritePlainTextToContentControl_WritesIntoSdtRun()
+        {
+            using var stream = new MemoryStream();
+            using var document = WordprocessingDocument.Create(stream, WordprocessingDocumentType.Document, true);
+            var mainPart = document.AddMainDocumentPart();
+            mainPart.Document = new Document(new Body());
+
+            var sdtRun = new SdtRun(
+                new SdtProperties(
+                    new SdtAlias { Val = "current-month-year-content-control" },
+                    new Tag { Val = "current-month-year-content-control" }),
+                new SdtContentRun(
+                    new Run(
+                        new RunProperties(new Bold()),
+                        new Text("February 2020")))
+            );
+            mainPart.Document.Body.Append(new Paragraph(sdtRun));
+
+            var validator = new Mock<IDocumentValidatorService>();
+            var logger = new Mock<ILogger<ContentControlService>>();
+            var service = new ContentControlService(logger.Object, validator.Object);
+
+            var result = service.WritePlainTextToContentControl(
+                document,
+                "current-month-year-content-control",
+                "July 2026");
+
+            Assert.True(result);
+            Assert.Equal("July 2026", sdtRun.InnerText);
+            Assert.NotNull(sdtRun.Descendants<Bold>().FirstOrDefault());
+        }
+
+        [Fact]
         public void ClearContentControl_DoesNotRemove_WhenNotForced()
         {
             using var stream = new MemoryStream();

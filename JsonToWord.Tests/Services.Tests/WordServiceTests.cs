@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using DocumentFormat.OpenXml;
@@ -142,6 +143,106 @@ namespace JsonToWord.Services.Tests
 
                 Assert.Equal(templatePath, resultPath);
                 mocks.VoidListService.Verify(v => v.CreateVoidList(It.IsAny<string>()), Times.Never);
+            }
+            finally
+            {
+                Directory.Delete(tempDir, true);
+            }
+        }
+
+        [Fact]
+        public void Create_WhenCurrentMonthYearControlExists_FillsAndRemovesControl()
+        {
+            var mocks = CreateServiceWithMocks();
+            var service = mocks.Service;
+
+            var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDir);
+            var templatePath = Path.Combine(tempDir, "template.docx");
+
+            try
+            {
+                using (var doc = WordprocessingDocument.Create(templatePath, WordprocessingDocumentType.Document))
+                {
+                    var mainPart = doc.AddMainDocumentPart();
+                    mainPart.Document = new Document(new Body(new Paragraph(new Run(new Text("content")))));
+                }
+
+                mocks.DocumentService
+                    .Setup(d => d.CreateDocument(templatePath))
+                    .Returns(templatePath);
+
+                var expectedDate = DateTime.Now.ToString("MMMM yyyy", CultureInfo.InvariantCulture);
+                mocks.ContentControlService
+                    .Setup(c => c.WritePlainTextToContentControl(
+                        It.IsAny<WordprocessingDocument>(),
+                        "current-month-year-content-control",
+                        expectedDate))
+                    .Returns(true);
+
+                var model = new WordModel
+                {
+                    LocalPath = templatePath,
+                    ContentControls = new List<WordContentControl>(),
+                    FormattingSettings = new FormattingSettings { ProcessVoidList = false }
+                };
+
+                service.Create(model);
+
+                mocks.ContentControlService.Verify(c => c.WritePlainTextToContentControl(
+                    It.IsAny<WordprocessingDocument>(),
+                    "current-month-year-content-control",
+                    expectedDate), Times.Once);
+                mocks.ContentControlService.Verify(c => c.RemoveContentControl(
+                    It.IsAny<WordprocessingDocument>(),
+                    "current-month-year-content-control"), Times.Once);
+            }
+            finally
+            {
+                Directory.Delete(tempDir, true);
+            }
+        }
+
+        [Fact]
+        public void Create_WhenCurrentMonthYearControlIsMissing_DoesNotRemoveControl()
+        {
+            var mocks = CreateServiceWithMocks();
+            var service = mocks.Service;
+
+            var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDir);
+            var templatePath = Path.Combine(tempDir, "template.docx");
+
+            try
+            {
+                using (var doc = WordprocessingDocument.Create(templatePath, WordprocessingDocumentType.Document))
+                {
+                    var mainPart = doc.AddMainDocumentPart();
+                    mainPart.Document = new Document(new Body(new Paragraph(new Run(new Text("content")))));
+                }
+
+                mocks.DocumentService
+                    .Setup(d => d.CreateDocument(templatePath))
+                    .Returns(templatePath);
+                mocks.ContentControlService
+                    .Setup(c => c.WritePlainTextToContentControl(
+                        It.IsAny<WordprocessingDocument>(),
+                        "current-month-year-content-control",
+                        It.IsAny<string>()))
+                    .Returns(false);
+
+                var model = new WordModel
+                {
+                    LocalPath = templatePath,
+                    ContentControls = new List<WordContentControl>(),
+                    FormattingSettings = new FormattingSettings { ProcessVoidList = false }
+                };
+
+                service.Create(model);
+
+                mocks.ContentControlService.Verify(c => c.RemoveContentControl(
+                    It.IsAny<WordprocessingDocument>(),
+                    "current-month-year-content-control"), Times.Never);
             }
             finally
             {
