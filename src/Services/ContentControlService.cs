@@ -122,6 +122,32 @@ namespace JsonToWord.Services
                 return true;
             }
 
+            var sdtRun = body.Descendants<SdtRun>()
+                .FirstOrDefault(e =>
+                {
+                    var alias = e.SdtProperties?.GetFirstChild<SdtAlias>()?.Val?.Value;
+                    var tag = e.SdtProperties?.GetFirstChild<Tag>()?.Val?.Value;
+                    return ContentControlMatches(alias, tag, contentControlTitle);
+                });
+            if (sdtRun != null)
+            {
+                var contentRun = sdtRun.GetFirstChild<SdtContentRun>();
+                if (contentRun == null)
+                {
+                    contentRun = new SdtContentRun();
+                    sdtRun.AppendChild(contentRun);
+                }
+
+                var runProperties = contentRun.Descendants<RunProperties>().FirstOrDefault()?.CloneNode(true);
+                contentRun.RemoveAllChildren();
+                var run = new Run();
+                if (runProperties != null)
+                    run.Append(runProperties);
+                run.Append(new Text(safeText));
+                contentRun.Append(run);
+                return true;
+            }
+
             return false;
         }
 
