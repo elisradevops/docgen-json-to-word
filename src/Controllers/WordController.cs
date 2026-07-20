@@ -85,6 +85,14 @@ namespace JsonToWord.Controllers
                                 contentControls.Add(singleContentControl);
                             }
 
+                            // The downloaded blob never carries ForceClean (it's assembled from the
+                            // content-control response alone) — propagate it from the JsonDataList
+                            // wrapper, which is the only place the original request's flag survives.
+                            foreach (var cc in contentControls)
+                            {
+                                cc.ForceClean = cc.ForceClean || jsonData.ForceClean;
+                            }
+
                             // Add all content controls to the wordModel
                             wordModel.ContentControls.AddRange(contentControls);
                         }

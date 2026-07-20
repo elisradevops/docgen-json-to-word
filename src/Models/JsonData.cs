@@ -9,5 +9,6 @@ namespace JsonToWord.Models
     {
         public Uri JsonPath { get; set; }
         public string JsonName { get; set; }
+        public bool ForceClean { get; set; }
     }
 }

@@ -60,6 +60,19 @@ namespace JsonToWord.Services
             RemoveExtraParagraphsAfterAltChunk(document);
         }
 
+        // Parses a plain percentage width hint (e.g. "18.4%") used for proportional TableGrid columns.
+        // Distinct from GetTableCellWidth's dxa/cm/pct-unit conversion (used for per-cell tcW), which is
+        // unaffected by this method.
+        private double? ParsePercentWidth(string widthString)
+        {
+            if (string.IsNullOrWhiteSpace(widthString)) return null;
+            var trimmed = widthString.Trim();
+            if (!trimmed.EndsWith("%")) return null;
+            if (double.TryParse(trimmed.TrimEnd('%'), out var pct) && pct > 0 && pct <= 100)
+                return pct;
+            return null;
+        }
+
         private TableCellWidth GetTableCellWidth(string widthString, int pageWidthDxa)
         {
             if (string.IsNullOrWhiteSpace(widthString))
@@ -124,10 +137,34 @@ namespace JsonToWord.Services
 
             int maxColumns = rows.Max(r => r.Cells.Count);
             var tableGrid = new TableGrid();
-            var width = totalWidth / maxColumns;
+
+            // The generic query-table renderer (JSONTable's enableAdaptiveLayout path) sets a plain
+            // percentage width hint on every header cell. When every column has one, build proportional
+            // grid columns from it; otherwise fall back to the original equal-division behavior exactly
+            // as before (every other doc type's tables, which never set this hint, are unaffected).
+            var headerCells = rows.Count > 0 ? rows[0].Cells : new List<WordTableCell>();
+            var hintedPercents = new double?[maxColumns];
             for (int i = 0; i < maxColumns; i++)
             {
-                tableGrid.Append(new GridColumn { Width = width.ToString() });
+                hintedPercents[i] = i < headerCells.Count ? ParsePercentWidth(headerCells[i].Width) : null;
+            }
+
+            if (hintedPercents.All(p => p.HasValue))
+            {
+                var percentSum = hintedPercents.Sum(p => p.Value);
+                foreach (var pct in hintedPercents)
+                {
+                    var gridColWidth = (int)Math.Round((pct.Value / percentSum) * totalWidth);
+                    tableGrid.Append(new GridColumn { Width = gridColWidth.ToString() });
+                }
+            }
+            else
+            {
+                var width = totalWidth / maxColumns;
+                for (int i = 0; i < maxColumns; i++)
+                {
+                    tableGrid.Append(new GridColumn { Width = width.ToString() });
+                }
             }
             table.AppendChild(tableGrid);
 
