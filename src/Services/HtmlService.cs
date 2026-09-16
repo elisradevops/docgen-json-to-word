@@ -55,7 +55,7 @@ namespace JsonToWord.Services
                 ResizeImagesInParagraph(paragraph);
             }
 
-            // Apply tight spacing to HTML-generated paragraphs if TrimAdditionalSpacingInTables is enabled
+            // Apply tight spacing to HTML-generated paragraphs if TrimAdditionalSpacingInDescriptions is enabled
             if (formattingSettings?.TrimAdditionalSpacingInDescriptions == true)
             {
                 foreach (var paragraph in elements.OfType<Paragraph>())
