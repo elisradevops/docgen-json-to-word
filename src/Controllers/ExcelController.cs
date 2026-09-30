@@ -1,4 +1,5 @@
 ﻿using JsonToWord.Services.Interfaces;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
@@ -120,18 +121,16 @@ namespace JsonToWord.Controllers
             }
             catch (Exception e)
             {
-                string logPath = @"c:\logs\prod\JsonToWord.log";
-                System.IO.File.AppendAllText(logPath, string.Format("\n{0} - {1}", DateTime.Now, e));
-                _logger.LogError(e, $"Error occurred while trying to create a spreadsheet: {e.Message}");
-                _logger.LogError($"Error Stack:\n{e.StackTrace}");
+                _logger.LogError(e, "Error occurred while trying to create a spreadsheet: {Message}", e.Message);
                 var errorResponse = new
                 {
-                    message = $"Error occurred while trying to create a document: {e.Message}",
+                    message = $"Error occurred while trying to create a spreadsheet: {e.Message}",
                     error = e.Message,
                     innerError = e.InnerException?.Message,
+                    step = "render-document",
+                    service = "json-to-word",
                 };
-
-                return BadRequest(JsonConvert.SerializeObject(errorResponse));
+                return StatusCode(ClassifyException(e), errorResponse);
             }
         }
 
@@ -144,18 +143,12 @@ namespace JsonToWord.Controllers
                 var zipModel = JsonConvert.DeserializeObject<ExcelZipPackageModel>(json.ToString());
                 if (zipModel?.UploadProperties == null)
                 {
-                    return BadRequest(JsonConvert.SerializeObject(new
-                    {
-                        message = "Missing uploadProperties in zip payload",
-                    }));
+                    return BadRequest(new { message = "Missing uploadProperties in zip payload" });
                 }
 
                 if (zipModel.Files == null || zipModel.Files.Count == 0)
                 {
-                    return BadRequest(JsonConvert.SerializeObject(new
-                    {
-                        message = "No files provided for zip package",
-                    }));
+                    return BadRequest(new { message = "No files provided for zip package" });
                 }
 
                 var zipFileName = EnsureZipFileName(zipModel.UploadProperties.FileName);
@@ -218,15 +211,30 @@ namespace JsonToWord.Controllers
                     _aWSS3Service.CleanUp(zipPath);
                 }
 
-                _logger.LogError(e, $"Error occurred while trying to create zip package: {e.Message}");
+                _logger.LogError(e, "Error occurred while trying to create zip package: {Message}", e.Message);
                 var errorResponse = new
                 {
                     message = $"Error occurred while trying to create zip package: {e.Message}",
                     error = e.Message,
                     innerError = e.InnerException?.Message,
+                    step = "render-document",
+                    service = "json-to-word",
                 };
-                return BadRequest(JsonConvert.SerializeObject(errorResponse));
+                return StatusCode(ClassifyException(e), errorResponse);
             }
+        }
+
+        private static int ClassifyException(Exception e)
+        {
+            if (e is JsonReaderException ||
+                e is JsonSerializationException ||
+                e is ArgumentException)
+                return StatusCodes.Status400BadRequest;
+
+            if (e is Amazon.S3.AmazonS3Exception)
+                return StatusCodes.Status502BadGateway;
+
+            return StatusCodes.Status500InternalServerError;
         }
 
         private DownloadableObjectModel CreateDownloadableFile(string docPath)

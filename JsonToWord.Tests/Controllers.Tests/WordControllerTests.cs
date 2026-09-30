@@ -452,8 +452,10 @@ namespace JsonToWord.Controllers.Tests
         }
 
         [Fact]
-        public void CreateWordDocumentByFile_ReturnsBadRequest_ForMissingFile()
+        public void CreateWordDocumentByFile_ReturnsServerError_ForMissingFile()
         {
+            // A missing file is an IOException (FileNotFoundException) → classified as 500,
+            // not a client error. The old return was BadRequest for all exceptions.
             var awsService = new Mock<IAWSS3Service>();
             var wordService = new Mock<IWordService>();
             var controller = new WordController(
@@ -465,7 +467,91 @@ namespace JsonToWord.Controllers.Tests
 
             var result = controller.CreateWordDocumentByFile(payload);
 
-            Assert.IsType<BadRequestObjectResult>(result);
+            var objectResult = Assert.IsType<ObjectResult>(result);
+            Assert.Equal(500, objectResult.StatusCode);
+        }
+
+        [Fact]
+        public async Task CreateWordDocument_JsonDeserializationError_Returns400()
+        {
+            var awsService = new Mock<IAWSS3Service>();
+            var wordService = new Mock<IWordService>();
+            wordService
+                .Setup(s => s.Create(It.IsAny<WordModel>()))
+                .Throws(new Newtonsoft.Json.JsonReaderException("bad json"));
+
+            var controller = new WordController(
+                awsService.Object,
+                wordService.Object,
+                new Mock<ILogger<WordController>>().Object);
+
+            // Payload with no TemplatePath so BuildTemporaryTemplate runs — then Create throws
+            var payload = JObject.FromObject(new
+            {
+                UploadProperties = new { FileName = "report.docx", EnableDirectDownload = true },
+                ContentControls = new[] { new { Title = "cc1", WordObjects = new object[0] } }
+            });
+
+            var result = await controller.CreateWordDocument(payload);
+
+            var objectResult = Assert.IsType<ObjectResult>(result);
+            Assert.Equal(400, objectResult.StatusCode);
+            var body = Assert.IsAssignableFrom<object>(objectResult.Value);
+            var json = Newtonsoft.Json.JsonConvert.SerializeObject(body);
+            Assert.Contains("render-document", json);
+            Assert.Contains("json-to-word", json);
+        }
+
+        [Fact]
+        public async Task CreateWordDocument_InternalRenderingError_Returns500()
+        {
+            var awsService = new Mock<IAWSS3Service>();
+            var wordService = new Mock<IWordService>();
+            wordService
+                .Setup(s => s.Create(It.IsAny<WordModel>()))
+                .Throws(new InvalidOperationException("rendering failed"));
+
+            var controller = new WordController(
+                awsService.Object,
+                wordService.Object,
+                new Mock<ILogger<WordController>>().Object);
+
+            var payload = JObject.FromObject(new
+            {
+                UploadProperties = new { FileName = "report.docx", EnableDirectDownload = true },
+                ContentControls = new[] { new { Title = "cc1", WordObjects = new object[0] } }
+            });
+
+            var result = await controller.CreateWordDocument(payload);
+
+            var objectResult = Assert.IsType<ObjectResult>(result);
+            Assert.Equal(500, objectResult.StatusCode);
+        }
+
+        [Fact]
+        public async Task CreateWordDocument_S3Exception_Returns502()
+        {
+            var awsService = new Mock<IAWSS3Service>();
+            var wordService = new Mock<IWordService>();
+            wordService
+                .Setup(s => s.Create(It.IsAny<WordModel>()))
+                .Throws(new Amazon.S3.AmazonS3Exception("S3 unavailable"));
+
+            var controller = new WordController(
+                awsService.Object,
+                wordService.Object,
+                new Mock<ILogger<WordController>>().Object);
+
+            var payload = JObject.FromObject(new
+            {
+                UploadProperties = new { FileName = "report.docx", EnableDirectDownload = true },
+                ContentControls = new[] { new { Title = "cc1", WordObjects = new object[0] } }
+            });
+
+            var result = await controller.CreateWordDocument(payload);
+
+            var objectResult = Assert.IsType<ObjectResult>(result);
+            Assert.Equal(502, objectResult.StatusCode);
         }
 
         private static IWordService CreateRealWordService()
