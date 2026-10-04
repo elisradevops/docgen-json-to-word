@@ -5,6 +5,7 @@ using JsonToWord.Services.Interfaces;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
@@ -128,18 +129,16 @@ namespace JsonToWord.Controllers
             }
             catch (Exception e)
             {
-                string logPath = @"c:\logs\prod\JsonToWord.log";
-                System.IO.File.AppendAllText(logPath, string.Format("\n{0} - {1}", DateTime.Now, e));
-                _logger.LogError(e, $"Error occurred while trying to create a document: {e.Message}");
-                _logger.LogError($"Error Stack:\n{e.StackTrace}");
+                _logger.LogError(e, "Error occurred while trying to create a document: {Message}", e.Message);
                 var errorResponse = new
                 {
                     message = $"Error occurred while trying to create a document: {e.Message}",
                     error = e.Message,
                     innerError = e.InnerException?.Message,
+                    step = "render-document",
+                    service = "json-to-word",
                 };
-
-                return BadRequest(JsonConvert.SerializeObject(errorResponse));
+                return StatusCode(ClassifyException(e), errorResponse);
             }
             finally
             {
@@ -332,10 +331,31 @@ namespace JsonToWord.Controllers
             }
             catch (Exception e)
             {
-                _logger.LogError($"Error: {e.Message}",e);
-                return BadRequest($"Error: {e.Message}");
+                _logger.LogError(e, "Error creating document by file: {Message}", e.Message);
+                var errorResponse = new
+                {
+                    message = $"Error creating document by file: {e.Message}",
+                    error = e.Message,
+                    innerError = e.InnerException?.Message,
+                    step = "render-document",
+                    service = "json-to-word",
+                };
+                return StatusCode(ClassifyException(e), errorResponse);
             }
 
+        }
+
+        private static int ClassifyException(Exception e)
+        {
+            if (e is JsonReaderException ||
+                e is JsonSerializationException ||
+                e is ArgumentException)
+                return StatusCodes.Status400BadRequest;
+
+            if (e is Amazon.S3.AmazonS3Exception)
+                return StatusCodes.Status502BadGateway;
+
+            return StatusCodes.Status500InternalServerError;
         }
     }
 }

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using JsonToWord.Middleware;
 using JsonToWord.Services;
 using JsonToWord.Services.Interfaces;
 using JsonToWord.Services.Interfaces.ExcelServices;
@@ -66,6 +67,8 @@ namespace JsonToWord
                 c.SwaggerEndpoint("./swagger/v1/swagger.json", "Swagger API");
                 c.RoutePrefix = string.Empty;
             });
+
+            app.UseMiddleware<RunContextMiddleware>();
 
             app.UseRouting();
 

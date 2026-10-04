@@ -149,5 +149,96 @@ namespace JsonToWord.Controllers.Tests
             var status = Assert.IsType<StatusCodeResult>(result);
             Assert.Equal(502, status.StatusCode);
         }
+
+        [Fact]
+        public async Task CreateExcelDocument_JsonDeserializationError_Returns400()
+        {
+            var awsService = new Mock<IAWSS3Service>();
+            var excelService = new Mock<IExcelService>();
+            excelService
+                .Setup(s => s.CreateExcelDocument(It.IsAny<ExcelModel>()))
+                .Throws(new Newtonsoft.Json.JsonReaderException("bad json"));
+
+            var controller = new ExcelController(awsService.Object, excelService.Object, new Mock<ILogger<ExcelController>>().Object);
+
+            var payload = JObject.FromObject(new
+            {
+                UploadProperties = new { FileName = "report.xlsx", BucketName = "bucket" }
+            });
+
+            var result = await controller.CreateExcelDocument(payload);
+
+            var objectResult = Assert.IsType<ObjectResult>(result);
+            Assert.Equal(400, objectResult.StatusCode);
+            var json = Newtonsoft.Json.JsonConvert.SerializeObject(objectResult.Value);
+            Assert.Contains("render-document", json);
+            Assert.Contains("json-to-word", json);
+        }
+
+        [Fact]
+        public async Task CreateExcelDocument_InternalRenderingError_Returns500()
+        {
+            var awsService = new Mock<IAWSS3Service>();
+            var excelService = new Mock<IExcelService>();
+            excelService
+                .Setup(s => s.CreateExcelDocument(It.IsAny<ExcelModel>()))
+                .Throws(new InvalidOperationException("render failed"));
+
+            var controller = new ExcelController(awsService.Object, excelService.Object, new Mock<ILogger<ExcelController>>().Object);
+
+            var payload = JObject.FromObject(new
+            {
+                UploadProperties = new { FileName = "report.xlsx", BucketName = "bucket" }
+            });
+
+            var result = await controller.CreateExcelDocument(payload);
+
+            var objectResult = Assert.IsType<ObjectResult>(result);
+            Assert.Equal(500, objectResult.StatusCode);
+        }
+
+        [Fact]
+        public async Task CreateExcelZipPackage_InternalError_Returns500()
+        {
+            var awsService = new Mock<IAWSS3Service>();
+            awsService
+                .Setup(s => s.UploadFileToMinioBucketAsync(It.IsAny<UploadProperties>()))
+                .ThrowsAsync(new InvalidOperationException("zip upload failed"));
+
+            var controller = new ExcelController(awsService.Object, new Mock<IExcelService>().Object, new Mock<ILogger<ExcelController>>().Object);
+
+            var payload = JObject.FromObject(new
+            {
+                UploadProperties = new { FileName = "report.zip", BucketName = "bucket" },
+                Files = new[] { new { FileName = "a.xlsx", Base64 = Convert.ToBase64String(new byte[] { 1, 2, 3 }) } }
+            });
+
+            var result = await controller.CreateExcelZipPackage(payload);
+
+            var objectResult = Assert.IsType<ObjectResult>(result);
+            Assert.Equal(500, objectResult.StatusCode);
+        }
+
+        [Fact]
+        public async Task CreateExcelDocument_S3Exception_Returns502()
+        {
+            var awsService = new Mock<IAWSS3Service>();
+            var excelService = new Mock<IExcelService>();
+            excelService
+                .Setup(s => s.CreateExcelDocument(It.IsAny<ExcelModel>()))
+                .Throws(new Amazon.S3.AmazonS3Exception("S3 unavailable"));
+
+            var controller = new ExcelController(awsService.Object, excelService.Object, new Mock<ILogger<ExcelController>>().Object);
+
+            var payload = JObject.FromObject(new
+            {
+                UploadProperties = new { FileName = "report.xlsx", BucketName = "bucket" }
+            });
+
+            var result = await controller.CreateExcelDocument(payload);
+
+            var objectResult = Assert.IsType<ObjectResult>(result);
+            Assert.Equal(502, objectResult.StatusCode);
+        }
     }
 }
