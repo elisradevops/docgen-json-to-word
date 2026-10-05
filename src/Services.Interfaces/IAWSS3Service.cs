@@ -11,7 +11,8 @@ namespace JsonToWord.Services.Interfaces
         AWSUploadResult<string> GenerateMinioFileUrl(string bucketName, string key, string minioServiceURL);
         Task<AWSUploadResult<string>> UploadFileToS3BucketAsync(UploadProperties uploadProperties);
         Task<AWSUploadResult<string>> UploadFileToMinioBucketAsync(UploadProperties uploadProperties);
-        string DownloadFileFromS3BucketAsync(Uri webPath, string filename);
+        Task<string> DownloadFileFromS3BucketAsync(Uri webPath, string filename);
+        Task<string> DownloadAttachmentAsync(Uri webPath, string filename);
         void CleanUp(string filename);
 
     }

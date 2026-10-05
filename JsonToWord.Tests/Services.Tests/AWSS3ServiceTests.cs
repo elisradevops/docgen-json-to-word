@@ -93,7 +93,7 @@ namespace JsonToWord.Services.Tests
 
             try
             {
-                var resultPath = service.DownloadFileFromS3BucketAsync(url, "file");
+                var resultPath = await service.DownloadFileFromS3BucketAsync(url, "file");
 
                 Assert.EndsWith("file.json", resultPath);
                 Assert.StartsWith("TempFiles" + Path.DirectorySeparatorChar + "json-to-word-", resultPath);
@@ -125,7 +125,7 @@ namespace JsonToWord.Services.Tests
 
             try
             {
-                var resultPath = service.DownloadFileFromS3BucketAsync(url, "file.txt");
+                var resultPath = await service.DownloadFileFromS3BucketAsync(url, "file.txt");
 
                 Assert.EndsWith("file.txt", resultPath);
                 Assert.StartsWith("TempFiles" + Path.DirectorySeparatorChar + "json-to-word-", resultPath);
@@ -156,8 +156,8 @@ namespace JsonToWord.Services.Tests
 
             try
             {
-                var first = service.DownloadFileFromS3BucketAsync(url1, "MEWP SFTP-2026-10-05.docx");
-                var second = service.DownloadFileFromS3BucketAsync(url2, "MEWP SFTP-2026-10-05.docx");
+                var first = await service.DownloadFileFromS3BucketAsync(url1, "MEWP SFTP-2026-10-05.docx");
+                var second = await service.DownloadFileFromS3BucketAsync(url2, "MEWP SFTP-2026-10-05.docx");
 
                 Assert.NotEqual(first, second);
                 Assert.Equal("first", File.ReadAllText(first));
@@ -179,6 +179,83 @@ namespace JsonToWord.Services.Tests
         }
 
         [Fact]
+        public async Task DownloadAttachmentAsync_WritesToFlatTempFilesPath_ReferencedByDocumentJson()
+        {
+            var logger = new Mock<ILogger<AWSS3Service>>();
+            var service = new AWSS3Service(logger.Object);
+
+            var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDir);
+            var originalCwd = Environment.CurrentDirectory;
+            Environment.CurrentDirectory = tempDir;
+
+            var (url, serverTask) = StartServer(Encoding.UTF8.GetBytes("picture"), 200, "/img.png");
+
+            try
+            {
+                var resultPath = await service.DownloadAttachmentAsync(url, "guid-1234.png");
+
+                // content-control writes exactly "TempFiles/<name>" into attachmentLink; the renderer loads that path.
+                Assert.Equal(Path.Combine("TempFiles", "guid-1234.png"), resultPath);
+                Assert.Equal("picture", File.ReadAllText(Path.Combine("TempFiles", "guid-1234.png")));
+            }
+            finally
+            {
+                var restorePath = Directory.Exists(originalCwd) ? originalCwd : AppContext.BaseDirectory;
+                Environment.CurrentDirectory = restorePath;
+                Directory.Delete(tempDir, true);
+                await serverTask;
+            }
+        }
+
+        [Theory]
+        [InlineData("/tmp/escaped.json")]
+        [InlineData("../escaped.json")]
+        [InlineData("..\\escaped.json")]
+        [InlineData("sub/dir/escaped.json")]
+        public async Task Downloads_KeepRequestSuppliedNamesInsideTheTempFolder(string requestedName)
+        {
+            var logger = new Mock<ILogger<AWSS3Service>>();
+            var service = new AWSS3Service(logger.Object);
+
+            var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDir);
+            var originalCwd = Environment.CurrentDirectory;
+            Environment.CurrentDirectory = tempDir;
+
+            var (url1, serverTask1) = StartServer(Encoding.UTF8.GetBytes("a"), 200, "/a.json");
+            var (url2, serverTask2) = StartServer(Encoding.UTF8.GetBytes("b"), 200, "/b.json");
+
+            try
+            {
+                var isolated = Path.GetFullPath(await service.DownloadFileFromS3BucketAsync(url1, requestedName));
+                var flat = Path.GetFullPath(await service.DownloadAttachmentAsync(url2, requestedName));
+                var tempFiles = Path.GetFullPath("TempFiles") + Path.DirectorySeparatorChar;
+
+                Assert.StartsWith(tempFiles, isolated);
+                Assert.StartsWith(tempFiles, flat);
+                Assert.Equal("escaped.json", Path.GetFileName(isolated));
+                Assert.Equal(Path.Combine(tempFiles, "escaped.json"), flat);
+            }
+            finally
+            {
+                var restorePath = Directory.Exists(originalCwd) ? originalCwd : AppContext.BaseDirectory;
+                Environment.CurrentDirectory = restorePath;
+                Directory.Delete(tempDir, true);
+                await serverTask1;
+                await serverTask2;
+            }
+        }
+
+        [Fact]
+        public async Task Downloads_RejectAnEmptyFileName()
+        {
+            var service = new AWSS3Service(new Mock<ILogger<AWSS3Service>>().Object);
+            await Assert.ThrowsAsync<ArgumentException>(() => service.DownloadFileFromS3BucketAsync(new Uri("http://localhost/x.json"), ".."));
+            await Assert.ThrowsAsync<ArgumentException>(() => service.DownloadAttachmentAsync(new Uri("http://localhost/x.json"), ""));
+        }
+
+        [Fact]
         public async Task DownloadFileFromS3BucketAsync_ThrowsOnHttpError()
         {
             var logger = new Mock<ILogger<AWSS3Service>>();
@@ -193,7 +270,8 @@ namespace JsonToWord.Services.Tests
 
             try
             {
-                Assert.Throws<HttpRequestException>(() => service.DownloadFileFromS3BucketAsync(url, "file"));
+                await Assert.ThrowsAsync<HttpRequestException>(() => service.DownloadFileFromS3BucketAsync(url, "file"));
+                Assert.Empty(Directory.GetDirectories("TempFiles"));
             }
             finally
             {

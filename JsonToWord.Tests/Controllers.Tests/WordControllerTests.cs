@@ -53,7 +53,7 @@ namespace JsonToWord.Controllers.Tests
                 var awsService = new Mock<IAWSS3Service>();
                 awsService
                     .Setup(s => s.DownloadFileFromS3BucketAsync(It.IsAny<Uri>(), It.IsAny<string>()))
-                    .Returns(templatePath);
+                    .ReturnsAsync(templatePath);
 
                 var downloadable = new DownloadableObjectModel
                 {
@@ -343,16 +343,16 @@ namespace JsonToWord.Controllers.Tests
                 var awsService = new Mock<IAWSS3Service>();
                 awsService
                     .Setup(s => s.DownloadFileFromS3BucketAsync(It.Is<Uri>(u => u.ToString() == "https://example.com/cc-list.json"), "cc-list.json"))
-                    .Returns(listJsonPath);
+                    .ReturnsAsync(listJsonPath);
                 awsService
                     .Setup(s => s.DownloadFileFromS3BucketAsync(It.Is<Uri>(u => u.ToString() == "https://example.com/cc-single.json"), "cc-single.json"))
-                    .Returns(singleJsonPath);
+                    .ReturnsAsync(singleJsonPath);
                 awsService
                     .Setup(s => s.DownloadFileFromS3BucketAsync(It.Is<Uri>(u => u.ToString() == "https://example.com/template.docx"), "template.docx"))
-                    .Returns(templatePath);
+                    .ReturnsAsync(templatePath);
                 awsService
-                    .Setup(s => s.DownloadFileFromS3BucketAsync(It.Is<Uri>(u => u.ToString() == "https://example.com/attachment.bin"), "attachment.bin"))
-                    .Returns(attachmentPath);
+                    .Setup(s => s.DownloadAttachmentAsync(It.Is<Uri>(u => u.ToString() == "https://example.com/attachment.bin"), "attachment.bin"))
+                    .ReturnsAsync(attachmentPath);
                 awsService
                     .Setup(s => s.UploadFileToMinioBucketAsync(It.IsAny<UploadProperties>()))
                     .ReturnsAsync(new AWSUploadResult<string> { Status = true, Data = "https://minio.example/output.docx" });
@@ -421,7 +421,7 @@ namespace JsonToWord.Controllers.Tests
                 var awsService = new Mock<IAWSS3Service>();
                 awsService
                     .Setup(s => s.DownloadFileFromS3BucketAsync(It.IsAny<Uri>(), It.IsAny<string>()))
-                    .Returns(templatePath);
+                    .ReturnsAsync(templatePath);
                 awsService
                     .Setup(s => s.UploadFileToMinioBucketAsync(It.IsAny<UploadProperties>()))
                     .ReturnsAsync(new AWSUploadResult<string> { Status = false, StatusCode = 500 });

@@ -5,6 +5,7 @@ using JsonToWord.Services.Interfaces;
 using System;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Net;
 using System.Threading.Tasks;
 using Amazon;
@@ -38,6 +39,11 @@ namespace JsonToWord.Services
 
     public class AWSS3Service : IAWSS3Service
     {
+        // One client for all downloads: a client per call exhausts sockets under load. Pooled
+        // connections are recycled so a storage container that restarts on a new address is picked up.
+        private static readonly HttpClient SharedHttpClient = new HttpClient(
+            new SocketsHttpHandler { PooledConnectionLifetime = TimeSpan.FromMinutes(5) });
+        private static readonly TimeSpan DownloadTimeout = TimeSpan.FromMinutes(5);
         private const string TempDirectoryPrefix = "json-to-word-";
         private const string EncodedMetadataPrefix = "utf8''";
         private const int MaxMetadataHeaderValueLength = 1024;
@@ -50,43 +56,91 @@ namespace JsonToWord.Services
             localPath = "TempFiles/";
             AwsS3BaseUrl = "amazonaws.com";
         }
-        public string DownloadFileFromS3BucketAsync(Uri webPath, string filename)
+        // Downloads a file named by the request (template, content-control JSON). Each download gets its
+        // own directory: the name comes from the request, so two concurrent requests for the same
+        // document would otherwise write (and lock) the same path.
+        public async Task<string> DownloadFileFromS3BucketAsync(Uri webPath, string filename)
         {
-            if (!Directory.Exists(localPath))
-            {
-                Directory.CreateDirectory(localPath);
-            }
-            // Each download gets its own directory: the file name comes from the request, so two
-            // concurrent requests for the same document would otherwise write (and lock) the same path.
+            string safeName = ToSafeFileName(filename);
+            Directory.CreateDirectory(localPath);
             string requestDirectory = Path.Combine(localPath, TempDirectoryPrefix + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(requestDirectory);
-            string webExt = Path.GetExtension(webPath.AbsoluteUri);
-            string fileExt = Path.GetExtension(filename);
-            string fullPath;
-            if (string.IsNullOrWhiteSpace(fileExt))
+            string fullPath = Path.Combine(requestDirectory, WithWebExtension(webPath, safeName));
+            await DownloadToAsync(webPath, fullPath, requestDirectory);
+            return fullPath;
+        }
+
+        // Downloads an attachment or picture to TempFiles/<name>. That flat path is part of the contract
+        // with content-control, which writes it into the document JSON (attachmentLink) for the renderer
+        // to load, so it must not move into a per-request directory. The names are the attachments' own
+        // unique ids, so concurrent requests that need the same attachment write identical content.
+        public async Task<string> DownloadAttachmentAsync(Uri webPath, string filename)
+        {
+            string safeName = ToSafeFileName(filename);
+            Directory.CreateDirectory(localPath);
+            string fullPath = Path.Combine(localPath, WithWebExtension(webPath, safeName));
+            await DownloadToAsync(webPath, fullPath, null);
+            return fullPath;
+        }
+
+        // The file name comes from the request: keep only its last segment, so a rooted or ".."-style
+        // value can neither escape the temp directory nor, via Path.Combine, replace it.
+        private static string ToSafeFileName(string filename)
+        {
+            string name = Path.GetFileName((filename ?? string.Empty).Replace('\\', '/'));
+            if (string.IsNullOrWhiteSpace(name) || name == "." || name == "..")
             {
-                fullPath = Path.Combine(requestDirectory, filename + webExt);
+                throw new ArgumentException("A valid file name is required for the download.", nameof(filename));
             }
-            else
-            {
-                fullPath = Path.Combine(requestDirectory, filename);
-            }
+            return name;
+        }
+
+        private static string WithWebExtension(Uri webPath, string name)
+        {
+            return string.IsNullOrWhiteSpace(Path.GetExtension(name))
+                ? name + Path.GetExtension(webPath.AbsoluteUri)
+                : name;
+        }
+
+        private async Task DownloadToAsync(Uri webPath, string fullPath, string directoryToRemoveOnFailure)
+        {
             try
             {
-                using (var client = new HttpClient())
+                // Bounds the whole transfer, body included (ResponseHeadersRead leaves the client's own
+                // timeout covering only the headers).
+                using (var cts = new CancellationTokenSource(DownloadTimeout))
+                using (var response = await SharedHttpClient.GetAsync(webPath, HttpCompletionOption.ResponseHeadersRead, cts.Token))
                 {
-                    var response = client.GetAsync(webPath).Result;
                     response.EnsureSuccessStatusCode();
-                    var fileBytes = response.Content.ReadAsByteArrayAsync().Result;
-                    File.WriteAllBytes(fullPath, fileBytes);
+                    // Streamed to disk: large templates and attachments are not buffered in memory.
+                    using (var source = await response.Content.ReadAsStreamAsync())
+                    using (var target = new FileStream(fullPath, FileMode.Create, FileAccess.Write, FileShare.Read, 81920, useAsync: true))
+                    {
+                        await source.CopyToAsync(target, 81920, cts.Token);
+                    }
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Something went wrong during file download");
+                try
+                {
+                    if (directoryToRemoveOnFailure != null)
+                    {
+                        // Nothing else owns this per-download directory: do not leave it behind.
+                        Directory.Delete(directoryToRemoveOnFailure, true);
+                    }
+                    else if (File.Exists(fullPath))
+                    {
+                        File.Delete(fullPath);
+                    }
+                }
+                catch (Exception cleanupError)
+                {
+                    _logger.LogDebug(cleanupError, "Could not remove partial download {Path}", fullPath);
+                }
                 throw;
             }
-            return fullPath;
         }
 
         public void CleanUp(string path)
