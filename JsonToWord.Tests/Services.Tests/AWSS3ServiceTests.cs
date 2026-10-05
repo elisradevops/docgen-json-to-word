@@ -95,7 +95,8 @@ namespace JsonToWord.Services.Tests
             {
                 var resultPath = service.DownloadFileFromS3BucketAsync(url, "file");
 
-                Assert.EndsWith(Path.Combine("TempFiles", "file.json"), resultPath);
+                Assert.EndsWith("file.json", resultPath);
+                Assert.StartsWith("TempFiles" + Path.DirectorySeparatorChar + "json-to-word-", resultPath);
                 Assert.True(File.Exists(resultPath));
                 Assert.Equal("hello", File.ReadAllText(resultPath));
             }
@@ -126,7 +127,8 @@ namespace JsonToWord.Services.Tests
             {
                 var resultPath = service.DownloadFileFromS3BucketAsync(url, "file.txt");
 
-                Assert.EndsWith(Path.Combine("TempFiles", "file.txt"), resultPath);
+                Assert.EndsWith("file.txt", resultPath);
+                Assert.StartsWith("TempFiles" + Path.DirectorySeparatorChar + "json-to-word-", resultPath);
                 Assert.Equal("data", File.ReadAllText(resultPath));
             }
             finally
@@ -135,6 +137,44 @@ namespace JsonToWord.Services.Tests
                 Environment.CurrentDirectory = restorePath;
                 Directory.Delete(tempDir, true);
                 await serverTask;
+            }
+        }
+
+        [Fact]
+        public async Task DownloadFileFromS3BucketAsync_SameFileNameTwice_UsesSeparatePaths_AndCleanUpRemovesDirectory()
+        {
+            var logger = new Mock<ILogger<AWSS3Service>>();
+            var service = new AWSS3Service(logger.Object);
+
+            var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDir);
+            var originalCwd = Environment.CurrentDirectory;
+            Environment.CurrentDirectory = tempDir;
+
+            var (url1, serverTask1) = StartServer(Encoding.UTF8.GetBytes("first"), 200, "/a.docx");
+            var (url2, serverTask2) = StartServer(Encoding.UTF8.GetBytes("second"), 200, "/b.docx");
+
+            try
+            {
+                var first = service.DownloadFileFromS3BucketAsync(url1, "MEWP SFTP-2026-10-05.docx");
+                var second = service.DownloadFileFromS3BucketAsync(url2, "MEWP SFTP-2026-10-05.docx");
+
+                Assert.NotEqual(first, second);
+                Assert.Equal("first", File.ReadAllText(first));
+                Assert.Equal("second", File.ReadAllText(second));
+
+                var firstDirectory = Path.GetDirectoryName(first);
+                service.CleanUp(first);
+                Assert.False(Directory.Exists(firstDirectory));
+                Assert.True(File.Exists(second));
+            }
+            finally
+            {
+                var restorePath = Directory.Exists(originalCwd) ? originalCwd : AppContext.BaseDirectory;
+                Environment.CurrentDirectory = restorePath;
+                Directory.Delete(tempDir, true);
+                await serverTask1;
+                await serverTask2;
             }
         }
 

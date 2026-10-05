@@ -4,6 +4,7 @@ using JsonToWord.Models.S3;
 using JsonToWord.Services.Interfaces;
 using System;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using Amazon;
@@ -37,6 +38,7 @@ namespace JsonToWord.Services
 
     public class AWSS3Service : IAWSS3Service
     {
+        private const string TempDirectoryPrefix = "json-to-word-";
         private const string EncodedMetadataPrefix = "utf8''";
         private const int MaxMetadataHeaderValueLength = 1024;
         private readonly ILogger<AWSS3Service> _logger;
@@ -54,16 +56,20 @@ namespace JsonToWord.Services
             {
                 Directory.CreateDirectory(localPath);
             }
+            // Each download gets its own directory: the file name comes from the request, so two
+            // concurrent requests for the same document would otherwise write (and lock) the same path.
+            string requestDirectory = Path.Combine(localPath, TempDirectoryPrefix + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(requestDirectory);
             string webExt = Path.GetExtension(webPath.AbsoluteUri);
             string fileExt = Path.GetExtension(filename);
             string fullPath;
             if (string.IsNullOrWhiteSpace(fileExt))
             {
-                fullPath = localPath + filename + webExt;
+                fullPath = Path.Combine(requestDirectory, filename + webExt);
             }
             else
             {
-                fullPath = localPath + filename;
+                fullPath = Path.Combine(requestDirectory, filename);
             }
             try
             {
@@ -86,6 +92,22 @@ namespace JsonToWord.Services
         public void CleanUp(string path)
         {
             File.Delete(path);
+            // Remove the per-download directory once it is empty (best effort).
+            try
+            {
+                var directory = Path.GetDirectoryName(path);
+                if (!string.IsNullOrEmpty(directory)
+                    && Path.GetFileName(directory).StartsWith(TempDirectoryPrefix, StringComparison.OrdinalIgnoreCase)
+                    && Directory.Exists(directory)
+                    && !Directory.EnumerateFileSystemEntries(directory).Any())
+                {
+                    Directory.Delete(directory, false);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Could not remove temporary directory for {Path}", path);
+            }
         }
         public async Task<AWSUploadResult<string>> UploadFileToS3BucketAsync(UploadProperties uploadProperties)
         {

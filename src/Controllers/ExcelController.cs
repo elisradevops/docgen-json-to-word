@@ -43,6 +43,7 @@ namespace JsonToWord.Controllers
         [HttpPost("create")]
         public async Task<IActionResult> CreateExcelDocument(dynamic json)
         {
+            string spreadsheetOutputPath = null;
             try
             {
                 var settings = new JsonSerializerSettings();
@@ -93,7 +94,10 @@ namespace JsonToWord.Controllers
                 }
 
                 // Set the LocalPath using the updated filename
-                excelModel.LocalPath = Path.Combine("TempFiles", excelModel.UploadProperties.FileName);
+                // Own directory per request: the file name comes from the request, so concurrent
+                // requests for the same report must not share (and lock) one path.
+                excelModel.LocalPath = Path.Combine(CreateRequestTempDirectory(), excelModel.UploadProperties.FileName);
+                spreadsheetOutputPath = excelModel.LocalPath;
                 _logger.LogInformation("Initilized word model object");
 
                 var spreadsheetPath = _excelService.CreateExcelDocument(excelModel);
@@ -121,6 +125,12 @@ namespace JsonToWord.Controllers
             }
             catch (Exception e)
             {
+                if (!string.IsNullOrWhiteSpace(spreadsheetOutputPath) && System.IO.File.Exists(spreadsheetOutputPath))
+                {
+                    try { _aWSS3Service.CleanUp(spreadsheetOutputPath); }
+                    catch (Exception cleanupError) { _logger.LogWarning(cleanupError, "Failed cleaning temporary file {Path}", spreadsheetOutputPath); }
+                }
+
                 _logger.LogError(e, "Error occurred while trying to create a spreadsheet: {Message}", e.Message);
                 var errorResponse = new
                 {
@@ -152,11 +162,7 @@ namespace JsonToWord.Controllers
                 }
 
                 var zipFileName = EnsureZipFileName(zipModel.UploadProperties.FileName);
-                if (!Directory.Exists("TempFiles"))
-                {
-                    Directory.CreateDirectory("TempFiles");
-                }
-                zipPath = Path.Combine("TempFiles", zipFileName);
+                zipPath = Path.Combine(CreateRequestTempDirectory(), zipFileName);
 
                 using (var stream = System.IO.File.Create(zipPath))
                 using (var zipStream = new ZipOutputStream(stream))
@@ -222,6 +228,13 @@ namespace JsonToWord.Controllers
                 };
                 return StatusCode(ClassifyException(e), errorResponse);
             }
+        }
+
+        private static string CreateRequestTempDirectory()
+        {
+            var directory = Path.Combine("TempFiles", "json-to-word-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(directory);
+            return directory;
         }
 
         private static int ClassifyException(Exception e)

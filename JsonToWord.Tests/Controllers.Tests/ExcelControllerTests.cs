@@ -58,9 +58,40 @@ namespace JsonToWord.Controllers.Tests
             Assert.Equal("https://minio.example/report.xlsx", ok.Value);
             Assert.NotNull(capturedModel);
             Assert.Equal("report.xlsx", capturedModel.UploadProperties.FileName);
-            Assert.EndsWith("TempFiles/report.xlsx", capturedModel.LocalPath);
+            Assert.EndsWith("report.xlsx", capturedModel.LocalPath);
+            Assert.StartsWith("TempFiles" + System.IO.Path.DirectorySeparatorChar + "json-to-word-", capturedModel.LocalPath);
             awsService.Verify(s => s.UploadFileToMinioBucketAsync(It.Is<UploadProperties>(p => p.LocalFilePath == capturedModel.LocalPath)), Times.Once);
             awsService.Verify(s => s.CleanUp(capturedModel.LocalPath), Times.Once);
+        }
+
+        [Fact]
+        public async Task CreateExcelDocument_SameFileNameTwice_UsesDifferentOutputPaths()
+        {
+            var awsService = new Mock<IAWSS3Service>();
+            var excelService = new Mock<IExcelService>();
+            var logger = new Mock<ILogger<ExcelController>>();
+
+            var paths = new System.Collections.Generic.List<string>();
+            excelService
+                .Setup(s => s.CreateExcelDocument(It.IsAny<ExcelModel>()))
+                .Callback<ExcelModel>(model => paths.Add(model.LocalPath))
+                .Returns((ExcelModel model) => model.LocalPath);
+            awsService
+                .Setup(s => s.UploadFileToMinioBucketAsync(It.IsAny<UploadProperties>()))
+                .ReturnsAsync(new AWSUploadResult<string> { Status = true, Data = "https://minio.example/report.xlsx" });
+
+            var controller = new ExcelController(awsService.Object, excelService.Object, logger.Object);
+            var payload = JObject.FromObject(new
+            {
+                UploadProperties = new { FileName = "report", BucketName = "bucket", Region = "us" }
+            });
+
+            await controller.CreateExcelDocument(payload);
+            await controller.CreateExcelDocument(payload);
+
+            Assert.Equal(2, paths.Count);
+            Assert.NotEqual(paths[0], paths[1]);
+            Assert.All(paths, p => Assert.EndsWith("report.xlsx", p));
         }
 
         [Fact]
