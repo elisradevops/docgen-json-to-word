@@ -18,6 +18,7 @@ namespace JsonToWord.Middleware.Tests
             LogicalThreadContext.Properties.Remove("runId");
             LogicalThreadContext.Properties.Remove("docType");
             LogicalThreadContext.Properties.Remove("project");
+            LogicalThreadContext.Properties.Remove("capture");
         }
 
         [Fact]
@@ -182,6 +183,111 @@ namespace JsonToWord.Middleware.Tests
             // The middleware should not have removed "project" since it did not set it
             Assert.Equal("external-value", capturedProject);
             Assert.Equal("external-value", LogicalThreadContext.Properties["project"]?.ToString());
+        }
+            [Theory]
+        [InlineData("Cube ADCS", "Cube ADCS")]
+        [InlineData("  MEWP  ", "MEWP")]
+        [InlineData("TestProject-CMMI", "TestProject-CMMI")]
+        public void SanitizeProject_KeepsNamesWithSpacesAndPunctuation(string input, string expected)
+        {
+            Assert.Equal(expected, RunContextMiddleware.SanitizeProject(input));
+        }
+
+        [Fact]
+        public void SanitizeProject_DecodesPercentEncodedNonAsciiNames()
+        {
+            var encoded = Uri.EscapeDataString("פרויקט MEWP");
+            Assert.Equal("פרויקט MEWP", RunContextMiddleware.SanitizeProject(encoded));
+        }
+
+        [Fact]
+        public void SanitizeProject_StripsControlCharactersAndBoundsLength()
+        {
+            Assert.Equal("MEWPFAKE: line", RunContextMiddleware.SanitizeProject("MEWP\r\nFAKE: line"));
+            Assert.Equal(128, RunContextMiddleware.SanitizeProject(new string('x', 500))!.Length);
+        }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData("   ")]
+        [InlineData("\r\n")]
+        public void SanitizeProject_ReturnsNullWhenNothingUsableIsLeft(string input)
+        {
+            Assert.Null(RunContextMiddleware.SanitizeProject(input));
+        }
+
+        [Fact]
+        public void SanitizeProject_UsesAMalformedEscapeAsSent()
+        {
+            Assert.Equal("100%", RunContextMiddleware.SanitizeProject("100%"));
+        }
+
+        [Fact]
+        public async Task ProjectWithSpaces_IsStampedOnTheLogContext()
+        {
+            string? captured = null;
+            var middleware = new RunContextMiddleware(ctx =>
+            {
+                captured = LogicalThreadContext.Properties["project"]?.ToString();
+                return Task.CompletedTask;
+            });
+            var context = new DefaultHttpContext();
+            context.Request.Headers["x-docgen-run-id"] = "abc-123";
+            context.Request.Headers["x-docgen-project"] = "Cube ADCS";
+
+            await middleware.InvokeAsync(context);
+
+            Assert.Equal("Cube ADCS", captured);
+        }
+
+        [Theory]
+        [InlineData("verbose", "verbose")]
+        [InlineData("retain-on-failure", "retain-on-failure")]
+        [InlineData("  verbose ", "verbose")]
+        [InlineData("normal", null)]
+        [InlineData("VERBOSE", null)]
+        [InlineData("DROP TABLE runs", null)]
+        [InlineData("", null)]
+        [InlineData(null, null)]
+        public void ResolveCaptureMode_IsAWhitelist(string input, string? expected)
+        {
+            Assert.Equal(expected, RunContextMiddleware.ResolveCaptureMode(input));
+        }
+
+        [Fact]
+        public async Task CaptureMode_IsStampedForTheRequestAndCleanedUpAfterwards()
+        {
+            string? during = null;
+            var middleware = new RunContextMiddleware(ctx =>
+            {
+                during = LogicalThreadContext.Properties["capture"]?.ToString();
+                return Task.CompletedTask;
+            });
+            var context = new DefaultHttpContext();
+            context.Request.Headers["x-docgen-capture-mode"] = "verbose";
+
+            await middleware.InvokeAsync(context);
+
+            Assert.Equal("verbose", during);
+            Assert.Null(LogicalThreadContext.Properties["capture"]);
+        }
+
+        [Fact]
+        public async Task UnknownCaptureMode_IsNotStamped()
+        {
+            string? during = "unset";
+            var middleware = new RunContextMiddleware(ctx =>
+            {
+                during = LogicalThreadContext.Properties["capture"]?.ToString();
+                return Task.CompletedTask;
+            });
+            var context = new DefaultHttpContext();
+            context.Request.Headers["x-docgen-capture-mode"] = "everything";
+
+            await middleware.InvokeAsync(context);
+
+            Assert.Null(during);
         }
     }
 }
