@@ -45,6 +45,8 @@ namespace JsonToWord.Services
             new SocketsHttpHandler { PooledConnectionLifetime = TimeSpan.FromMinutes(5) });
         private static readonly TimeSpan DownloadTimeout = TimeSpan.FromMinutes(5);
         private const string TempDirectoryPrefix = "json-to-word-";
+        // Content-control names a run's attachment directory "run-<runId>" (see its DownloadManager).
+        private const string RunDirectoryPrefix = "run-";
         private const string EncodedMetadataPrefix = "utf8''";
         private const int MaxMetadataHeaderValueLength = 1024;
         private readonly ILogger<AWSS3Service> _logger;
@@ -70,17 +72,34 @@ namespace JsonToWord.Services
             return fullPath;
         }
 
-        // Downloads an attachment or picture to TempFiles/<name>. That flat path is part of the contract
-        // with content-control, which writes it into the document JSON (attachmentLink) for the renderer
-        // to load, so it must not move into a per-request directory. The names are the attachments' own
-        // unique ids, so concurrent requests that need the same attachment write identical content.
+        // Downloads an attachment or picture to TempFiles/<relative path>. That path is part of the
+        // contract with content-control, which writes it into the document JSON (attachmentLink) for the
+        // renderer to load: content-control names it, usually "run-<runId>/<unique name>" (one directory
+        // per run, so runs cannot collide or delete each other's files) and plain "<name>" when there is
+        // no run id. The path comes from the request, so every segment is validated.
         public async Task<string> DownloadAttachmentAsync(Uri webPath, string filename)
         {
-            string safeName = ToSafeFileName(filename);
+            string relativePath = ToSafeRelativePath(filename);
             Directory.CreateDirectory(localPath);
-            string fullPath = Path.Combine(localPath, WithWebExtension(webPath, safeName));
+            string fullPath = Path.Combine(localPath, WithWebExtension(webPath, relativePath));
+            Directory.CreateDirectory(Path.GetDirectoryName(fullPath));
             await DownloadToAsync(webPath, fullPath, null);
             return fullPath;
+        }
+
+        // A relative path made only of plain segments: nothing rooted, no "..", nothing empty, no
+        // characters a file name cannot hold. Rejected rather than trimmed, so a wrong path fails loudly.
+        private static string ToSafeRelativePath(string relativePath)
+        {
+            var segments = (relativePath ?? string.Empty).Replace('\\', '/').Split('/');
+            var invalid = Path.GetInvalidFileNameChars();
+            if (segments.Length == 0 || segments.Any(segment =>
+                    string.IsNullOrWhiteSpace(segment) || segment == "." || segment == ".." ||
+                    segment.IndexOfAny(invalid) >= 0))
+            {
+                throw new ArgumentException("A valid relative file path is required for the download.", nameof(relativePath));
+            }
+            return string.Join("/", segments);
         }
 
         // The file name comes from the request: keep only its last segment, so a rooted or ".."-style
@@ -143,15 +162,27 @@ namespace JsonToWord.Services
             }
         }
 
+        private bool IsOwnedTempDirectory(string directory)
+        {
+            var name = Path.GetFileName(directory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            var parent = Path.GetDirectoryName(Path.GetFullPath(directory));
+            var tempRoot = Path.GetFullPath(localPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            return parent != null
+                && string.Equals(parent.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), tempRoot, StringComparison.Ordinal)
+                && (name.StartsWith(TempDirectoryPrefix, StringComparison.OrdinalIgnoreCase)
+                    || name.StartsWith(RunDirectoryPrefix, StringComparison.OrdinalIgnoreCase));
+        }
+
         public void CleanUp(string path)
         {
             File.Delete(path);
-            // Remove the per-download directory once it is empty (best effort).
+            // Remove the per-request or per-run directory once it is empty (best effort). Only a directory
+            // of ours (known prefix) directly under TempFiles is ever removed.
             try
             {
                 var directory = Path.GetDirectoryName(path);
                 if (!string.IsNullOrEmpty(directory)
-                    && Path.GetFileName(directory).StartsWith(TempDirectoryPrefix, StringComparison.OrdinalIgnoreCase)
+                    && IsOwnedTempDirectory(directory)
                     && Directory.Exists(directory)
                     && !Directory.EnumerateFileSystemEntries(directory).Any())
                 {

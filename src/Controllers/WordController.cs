@@ -157,6 +157,8 @@ namespace JsonToWord.Controllers
                 {
                     SafeCleanUp(path);
                 }
+
+                RemoveOwnedRequestDirectories(cleanupPaths);
             }
         }
 
@@ -275,6 +277,41 @@ namespace JsonToWord.Controllers
                 directoryPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
             );
             return directoryName.StartsWith("json-to-word-", StringComparison.OrdinalIgnoreCase);
+        }
+
+        // The renderer leaves files of its own next to the template and the output (the .docx that is
+        // zipped when attachments are included, for one), and only the paths tracked above are cleaned.
+        // The per-request directory (json-to-word-<guid>, created for this request alone) is removed whole,
+        // so nothing is left behind. Only such a directory directly under TempFiles or the system temp
+        // folder is ever removed.
+        private void RemoveOwnedRequestDirectories(IEnumerable<string> paths)
+        {
+            var roots = new[] { Path.GetFullPath("TempFiles"), Path.GetFullPath(Path.GetTempPath()) }
+                .Select(root => root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
+                .ToArray();
+
+            foreach (var directory in paths
+                         .Where(path => !string.IsNullOrWhiteSpace(path))
+                         .Select(path => Path.GetDirectoryName(Path.GetFullPath(path)))
+                         .Where(directory => !string.IsNullOrEmpty(directory))
+                         .Distinct())
+            {
+                try
+                {
+                    var parent = Path.GetDirectoryName(directory)?
+                        .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                    if (IsGeneratedTempDirectory(directory)
+                        && roots.Contains(parent, StringComparer.Ordinal)
+                        && Directory.Exists(directory))
+                    {
+                        Directory.Delete(directory, true);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed removing temporary directory {Directory}", directory);
+                }
+            }
         }
 
         private void SafeCleanUp(string path)

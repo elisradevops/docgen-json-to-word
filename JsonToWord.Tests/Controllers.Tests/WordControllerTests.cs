@@ -404,6 +404,70 @@ namespace JsonToWord.Controllers.Tests
         }
 
         [Fact]
+        public async Task CreateWordDocument_RemovesItsWholePerRequestDirectory_IncludingFilesTheRendererLeft()
+        {
+            // The per-request directory the download created: template, the intermediate .docx that gets
+            // zipped when attachments are included, and the zip that is returned.
+            var requestDir = Path.Combine(Path.GetTempPath(), "json-to-word-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(requestDir);
+            var templatePath = Path.Combine(requestDir, "report.dotx");
+            var intermediateDocx = Path.Combine(requestDir, "report.docx");
+            var zipPath = Path.Combine(requestDir, "report.zip");
+            // An unrelated directory that is not ours must never be touched.
+            var foreignDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(foreignDir);
+            var foreignFile = Path.Combine(foreignDir, "keep.txt");
+
+            try
+            {
+                using (var doc = WordprocessingDocument.Create(templatePath, WordprocessingDocumentType.Document))
+                {
+                    var mainPart = doc.AddMainDocumentPart();
+                    mainPart.Document = new Document(new Body(new Paragraph(new Run(new Text("content")))));
+                }
+                File.WriteAllText(intermediateDocx, "intermediate");
+                File.WriteAllText(zipPath, "zip");
+                File.WriteAllText(foreignFile, "keep");
+
+                var awsService = new Mock<IAWSS3Service>();
+                awsService
+                    .Setup(s => s.DownloadFileFromS3BucketAsync(It.IsAny<Uri>(), It.IsAny<string>()))
+                    .ReturnsAsync(templatePath);
+                awsService
+                    .Setup(s => s.UploadFileToMinioBucketAsync(It.IsAny<UploadProperties>()))
+                    .ReturnsAsync(new AWSUploadResult<string> { Status = true, Data = "https://minio.example/report.zip" });
+                awsService
+                    .Setup(s => s.CleanUp(It.IsAny<string>()))
+                    .Callback<string>(path => File.Delete(path));
+
+                var wordService = new Mock<IWordService>();
+                wordService.Setup(s => s.Create(It.IsAny<WordModel>())).Returns(zipPath);
+
+                var controller = new WordController(
+                    awsService.Object,
+                    wordService.Object,
+                    new Mock<ILogger<WordController>>().Object);
+
+                var payload = JObject.FromObject(new
+                {
+                    TemplatePath = "https://example.com/report.dotx",
+                    UploadProperties = new { FileName = "report", EnableDirectDownload = false, BucketName = "bucket" }
+                });
+
+                var result = await controller.CreateWordDocument(payload);
+
+                Assert.IsType<OkObjectResult>(result);
+                Assert.False(Directory.Exists(requestDir));
+                Assert.True(File.Exists(foreignFile));
+            }
+            finally
+            {
+                if (Directory.Exists(requestDir)) Directory.Delete(requestDir, true);
+                Directory.Delete(foreignDir, true);
+            }
+        }
+
+        [Fact]
         public async Task CreateWordDocument_UploadFails_ReturnsStatusCode()
         {
             var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));

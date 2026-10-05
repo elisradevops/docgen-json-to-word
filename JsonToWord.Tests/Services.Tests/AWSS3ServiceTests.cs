@@ -213,29 +213,59 @@ namespace JsonToWord.Services.Tests
         [InlineData("../escaped.json")]
         [InlineData("..\\escaped.json")]
         [InlineData("sub/dir/escaped.json")]
-        public async Task Downloads_KeepRequestSuppliedNamesInsideTheTempFolder(string requestedName)
+        public async Task RequestNamedDownloads_KeepOnlyTheLastSegment_InsideTheirOwnDirectory(string requestedName)
         {
-            var logger = new Mock<ILogger<AWSS3Service>>();
-            var service = new AWSS3Service(logger.Object);
-
+            var service = new AWSS3Service(new Mock<ILogger<AWSS3Service>>().Object);
             var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(tempDir);
             var originalCwd = Environment.CurrentDirectory;
             Environment.CurrentDirectory = tempDir;
-
-            var (url1, serverTask1) = StartServer(Encoding.UTF8.GetBytes("a"), 200, "/a.json");
-            var (url2, serverTask2) = StartServer(Encoding.UTF8.GetBytes("b"), 200, "/b.json");
+            var (url, serverTask) = StartServer(Encoding.UTF8.GetBytes("a"), 200, "/a.json");
 
             try
             {
-                var isolated = Path.GetFullPath(await service.DownloadFileFromS3BucketAsync(url1, requestedName));
-                var flat = Path.GetFullPath(await service.DownloadAttachmentAsync(url2, requestedName));
+                var path = Path.GetFullPath(await service.DownloadFileFromS3BucketAsync(url, requestedName));
                 var tempFiles = Path.GetFullPath("TempFiles") + Path.DirectorySeparatorChar;
 
-                Assert.StartsWith(tempFiles, isolated);
-                Assert.StartsWith(tempFiles, flat);
-                Assert.Equal("escaped.json", Path.GetFileName(isolated));
-                Assert.Equal(Path.Combine(tempFiles, "escaped.json"), flat);
+                Assert.StartsWith(tempFiles + "json-to-word-", path);
+                Assert.Equal("escaped.json", Path.GetFileName(path));
+            }
+            finally
+            {
+                var restorePath = Directory.Exists(originalCwd) ? originalCwd : AppContext.BaseDirectory;
+                Environment.CurrentDirectory = restorePath;
+                Directory.Delete(tempDir, true);
+                await serverTask;
+            }
+        }
+
+        [Fact]
+        public async Task DownloadAttachmentAsync_AcceptsAPerRunRelativePath_AndCleanUpRemovesTheEmptyRunDirectory()
+        {
+            var service = new AWSS3Service(new Mock<ILogger<AWSS3Service>>().Object);
+            var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDir);
+            var originalCwd = Environment.CurrentDirectory;
+            Environment.CurrentDirectory = tempDir;
+            var (url1, serverTask1) = StartServer(Encoding.UTF8.GetBytes("one"), 200, "/a.png");
+            var (url2, serverTask2) = StartServer(Encoding.UTF8.GetBytes("two"), 200, "/b.png");
+
+            try
+            {
+                // The same attachment name in two different runs must not collide.
+                var first = await service.DownloadAttachmentAsync(url1, "run-req-1/guid.png");
+                var second = await service.DownloadAttachmentAsync(url2, "run-req-2/guid.png");
+
+                Assert.Equal(Path.Combine("TempFiles", "run-req-1", "guid.png"), first);
+                Assert.Equal("one", File.ReadAllText(first));
+                Assert.Equal("two", File.ReadAllText(second));
+
+                service.CleanUp(first);
+                Assert.False(Directory.Exists(Path.Combine("TempFiles", "run-req-1")));
+                Assert.True(File.Exists(second));
+                service.CleanUp(second);
+                Assert.False(Directory.Exists(Path.Combine("TempFiles", "run-req-2")));
+                Assert.True(Directory.Exists("TempFiles"));
             }
             finally
             {
@@ -244,6 +274,53 @@ namespace JsonToWord.Services.Tests
                 Directory.Delete(tempDir, true);
                 await serverTask1;
                 await serverTask2;
+            }
+        }
+
+        [Theory]
+        [InlineData("/tmp/escaped.png")]
+        [InlineData("../escaped.png")]
+        [InlineData("run-x/../../escaped.png")]
+        [InlineData("..\\escaped.png")]
+        [InlineData("run-x//guid.png")]
+        [InlineData("run-x/")]
+        [InlineData("run-x/bad\0name.png")]
+        public async Task DownloadAttachmentAsync_RejectsPathsThatCouldLeaveTempFiles(string relativePath)
+        {
+            var service = new AWSS3Service(new Mock<ILogger<AWSS3Service>>().Object);
+            await Assert.ThrowsAsync<ArgumentException>(() =>
+                service.DownloadAttachmentAsync(new Uri("http://localhost:1/x.png"), relativePath));
+        }
+
+        [Fact]
+        public void CleanUp_NeverRemovesADirectoryItDoesNotOwn()
+        {
+            var service = new AWSS3Service(new Mock<ILogger<AWSS3Service>>().Object);
+            var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDir);
+            var originalCwd = Environment.CurrentDirectory;
+            Environment.CurrentDirectory = tempDir;
+            try
+            {
+                // An empty "run-" directory that is not directly under TempFiles, and an empty unrelated one.
+                var nestedRun = Path.Combine("TempFiles", "other", "run-nested");
+                var unrelated = Path.Combine("TempFiles", "keep-me");
+                Directory.CreateDirectory(nestedRun);
+                Directory.CreateDirectory(unrelated);
+                File.WriteAllText(Path.Combine(nestedRun, "f.png"), "x");
+                File.WriteAllText(Path.Combine(unrelated, "f.png"), "x");
+
+                service.CleanUp(Path.Combine(nestedRun, "f.png"));
+                service.CleanUp(Path.Combine(unrelated, "f.png"));
+
+                Assert.True(Directory.Exists(nestedRun));
+                Assert.True(Directory.Exists(unrelated));
+            }
+            finally
+            {
+                var restorePath = Directory.Exists(originalCwd) ? originalCwd : AppContext.BaseDirectory;
+                Environment.CurrentDirectory = restorePath;
+                Directory.Delete(tempDir, true);
             }
         }
 
