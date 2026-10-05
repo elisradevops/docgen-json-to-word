@@ -42,6 +42,18 @@ namespace JsonToWord.Logging
             _timer = new Timer(_ => Flush(), null, FlushIntervalMs, FlushIntervalMs);
         }
 
+        /// <summary>
+        /// Same policy as the other DocGen services: warn and error are always persisted; info and debug
+        /// only for a run that asked for extra capture (verbose, or retain-on-failure). Without this every
+        /// document run stored ~25 internal "Removing content control…" lines. The console appender is
+        /// unaffected: stdout still shows everything.
+        /// </summary>
+        public static bool ShouldPersist(string level, string captureMode)
+        {
+            if (level == "warn" || level == "error") return true;
+            return (level == "info" || level == "debug") && (captureMode == "verbose" || captureMode == "retain-on-failure");
+        }
+
         protected override void Append(LoggingEvent loggingEvent)
         {
             var ingestUrl = Environment.GetEnvironmentVariable("DIAGNOSTICS_INGEST_URL");
@@ -59,6 +71,9 @@ namespace JsonToWord.Logging
                 _ => null
             };
             if (level == null) return;
+
+            var capture = LogicalThreadContext.Properties["capture"]?.ToString();
+            if (!ShouldPersist(level, capture)) return;
 
             var runId = LogicalThreadContext.Properties["runId"]?.ToString();
             var docType = LogicalThreadContext.Properties["docType"]?.ToString();
@@ -85,6 +100,10 @@ namespace JsonToWord.Logging
                 runId,
                 docType,
                 project,
+                // Everything this service logs for a request happens while rendering the document.
+                step = "render-document",
+                // A provisional line of a retain-on-failure run: kept only if the run fails.
+                retainPending = (level == "info" || level == "debug") && capture == "retain-on-failure" ? (bool?)true : null,
                 message = msg.Length > 2000 ? msg.Substring(0, 2000) : msg,
                 err = errObj,
             };
