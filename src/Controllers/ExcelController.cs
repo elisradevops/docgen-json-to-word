@@ -43,6 +43,7 @@ namespace JsonToWord.Controllers
         [HttpPost("create")]
         public async Task<IActionResult> CreateExcelDocument(dynamic json)
         {
+            string spreadsheetOutputPath = null;
             try
             {
                 var settings = new JsonSerializerSettings();
@@ -53,36 +54,42 @@ namespace JsonToWord.Controllers
                     excelModel.ContentControls = new List<TestReporterContentControl>();
                     foreach (var jsonData in excelModel.JsonDataList)
                     {
-                        var contentControlPath = _aWSS3Service.DownloadFileFromS3BucketAsync(jsonData.JsonPath, jsonData.JsonName);
-                        using (StreamReader reader = new StreamReader(contentControlPath))
+                        var contentControlPath = await _aWSS3Service.DownloadFileFromS3BucketAsync(jsonData.JsonPath, jsonData.JsonName);
+                        try
                         {
-                            string contentControlJson = reader.ReadToEnd();
-                            List<TestReporterContentControl> contentControls = new List<TestReporterContentControl>();
-                            // Check if the JSON represents a list or a single object
-                            if (contentControlJson.TrimStart().StartsWith("["))
+                            using (StreamReader reader = new StreamReader(contentControlPath))
                             {
-                                // JSON is a list; parse it as a JArray
-                                var jsonArray = JArray.Parse(contentControlJson);
-
-                                foreach (var jsonItem in jsonArray)
+                                string contentControlJson = reader.ReadToEnd();
+                                List<TestReporterContentControl> contentControls = new List<TestReporterContentControl>();
+                                // Check if the JSON represents a list or a single object
+                                if (contentControlJson.TrimStart().StartsWith("["))
                                 {
-                                    // Deserialize each object separately
-                                    var contentControl = JsonConvert.DeserializeObject<TestReporterContentControl>(
-                                        jsonItem.ToString(),
-                                        settings
-                                    );
-                                    contentControls.Add(contentControl);
+                                    // JSON is a list; parse it as a JArray
+                                    var jsonArray = JArray.Parse(contentControlJson);
+
+                                    foreach (var jsonItem in jsonArray)
+                                    {
+                                        // Deserialize each object separately
+                                        var contentControl = JsonConvert.DeserializeObject<TestReporterContentControl>(
+                                            jsonItem.ToString(),
+                                            settings
+                                        );
+                                        contentControls.Add(contentControl);
+                                    }
                                 }
+                                else
+                                {
+                                    // Deserialize as a single object
+                                    var singleContentControl = JsonConvert.DeserializeObject<TestReporterContentControl>(contentControlJson, settings);
+                                    contentControls.Add(singleContentControl);
+                                }
+                                excelModel.ContentControls.AddRange(contentControls);
                             }
-                            else
-                            {
-                                // Deserialize as a single object
-                                var singleContentControl = JsonConvert.DeserializeObject<TestReporterContentControl>(contentControlJson, settings);
-                                contentControls.Add(singleContentControl);
-                            }
-                            excelModel.ContentControls.AddRange(contentControls);
                         }
-                        _aWSS3Service.CleanUp(contentControlPath);
+                        finally
+                        {
+                            _aWSS3Service.CleanUp(contentControlPath);
+                        }
                     }
                 }
 
@@ -93,7 +100,10 @@ namespace JsonToWord.Controllers
                 }
 
                 // Set the LocalPath using the updated filename
-                excelModel.LocalPath = Path.Combine("TempFiles", excelModel.UploadProperties.FileName);
+                // Own directory per request: the file name comes from the request, so concurrent
+                // requests for the same report must not share (and lock) one path.
+                excelModel.LocalPath = Path.Combine(CreateRequestTempDirectory(), SafeOutputFileName(excelModel.UploadProperties.FileName));
+                spreadsheetOutputPath = excelModel.LocalPath;
                 _logger.LogInformation("Initilized word model object");
 
                 var spreadsheetPath = _excelService.CreateExcelDocument(excelModel);
@@ -121,6 +131,12 @@ namespace JsonToWord.Controllers
             }
             catch (Exception e)
             {
+                if (!string.IsNullOrWhiteSpace(spreadsheetOutputPath))
+                {
+                    try { _aWSS3Service.CleanUp(spreadsheetOutputPath); }
+                    catch (Exception cleanupError) { _logger.LogWarning(cleanupError, "Failed cleaning temporary file {Path}", spreadsheetOutputPath); }
+                }
+
                 _logger.LogError(e, "Error occurred while trying to create a spreadsheet: {Message}", e.Message);
                 var errorResponse = new
                 {
@@ -152,11 +168,7 @@ namespace JsonToWord.Controllers
                 }
 
                 var zipFileName = EnsureZipFileName(zipModel.UploadProperties.FileName);
-                if (!Directory.Exists("TempFiles"))
-                {
-                    Directory.CreateDirectory("TempFiles");
-                }
-                zipPath = Path.Combine("TempFiles", zipFileName);
+                zipPath = Path.Combine(CreateRequestTempDirectory(), SafeOutputFileName(zipFileName));
 
                 using (var stream = System.IO.File.Create(zipPath))
                 using (var zipStream = new ZipOutputStream(stream))
@@ -222,6 +234,25 @@ namespace JsonToWord.Controllers
                 };
                 return StatusCode(ClassifyException(e), errorResponse);
             }
+        }
+
+        // The output name comes from the request: keep only its last segment so a rooted or ".."-style
+        // value cannot escape the per-request directory (Path.Combine would drop it for a rooted one).
+        private static string SafeOutputFileName(string fileName)
+        {
+            var name = Path.GetFileName((fileName ?? string.Empty).Replace('\\', '/'));
+            if (string.IsNullOrWhiteSpace(name) || name == "." || name == "..")
+            {
+                throw new ArgumentException("A valid output file name is required.", nameof(fileName));
+            }
+            return name;
+        }
+
+        private static string CreateRequestTempDirectory()
+        {
+            var directory = Path.Combine("TempFiles", "json-to-word-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(directory);
+            return directory;
         }
 
         private static int ClassifyException(Exception e)

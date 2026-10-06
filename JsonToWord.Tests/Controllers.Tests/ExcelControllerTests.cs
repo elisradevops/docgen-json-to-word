@@ -58,9 +58,117 @@ namespace JsonToWord.Controllers.Tests
             Assert.Equal("https://minio.example/report.xlsx", ok.Value);
             Assert.NotNull(capturedModel);
             Assert.Equal("report.xlsx", capturedModel.UploadProperties.FileName);
-            Assert.EndsWith("TempFiles/report.xlsx", capturedModel.LocalPath);
+            Assert.EndsWith("report.xlsx", capturedModel.LocalPath);
+            Assert.StartsWith("TempFiles" + System.IO.Path.DirectorySeparatorChar + "json-to-word-", capturedModel.LocalPath);
             awsService.Verify(s => s.UploadFileToMinioBucketAsync(It.Is<UploadProperties>(p => p.LocalFilePath == capturedModel.LocalPath)), Times.Once);
             awsService.Verify(s => s.CleanUp(capturedModel.LocalPath), Times.Once);
+        }
+
+        [Fact]
+        public async Task CreateExcelDocument_SameFileNameTwice_UsesDifferentOutputPaths()
+        {
+            var awsService = new Mock<IAWSS3Service>();
+            var excelService = new Mock<IExcelService>();
+            var logger = new Mock<ILogger<ExcelController>>();
+
+            var paths = new System.Collections.Generic.List<string>();
+            excelService
+                .Setup(s => s.CreateExcelDocument(It.IsAny<ExcelModel>()))
+                .Callback<ExcelModel>(model => paths.Add(model.LocalPath))
+                .Returns((ExcelModel model) => model.LocalPath);
+            awsService
+                .Setup(s => s.UploadFileToMinioBucketAsync(It.IsAny<UploadProperties>()))
+                .ReturnsAsync(new AWSUploadResult<string> { Status = true, Data = "https://minio.example/report.xlsx" });
+
+            var controller = new ExcelController(awsService.Object, excelService.Object, logger.Object);
+            var payload = JObject.FromObject(new
+            {
+                UploadProperties = new { FileName = "report", BucketName = "bucket", Region = "us" }
+            });
+
+            await controller.CreateExcelDocument(payload);
+            await controller.CreateExcelDocument(payload);
+
+            Assert.Equal(2, paths.Count);
+            Assert.NotEqual(paths[0], paths[1]);
+            Assert.All(paths, p => Assert.EndsWith("report.xlsx", p));
+        }
+
+        [Fact]
+        public async Task CreateExcelDocument_KeepsARequestSuppliedFileNameInsideItsTempDirectory()
+        {
+            var awsService = new Mock<IAWSS3Service>();
+            var excelService = new Mock<IExcelService>();
+            ExcelModel capturedModel = null;
+            excelService
+                .Setup(s => s.CreateExcelDocument(It.IsAny<ExcelModel>()))
+                .Callback<ExcelModel>(model => capturedModel = model)
+                .Returns((ExcelModel model) => model.LocalPath);
+            awsService
+                .Setup(s => s.UploadFileToMinioBucketAsync(It.IsAny<UploadProperties>()))
+                .ReturnsAsync(new AWSUploadResult<string> { Status = true, Data = "https://minio.example/x.xlsx" });
+            var controller = new ExcelController(awsService.Object, excelService.Object, new Mock<ILogger<ExcelController>>().Object);
+
+            var payload = JObject.FromObject(new
+            {
+                UploadProperties = new { FileName = "/etc/cron.d/evil", BucketName = "bucket", Region = "us" }
+            });
+            await controller.CreateExcelDocument(payload);
+
+            Assert.NotNull(capturedModel);
+            Assert.StartsWith("TempFiles" + Path.DirectorySeparatorChar + "json-to-word-", capturedModel.LocalPath);
+            Assert.Equal("evil.xlsx", Path.GetFileName(capturedModel.LocalPath));
+        }
+
+        [Fact]
+        public async Task CreateExcelDocument_RenderFailure_CleansUpEvenWhenNoOutputFileWasWritten()
+        {
+            var awsService = new Mock<IAWSS3Service>();
+            var excelService = new Mock<IExcelService>();
+            excelService
+                .Setup(s => s.CreateExcelDocument(It.IsAny<ExcelModel>()))
+                .Throws(new InvalidOperationException("render failed"));
+            var controller = new ExcelController(awsService.Object, excelService.Object, new Mock<ILogger<ExcelController>>().Object);
+
+            var payload = JObject.FromObject(new
+            {
+                UploadProperties = new { FileName = "report", BucketName = "bucket", Region = "us" }
+            });
+            var result = await controller.CreateExcelDocument(payload);
+
+            Assert.IsType<ObjectResult>(result);
+            awsService.Verify(s => s.CleanUp(It.Is<string>(p => p.EndsWith("report.xlsx"))), Times.Once);
+        }
+
+        [Fact]
+        public async Task CreateExcelDocument_MalformedContentControlJson_StillCleansUpTheDownload()
+        {
+            var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDir);
+            var brokenPath = Path.Combine(tempDir, "broken.json");
+            try
+            {
+                File.WriteAllText(brokenPath, "[{ not json");
+                var awsService = new Mock<IAWSS3Service>();
+                awsService
+                    .Setup(s => s.DownloadFileFromS3BucketAsync(It.IsAny<Uri>(), "broken.json"))
+                    .ReturnsAsync(brokenPath);
+                var controller = new ExcelController(awsService.Object, new Mock<IExcelService>().Object, new Mock<ILogger<ExcelController>>().Object);
+
+                var payload = JObject.FromObject(new
+                {
+                    UploadProperties = new { FileName = "report", BucketName = "bucket", Region = "us" },
+                    JsonDataList = new[] { new { JsonPath = "https://example.com/broken.json", JsonName = "broken.json" } }
+                });
+                var result = await controller.CreateExcelDocument(payload);
+
+                Assert.IsType<ObjectResult>(result);
+                awsService.Verify(s => s.CleanUp(brokenPath), Times.Once);
+            }
+            finally
+            {
+                Directory.Delete(tempDir, true);
+            }
         }
 
         [Fact]
@@ -79,10 +187,10 @@ namespace JsonToWord.Controllers.Tests
                 var awsService = new Mock<IAWSS3Service>();
                 awsService
                     .Setup(s => s.DownloadFileFromS3BucketAsync(It.Is<Uri>(u => u.ToString() == "https://example.com/cc-list.json"), "cc-list.json"))
-                    .Returns(listJsonPath);
+                    .ReturnsAsync(listJsonPath);
                 awsService
                     .Setup(s => s.DownloadFileFromS3BucketAsync(It.Is<Uri>(u => u.ToString() == "https://example.com/cc-single.json"), "cc-single.json"))
-                    .Returns(singleJsonPath);
+                    .ReturnsAsync(singleJsonPath);
                 awsService
                     .Setup(s => s.UploadFileToMinioBucketAsync(It.IsAny<UploadProperties>()))
                     .ReturnsAsync(new AWSUploadResult<string> { Status = true, Data = "https://minio.example/report.xlsx" });

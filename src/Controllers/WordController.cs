@@ -58,41 +58,47 @@ namespace JsonToWord.Controllers
                     wordModel.ContentControls = new List<WordContentControl>();
                     foreach (var jsonData in wordModel.JsonDataList)
                     {
-                        var contentControlPath = _aWSS3Service.DownloadFileFromS3BucketAsync(jsonData.JsonPath, jsonData.JsonName);
-                        using (StreamReader reader = new StreamReader(contentControlPath))
+                        var contentControlPath = await _aWSS3Service.DownloadFileFromS3BucketAsync(jsonData.JsonPath, jsonData.JsonName);
+                        try
                         {
-                            string contentControlJson = reader.ReadToEnd();
-                            List<WordContentControl> contentControls = new List<WordContentControl>();
-                            // Check if the JSON represents a list or a single object
-                            if (contentControlJson.TrimStart().StartsWith("["))
+                            using (StreamReader reader = new StreamReader(contentControlPath))
                             {
-                                // JSON is a list; parse it as a JArray
-                                var jsonArray = JArray.Parse(contentControlJson);
-
-                                foreach (var jsonItem in jsonArray)
+                                string contentControlJson = reader.ReadToEnd();
+                                List<WordContentControl> contentControls = new List<WordContentControl>();
+                                // Check if the JSON represents a list or a single object
+                                if (contentControlJson.TrimStart().StartsWith("["))
                                 {
-                                    // Deserialize each object separately
-                                    var contentControl = JsonConvert.DeserializeObject<WordContentControl>(
-                                        jsonItem.ToString(),
-                                        settings
-                                    );
-                                    contentControls.Add(contentControl);
-                                }
-                            }
-                            else
-                            {
-                                // Deserialize as a single object
-                                var singleContentControl = JsonConvert.DeserializeObject<WordContentControl>(contentControlJson, settings);
-                                contentControls.Add(singleContentControl);
-                            }
+                                    // JSON is a list; parse it as a JArray
+                                    var jsonArray = JArray.Parse(contentControlJson);
 
-                            // Add all content controls to the wordModel
-                            wordModel.ContentControls.AddRange(contentControls);
+                                    foreach (var jsonItem in jsonArray)
+                                    {
+                                        // Deserialize each object separately
+                                        var contentControl = JsonConvert.DeserializeObject<WordContentControl>(
+                                            jsonItem.ToString(),
+                                            settings
+                                        );
+                                        contentControls.Add(contentControl);
+                                    }
+                                }
+                                else
+                                {
+                                    // Deserialize as a single object
+                                    var singleContentControl = JsonConvert.DeserializeObject<WordContentControl>(contentControlJson, settings);
+                                    contentControls.Add(singleContentControl);
+                                }
+
+                                // Add all content controls to the wordModel
+                                wordModel.ContentControls.AddRange(contentControls);
+                            }
                         }
-                        _aWSS3Service.CleanUp(contentControlPath);
+                        finally
+                        {
+                            _aWSS3Service.CleanUp(contentControlPath);
+                        }
                     }
                 }
-                string fullpath = ResolveTemplatePath(wordModel);
+                string fullpath = await ResolveTemplatePathAsync(wordModel);
                 AddCleanupPath(cleanupPaths, fullpath);
                 wordModel.LocalPath = fullpath;
                 _logger.LogInformation("Initilized word model object");
@@ -100,7 +106,7 @@ namespace JsonToWord.Controllers
                 {
                     foreach (var item in wordModel.MinioAttachmentData)
                     {
-                        attachmentPaths.Add(_aWSS3Service.DownloadFileFromS3BucketAsync(item.attachmentMinioPath, item.minioFileName));
+                        attachmentPaths.Add(await _aWSS3Service.DownloadAttachmentAsync(item.attachmentMinioPath, item.minioFileName));
                     }
                 }
                 var documentPath = _wordService.Create(wordModel);
@@ -151,14 +157,16 @@ namespace JsonToWord.Controllers
                 {
                     SafeCleanUp(path);
                 }
+
+                RemoveOwnedRequestDirectories(cleanupPaths);
             }
         }
 
-        private string ResolveTemplatePath(WordModel wordModel)
+        private async Task<string> ResolveTemplatePathAsync(WordModel wordModel)
         {
             if (HasUsableTemplatePath(wordModel?.TemplatePath))
             {
-                return _aWSS3Service.DownloadFileFromS3BucketAsync(
+                return await _aWSS3Service.DownloadFileFromS3BucketAsync(
                     wordModel.TemplatePath,
                     wordModel?.UploadProperties?.FileName ?? "template.docx"
                 );
@@ -269,6 +277,41 @@ namespace JsonToWord.Controllers
                 directoryPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
             );
             return directoryName.StartsWith("json-to-word-", StringComparison.OrdinalIgnoreCase);
+        }
+
+        // The renderer leaves files of its own next to the template and the output (the .docx that is
+        // zipped when attachments are included, for one), and only the paths tracked above are cleaned.
+        // The per-request directory (json-to-word-<guid>, created for this request alone) is removed whole,
+        // so nothing is left behind. Only such a directory directly under TempFiles or the system temp
+        // folder is ever removed.
+        private void RemoveOwnedRequestDirectories(IEnumerable<string> paths)
+        {
+            var roots = new[] { Path.GetFullPath("TempFiles"), Path.GetFullPath(Path.GetTempPath()) }
+                .Select(root => root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
+                .ToArray();
+
+            foreach (var directory in paths
+                         .Where(path => !string.IsNullOrWhiteSpace(path))
+                         .Select(path => Path.GetDirectoryName(Path.GetFullPath(path)))
+                         .Where(directory => !string.IsNullOrEmpty(directory))
+                         .Distinct())
+            {
+                try
+                {
+                    var parent = Path.GetDirectoryName(directory)?
+                        .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                    if (IsGeneratedTempDirectory(directory)
+                        && roots.Contains(parent, StringComparer.Ordinal)
+                        && Directory.Exists(directory))
+                    {
+                        Directory.Delete(directory, true);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed removing temporary directory {Directory}", directory);
+                }
+            }
         }
 
         private void SafeCleanUp(string path)
