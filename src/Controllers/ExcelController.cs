@@ -102,7 +102,9 @@ namespace JsonToWord.Controllers
                 // Set the LocalPath using the updated filename
                 // Own directory per request: the file name comes from the request, so concurrent
                 // requests for the same report must not share (and lock) one path.
-                excelModel.LocalPath = Path.Combine(CreateRequestTempDirectory(), SafeOutputFileName(excelModel.UploadProperties.FileName));
+                // The name is validated before the directory is created, so a rejected name leaves nothing behind.
+                var safeExcelName = SafeOutputFileName(excelModel.UploadProperties.FileName);
+                excelModel.LocalPath = Path.Combine(CreateRequestTempDirectory(), safeExcelName);
                 spreadsheetOutputPath = excelModel.LocalPath;
                 _logger.LogInformation("Initilized word model object");
 
@@ -168,7 +170,8 @@ namespace JsonToWord.Controllers
                 }
 
                 var zipFileName = EnsureZipFileName(zipModel.UploadProperties.FileName);
-                zipPath = Path.Combine(CreateRequestTempDirectory(), SafeOutputFileName(zipFileName));
+                var safeZipName = SafeOutputFileName(zipFileName);
+                zipPath = Path.Combine(CreateRequestTempDirectory(), safeZipName);
 
                 using (var stream = System.IO.File.Create(zipPath))
                 using (var zipStream = new ZipOutputStream(stream))
@@ -262,8 +265,12 @@ namespace JsonToWord.Controllers
                 e is ArgumentException)
                 return StatusCodes.Status400BadRequest;
 
-            if (e is Amazon.S3.AmazonS3Exception)
+            if (e is Amazon.S3.AmazonS3Exception || e is System.Net.Http.HttpRequestException)
                 return StatusCodes.Status502BadGateway;
+
+            // The 5-minute bound on a download (a stalled body is cancelled by it).
+            if (e is OperationCanceledException)
+                return StatusCodes.Status504GatewayTimeout;
 
             return StatusCodes.Status500InternalServerError;
         }

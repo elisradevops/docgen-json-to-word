@@ -1,4 +1,7 @@
 using System;
+using System.Net.Http;
+using System.Threading.Tasks;
+using System.Linq;
 using System.IO;
 using System.Threading.Tasks;
 using JsonToWord.Controllers;
@@ -118,6 +121,27 @@ namespace JsonToWord.Controllers.Tests
             Assert.NotNull(capturedModel);
             Assert.StartsWith("TempFiles" + Path.DirectorySeparatorChar + "json-to-word-", capturedModel.LocalPath);
             Assert.Equal("evil.xlsx", Path.GetFileName(capturedModel.LocalPath));
+        }
+
+        [Theory]
+        [InlineData(typeof(HttpRequestException), 502)]
+        [InlineData(typeof(TaskCanceledException), 504)]
+        [InlineData(typeof(InvalidOperationException), 500)]
+        public async Task CreateExcelDocument_MapsAFailedOrTimedOutDownloadToAGatewayStatus(Type failure, int expectedStatus)
+        {
+            var awsService = new Mock<IAWSS3Service>();
+            awsService
+                .Setup(s => s.DownloadFileFromS3BucketAsync(It.IsAny<Uri>(), It.IsAny<string>()))
+                .ThrowsAsync((Exception)Activator.CreateInstance(failure));
+            var controller = new ExcelController(awsService.Object, new Mock<IExcelService>().Object, new Mock<ILogger<ExcelController>>().Object);
+
+            var result = await controller.CreateExcelDocument(JObject.FromObject(new
+            {
+                UploadProperties = new { FileName = "report", BucketName = "b", Region = "us" },
+                JsonDataList = new[] { new { JsonPath = "https://example.com/cc.json", JsonName = "cc.json" } }
+            }));
+
+            Assert.Equal(expectedStatus, Assert.IsType<ObjectResult>(result).StatusCode);
         }
 
         [Fact]

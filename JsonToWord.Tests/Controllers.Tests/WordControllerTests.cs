@@ -1,4 +1,5 @@
 using System;
+using System.Net.Http;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -317,6 +318,73 @@ namespace JsonToWord.Controllers.Tests
             }
         }
 
+        [Theory]
+        [InlineData(typeof(HttpRequestException), 502)]
+        [InlineData(typeof(TaskCanceledException), 504)]
+        [InlineData(typeof(InvalidOperationException), 500)]
+        public async Task CreateWordDocument_MapsAFailedOrTimedOutDownloadToAGatewayStatus(Type failure, int expectedStatus)
+        {
+            var awsService = new Mock<IAWSS3Service>();
+            awsService
+                .Setup(s => s.DownloadFileFromS3BucketAsync(It.IsAny<Uri>(), It.IsAny<string>()))
+                .ThrowsAsync((Exception)Activator.CreateInstance(failure));
+            var controller = new WordController(awsService.Object, new Mock<IWordService>().Object, new Mock<ILogger<WordController>>().Object);
+
+            var result = await controller.CreateWordDocument(JObject.FromObject(new
+            {
+                UploadProperties = new { FileName = "report.docx", BucketName = "b" },
+                JsonDataList = new[] { new { JsonPath = "https://example.com/cc.json", JsonName = "cc.json" } }
+            }));
+
+            Assert.Equal(expectedStatus, Assert.IsType<ObjectResult>(result).StatusCode);
+        }
+
+        [Theory]
+        [InlineData("/etc/passwd")]
+        [InlineData("/etc/hostname.json")]
+        [InlineData("appsettings.json")]
+        [InlineData("TempFiles/../appsettings.json")]
+        [InlineData("../../etc/secrets.json")]
+        [InlineData("")]
+        public void CreateWordDocumentByFile_RefusesAPathOutsideTheServiceTempDirectories_AndReadsNothing(string requested)
+        {
+            var wordService = new Mock<IWordService>();
+            var controller = new WordController(
+                new Mock<IAWSS3Service>().Object,
+                wordService.Object,
+                new Mock<ILogger<WordController>>().Object);
+
+            var result = controller.CreateWordDocumentByFile(JObject.FromObject(new { jsonFilePath = requested }));
+
+            var objectResult = Assert.IsType<ObjectResult>(result);
+            Assert.Equal(400, objectResult.StatusCode);
+            wordService.Verify(s => s.Create(It.IsAny<WordModel>()), Times.Never);
+        }
+
+        [Fact]
+        public void CreateWordDocumentByFile_RefusesAFileThatIsNotJson_EvenInsideTheTempDirectory()
+        {
+            var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDir);
+            var notJson = Path.Combine(tempDir, "payload.txt");
+            File.WriteAllText(notJson, "{}");
+            try
+            {
+                var controller = new WordController(
+                    new Mock<IAWSS3Service>().Object,
+                    new Mock<IWordService>().Object,
+                    new Mock<ILogger<WordController>>().Object);
+
+                var result = controller.CreateWordDocumentByFile(JObject.FromObject(new { jsonFilePath = notJson }));
+
+                Assert.Equal(400, Assert.IsType<ObjectResult>(result).StatusCode);
+            }
+            finally
+            {
+                Directory.Delete(tempDir, true);
+            }
+        }
+
         [Fact]
         public async Task CreateWordDocument_UploadsAndCleansAttachments()
         {
@@ -527,7 +595,7 @@ namespace JsonToWord.Controllers.Tests
                 wordService.Object,
                 new Mock<ILogger<WordController>>().Object);
 
-            var payload = JObject.FromObject(new { jsonFilePath = "missing.json" });
+            var payload = JObject.FromObject(new { jsonFilePath = Path.Combine(Path.GetTempPath(), $"missing-{Guid.NewGuid():N}.json") });
 
             var result = controller.CreateWordDocumentByFile(payload);
 

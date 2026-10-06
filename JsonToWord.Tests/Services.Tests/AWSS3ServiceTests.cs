@@ -333,6 +333,66 @@ namespace JsonToWord.Services.Tests
         }
 
         [Fact]
+        public async Task DownloadAttachmentAsync_AFailedDownloadOfTheSamePath_DoesNotDeleteTheFileAnotherRequestFinished()
+        {
+            var service = new AWSS3Service(new Mock<ILogger<AWSS3Service>>().Object);
+            var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDir);
+            var originalCwd = Environment.CurrentDirectory;
+            Environment.CurrentDirectory = tempDir;
+            var (okUrl, okServer) = StartServer(Encoding.UTF8.GetBytes("complete"), 200, "/ok.png");
+            var (badUrl, badServer) = StartServer(Array.Empty<byte>(), 500, "/bad.png");
+
+            try
+            {
+                var path = await service.DownloadAttachmentAsync(okUrl, "run-req-1/guid.png");
+                await Assert.ThrowsAsync<HttpRequestException>(() => service.DownloadAttachmentAsync(badUrl, "run-req-1/guid.png"));
+
+                // The failed attempt removed only its own temporary file.
+                Assert.Equal("complete", File.ReadAllText(path));
+                Assert.Empty(Directory.GetFiles(Path.GetDirectoryName(path), "*.part"));
+            }
+            finally
+            {
+                var restorePath = Directory.Exists(originalCwd) ? originalCwd : AppContext.BaseDirectory;
+                Environment.CurrentDirectory = restorePath;
+                Directory.Delete(tempDir, true);
+                await okServer;
+                await badServer;
+            }
+        }
+
+        [Fact]
+        public async Task DownloadAttachmentAsync_LeavesNoTemporaryFileBehindOnSuccess_AndReplacesAnEarlierCopy()
+        {
+            var service = new AWSS3Service(new Mock<ILogger<AWSS3Service>>().Object);
+            var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDir);
+            var originalCwd = Environment.CurrentDirectory;
+            Environment.CurrentDirectory = tempDir;
+            var (url1, server1) = StartServer(Encoding.UTF8.GetBytes("first"), 200, "/a.png");
+            var (url2, server2) = StartServer(Encoding.UTF8.GetBytes("second"), 200, "/b.png");
+
+            try
+            {
+                var first = await service.DownloadAttachmentAsync(url1, "run-req-1/guid.png");
+                var second = await service.DownloadAttachmentAsync(url2, "run-req-1/guid.png");
+
+                Assert.Equal(first, second);
+                Assert.Equal("second", File.ReadAllText(second));
+                Assert.Equal(new[] { second }, Directory.GetFiles(Path.GetDirectoryName(second)));
+            }
+            finally
+            {
+                var restorePath = Directory.Exists(originalCwd) ? originalCwd : AppContext.BaseDirectory;
+                Environment.CurrentDirectory = restorePath;
+                Directory.Delete(tempDir, true);
+                await server1;
+                await server2;
+            }
+        }
+
+        [Fact]
         public async Task DownloadFileFromS3BucketAsync_ThrowsOnHttpError()
         {
             var logger = new Mock<ILogger<AWSS3Service>>();

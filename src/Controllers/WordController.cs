@@ -354,7 +354,7 @@ namespace JsonToWord.Controllers
         {
             try
             {
-                string file = json.jsonFilePath;
+                string file = ResolveAllowedJsonPath((string)json.jsonFilePath);
                 string text = System.IO.File.ReadAllText(file);
                 json = JObject.Parse(text);
 
@@ -388,6 +388,28 @@ namespace JsonToWord.Controllers
 
         }
 
+        // create-by-file reads a JSON file named by the request, so it may only name one under the places this
+        // service itself writes to (its TempFiles folder or the system temp folder): never an arbitrary path
+        // on the server (configuration, secrets, another service's files).
+        private static string ResolveAllowedJsonPath(string requested)
+        {
+            if (string.IsNullOrWhiteSpace(requested))
+            {
+                throw new ArgumentException("jsonFilePath is required.");
+            }
+
+            var full = Path.GetFullPath(requested);
+            var separator = Path.DirectorySeparatorChar.ToString();
+            var roots = new[] { Path.GetFullPath("TempFiles"), Path.GetFullPath(Path.GetTempPath()) }
+                .Select(root => root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + separator);
+            if (!full.EndsWith(".json", StringComparison.OrdinalIgnoreCase)
+                || !roots.Any(root => full.StartsWith(root, StringComparison.Ordinal)))
+            {
+                throw new ArgumentException("jsonFilePath must be a .json file under the service's temp directories.");
+            }
+            return full;
+        }
+
         private static int ClassifyException(Exception e)
         {
             if (e is JsonReaderException ||
@@ -395,8 +417,12 @@ namespace JsonToWord.Controllers
                 e is ArgumentException)
                 return StatusCodes.Status400BadRequest;
 
-            if (e is Amazon.S3.AmazonS3Exception)
+            if (e is Amazon.S3.AmazonS3Exception || e is System.Net.Http.HttpRequestException)
                 return StatusCodes.Status502BadGateway;
+
+            // The 5-minute bound on a download (a stalled body is cancelled by it).
+            if (e is OperationCanceledException)
+                return StatusCodes.Status504GatewayTimeout;
 
             return StatusCodes.Status500InternalServerError;
         }
