@@ -123,6 +123,11 @@ namespace JsonToWord.Services
 
         private async Task DownloadToAsync(Uri webPath, string fullPath, string directoryToRemoveOnFailure)
         {
+            // Written to a unique temporary name next to the target and moved into place when complete. Two
+            // downloads of the same path (the same attachment needed twice in a run) then cannot truncate each
+            // other's file, a reader never sees a half-written file, and a failed download can only ever delete
+            // its own temporary file, never one another request finished.
+            var partPath = fullPath + "." + Guid.NewGuid().ToString("N") + ".part";
             try
             {
                 // Bounds the whole transfer, body included (ResponseHeadersRead leaves the client's own
@@ -133,30 +138,31 @@ namespace JsonToWord.Services
                     response.EnsureSuccessStatusCode();
                     // Streamed to disk: large templates and attachments are not buffered in memory.
                     using (var source = await response.Content.ReadAsStreamAsync())
-                    using (var target = new FileStream(fullPath, FileMode.Create, FileAccess.Write, FileShare.Read, 81920, useAsync: true))
+                    using (var target = new FileStream(partPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 81920, useAsync: true))
                     {
                         await source.CopyToAsync(target, 81920, cts.Token);
                     }
                 }
+                File.Move(partPath, fullPath, true);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Something went wrong during file download");
                 try
                 {
+                    if (File.Exists(partPath))
+                    {
+                        File.Delete(partPath);
+                    }
                     if (directoryToRemoveOnFailure != null)
                     {
                         // Nothing else owns this per-download directory: do not leave it behind.
                         Directory.Delete(directoryToRemoveOnFailure, true);
                     }
-                    else if (File.Exists(fullPath))
-                    {
-                        File.Delete(fullPath);
-                    }
                 }
                 catch (Exception cleanupError)
                 {
-                    _logger.LogDebug(cleanupError, "Could not remove partial download {Path}", fullPath);
+                    _logger.LogDebug(cleanupError, "Could not remove partial download {Path}", partPath);
                 }
                 throw;
             }

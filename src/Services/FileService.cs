@@ -175,7 +175,7 @@ public class FileService : IFileService
 
     private Paragraph AddHyperLinkNonOfficeFileParagraph(MainDocumentPart mainPart, WordAttachment wordAttachment, Drawing iconDrawing)
     {
-        var relativePath = CopyAttachment(wordAttachment).Replace("\\", "/");
+        var relativePath = CopyAttachment(wordAttachment);
 
         // Create a hyperlink relationship with a relative path to the file in the 'attachments' folder
         HyperlinkRelationship hyperlinkRelationship = mainPart.AddHyperlinkRelationship(new Uri(relativePath, UriKind.Relative), true);
@@ -259,24 +259,37 @@ public class FileService : IFileService
         return drawing;
     }
 
+    // The folder a document's attachments are staged in: "attachments" next to the document being built, so
+    // it belongs to that one request. A folder shared by every request (it used to be relative to the
+    // process's working directory) let one render delete, overwrite or zip another's files.
+    public static string AttachmentsFolderFor(string documentPath)
+    {
+        if (string.IsNullOrEmpty(documentPath)) return AttachmentsFolder;
+        var directory = Path.GetDirectoryName(Path.GetFullPath(documentPath));
+        return string.IsNullOrEmpty(directory) ? AttachmentsFolder : Path.Combine(directory, AttachmentsFolder);
+    }
+
+    // Copies the attachment into this document's own attachments folder and returns the RELATIVE link
+    // ("attachments/<name>") the document should point at: the zip puts the document and its attachments
+    // folder side by side, which is what the relative link resolves against.
     private string CopyAttachment(WordAttachment wordAttachment)
     {
         var sourcePath = wordAttachment.Path;
-        if (!Directory.Exists(AttachmentsFolder))
-        {
-            Directory.CreateDirectory(AttachmentsFolder);
-        }
+        // The render in progress sets its own folder (RenderContext); without one (a direct call, a unit
+        // test) the default relative "attachments" folder is used, as before.
+        var stagingFolder = JsonToWord.Services.RenderContext.AttachmentsFolder ?? AttachmentsFolder;
+        Directory.CreateDirectory(stagingFolder);
         var guidFileName = Path.GetFileName(wordAttachment.Path);
         var extension = Path.GetExtension(guidFileName);
 
-        string destination = Path.Combine(AttachmentsFolder, wordAttachment.Name + extension);
+        string destination = Path.Combine(stagingFolder, wordAttachment.Name + extension);
         while (File.Exists(destination))
         {
             string uniqueId = Guid.NewGuid().ToString("N").Substring(0, 4);
-            destination = Path.Combine(AttachmentsFolder, $"{wordAttachment.Name}-(CopyID-{uniqueId}){extension}");
+            destination = Path.Combine(stagingFolder, $"{wordAttachment.Name}-(CopyID-{uniqueId}){extension}");
         }
         File.Copy(sourcePath, destination, false);
-        return destination;
+        return AttachmentsFolder + "/" + Path.GetFileName(destination);
     }
 
     private AltChunk AddDocFileContent(MainDocumentPart mainPart, WordAttachment wordAttachment)

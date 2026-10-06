@@ -43,8 +43,6 @@ namespace JsonToWord
             _voidListService = voidListService;
             _documentService = documentService;
             _sectionPlaceholderService = sectionPlaceholderService;
-            OnSubscribeEvents();
-
         }
         #endregion
 
@@ -52,11 +50,24 @@ namespace JsonToWord
 
         public string Create(WordModel _wordModel)
         {
-            var documentPath = _documentService.CreateDocument(_wordModel.LocalPath);
-            //If the Attachment folder already exists, delete it
-            if (Directory.Exists("attachments"))
+            var documentPathForFolder = _documentService.CreateDocument(_wordModel.LocalPath);
+            // Everything this render stages for itself lives next to its own document, and FileService (a singleton
+            // shared by every render) is told where through the request-scoped RenderContext.
+            using (JsonToWord.Services.RenderContext.UseAttachmentsFolder(FileService.AttachmentsFolderFor(documentPathForFolder)))
             {
-                Directory.Delete("attachments", true);
+                return CreateCore(_wordModel, documentPathForFolder);
+            }
+        }
+
+        private string CreateCore(WordModel _wordModel, string documentPath)
+        {
+            // This document's own attachments folder (next to it, so per request). A stale one from an earlier
+            // run in the same directory is cleared; it can never be another request's, which used to happen
+            // when it was one folder in the working directory shared by every render.
+            var attachmentsFolder = FileService.AttachmentsFolderFor(documentPath);
+            if (Directory.Exists(attachmentsFolder))
+            {
+                Directory.Delete(attachmentsFolder, true);
             }
 
             using (var document = WordprocessingDocument.Open(documentPath, true))
@@ -187,6 +198,9 @@ namespace JsonToWord
                 // Save document
                 document.MainDocumentPart.Document.Save();
             }
+            // Whether non-office attachments were staged for THIS document: decided from its own folder, not
+            // from an event raised by the shared FileService (every render in flight received that event).
+            _isZipNeeded = Directory.Exists(attachmentsFolder) && Directory.EnumerateFileSystemEntries(attachmentsFolder).Any();
             var voidListFiles = new List<string>();
             var processVoidList = _wordModel.FormattingSettings?.ProcessVoidList == true;
 
@@ -199,7 +213,7 @@ namespace JsonToWord
             }
 
 
-            var generatedDocPath = _isZipNeeded ? ZipDocument(documentPath, Directory.Exists("attachments") || voidListFiles.Any(), voidListFiles) : documentPath;
+            var generatedDocPath = _isZipNeeded ? ZipDocument(documentPath, Directory.Exists(attachmentsFolder) || voidListFiles.Any(), voidListFiles) : documentPath;
             _logger.LogInformation("Finished on doc path: " + generatedDocPath);
             return generatedDocPath;
             //documentService.RunMacro(documentPath, "updateTableOfContent",sw);
@@ -258,38 +272,11 @@ namespace JsonToWord
 
         public void Dispose()
         {
-            OnUnsubscribeEvents();
+            // Nothing to release: the zip decision no longer hangs on an event of the shared FileService.
         }
         #endregion
 
-        #region Event Releated Methods
 
-        private void OnNonOfficeAttachmentCaughtEvent()
-        {
-            if (!_isZipNeeded)
-            {
-                _logger.LogInformation("Non-office attachment added, the document will be zipped");
-                _isZipNeeded = true;
-            }
-        }
-
-        private void OnSubscribeEvents()
-        {
-            if(_fileService != null)
-            {
-                _fileService.nonOfficeAttachmentEventHandler+= OnNonOfficeAttachmentCaughtEvent;
-            }
-        }
-
-        private void OnUnsubscribeEvents()
-        {
-            if (_fileService != null)
-            {
-                _fileService.nonOfficeAttachmentEventHandler -= OnNonOfficeAttachmentCaughtEvent;
-            }
-        }
-
-        #endregion
 
         #region Zip Related Methods
         private string ZipDocument(string documentPath, bool hasAttachmentOrVoidList, List<string> voidListFilePath)
@@ -300,7 +287,7 @@ namespace JsonToWord
             }
 
             var zipFileName = Path.ChangeExtension(documentPath, ".zip");
-            CreateZipWithAttachments(zipFileName, documentPath, "attachments", voidListFilePath);
+            CreateZipWithAttachments(zipFileName, documentPath, FileService.AttachmentsFolderFor(documentPath), voidListFilePath);
 
             return zipFileName;
         }

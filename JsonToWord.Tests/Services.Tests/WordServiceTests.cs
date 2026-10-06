@@ -306,6 +306,96 @@ namespace JsonToWord.Services.Tests
         }
 
         [Fact]
+        public void Create_TwoRendersInDifferentDirectories_KeepTheirAttachmentsAndZipDecisionApart()
+        {
+            // One FileService, as in production (a singleton): both services use the same mock.
+            var sharedFileService = new Mock<IFileService>();
+            var a = CreateServiceWithMocks(sharedFileService);
+            var b = CreateServiceWithMocks(sharedFileService);
+
+            var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+            var dirA = Path.Combine(root, "a");
+            var dirB = Path.Combine(root, "b");
+            Directory.CreateDirectory(dirA);
+            Directory.CreateDirectory(dirB);
+            var originalCwd = Environment.CurrentDirectory;
+            Environment.CurrentDirectory = root; // the old shared "attachments" folder would have been here
+
+            string MakeTemplate(string dir)
+            {
+                var path = Path.Combine(dir, "template.docx");
+                using var doc = WordprocessingDocument.Create(path, WordprocessingDocumentType.Document);
+                var mainPart = doc.AddMainDocumentPart();
+                mainPart.Document = new Document(new Body(new Paragraph(new Run(new Text("content")))));
+                return path;
+            }
+            void Wire((WordService Service, Mock<IContentControlService> ContentControlService, Mock<IFileService> FileService, Mock<IVoidListService> VoidListService, Mock<IDocumentService> DocumentService, Mock<ITableService> TableService, Mock<IPictureService> PictureService, Mock<ITextService> TextService, Mock<IHtmlService> HtmlService) m, string template)
+            {
+                var sdt = new SdtBlock(new SdtContentBlock());
+                m.ContentControlService.Setup(c => c.FindContentControl(It.IsAny<WordprocessingDocument>(), It.IsAny<string>())).Returns(sdt);
+                m.ContentControlService.Setup(c => c.IsUnderStandardHeading(It.IsAny<SdtBlock>())).Returns(true);
+                m.DocumentService.Setup(d => d.CreateDocument(template)).Returns(template);
+            }
+            WordModel ModelFor(string template, bool withAttachment) => new WordModel
+            {
+                LocalPath = template,
+                ContentControls = new List<WordContentControl>
+                {
+                    new WordContentControl
+                    {
+                        Title = "cc1",
+                        WordObjects = withAttachment
+                            ? new List<IWordObject> { new WordAttachment { Type = WordObjectType.File, Name = "A.txt", Path = "A.txt" } }
+                            : new List<IWordObject>()
+                    }
+                },
+                FormattingSettings = new FormattingSettings()
+            };
+
+            try
+            {
+                var templateA = MakeTemplate(dirA);
+                var templateB = MakeTemplate(dirB);
+                Wire(a, templateA);
+                Wire(b, templateB);
+
+                string resultB = null;
+                // While A is staging its attachment (as FileService does, into the folder the render in progress
+                // owns), render B to completion: what two concurrent requests would do to each other.
+                sharedFileService
+                    .Setup(f => f.Insert(It.IsAny<WordprocessingDocument>(), It.IsAny<string>(), It.IsAny<WordAttachment>()))
+                    .Callback(() =>
+                    {
+                        var folder = JsonToWord.Services.RenderContext.AttachmentsFolder ?? "attachments";
+                        Directory.CreateDirectory(folder);
+                        File.WriteAllText(Path.Combine(folder, "A.txt"), "attachment of A");
+                        sharedFileService.Raise(m => m.nonOfficeAttachmentEventHandler += null);
+                        resultB = b.Service.Create(ModelFor(templateB, withAttachment: false));
+                    });
+
+                var resultA = a.Service.Create(ModelFor(templateA, withAttachment: true));
+
+                // A: zipped, with its own attachment.
+                Assert.EndsWith(".zip", resultA);
+                using (var zipA = new ZipFile(resultA))
+                {
+                    Assert.True(zipA.Cast<ZipEntry>().Any(e => e.Name == "attachments/A.txt"));
+                }
+                // B: untouched by A's attachment or A's event: a plain document, nothing of A's in its directory.
+                Assert.EndsWith(".docx", resultB);
+                Assert.Equal(dirB, Path.GetDirectoryName(resultB));
+                Assert.False(Directory.Exists(Path.Combine(dirB, "attachments")));
+                Assert.False(Directory.Exists(Path.Combine(root, "attachments")));
+            }
+            finally
+            {
+                var restorePath = Directory.Exists(originalCwd) ? originalCwd : AppContext.BaseDirectory;
+                Environment.CurrentDirectory = restorePath;
+                Directory.Delete(root, true);
+            }
+        }
+
+        [Fact]
         public void Create_WithNonOfficeAttachment_ZipsWithAttachments()
         {
             var mocks = CreateServiceWithMocks();
@@ -466,14 +556,15 @@ namespace JsonToWord.Services.Tests
             Mock<ITableService> TableService,
             Mock<IPictureService> PictureService,
             Mock<ITextService> TextService,
-            Mock<IHtmlService> HtmlService) CreateServiceWithMocks()
+            Mock<IHtmlService> HtmlService) CreateServiceWithMocks(Mock<IFileService> sharedFileService = null)
         {
             var contentControlService = new Mock<IContentControlService>();
             var tableService = new Mock<ITableService>();
             var pictureService = new Mock<IPictureService>();
             var textService = new Mock<ITextService>();
             var htmlService = new Mock<IHtmlService>();
-            var fileService = new Mock<IFileService>();
+            // The real FileService is a singleton shared by every render; a test can pass one mock to several services.
+            var fileService = sharedFileService ?? new Mock<IFileService>();
             var voidListService = new Mock<IVoidListService>();
             var documentService = new Mock<IDocumentService>();
             var sectionPlaceholderService = new Mock<ISectionPlaceholderService>();
